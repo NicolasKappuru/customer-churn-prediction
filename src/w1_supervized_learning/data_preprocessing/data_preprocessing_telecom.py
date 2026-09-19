@@ -1,8 +1,5 @@
 # This preprocessing is for the Telecom dataset.
-
-import numpy as np
 import pandas as pd
-import sklearn
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -14,41 +11,65 @@ load_dotenv()
 class PreprocessingTelecom:
 
     def __init__(self):
-        pass
+        path_dataset_telecom = os.getenv("PATH_DATASET_TELECOM")
+        self.telecom_churn_df = pd.read_csv(path_dataset_telecom)
+
 
     def preprocess(self):
+        # Preprocessing data from dataset
+                
+        self.select_features()
+        self.make_feature_engineering()
+        self.encode()
+        self.drop_nan()
+        
+        print(self.telecom_churn_df.head())
 
-        path_dataset_telecom = os.getenv("PATH_DATASET_TELECOM")
-        telecom_churn_df = pd.read_csv(path_dataset_telecom)
+        return self.split_dataset()
+    
+    def select_features(self):
+        # Select features
 
-        # Remove features (customer_id, pincode and date_of_registration are left out,
-        # the date is used later in the feature engineering stage)
+        # customer_id, pincode and date_of_registration are left out,
+        # the date is used later in the feature engineering stage
+
         columns = ["telecom_partner", "gender", "age", "state", "city", "num_dependents",
                 "estimated_salary", "calls_made", "sms_sent", "data_used", "churn"]
-        telecom_churn_df = telecom_churn_df[columns]
+        self.telecom_churn_df = self.telecom_churn_df[columns]
 
+
+    def make_feature_engineering(self):
+        # Feature Engineering
+
+        pass
+
+
+    def encode(self):
         # Encode binary features
-        telecom_churn_df["gender"] = telecom_churn_df["gender"].map({"F": 0, "M": 1})
+
+        # Encode gender
+        self.telecom_churn_df["gender"] = self.telecom_churn_df["gender"].map({"F": 0, "M": 1})
 
         # Encode with one hot encoding the features with more than two categories
         one_hot_columns_telecom = ["telecom_partner", "state", "city"]
-        telecom_churn_df = pd.get_dummies(telecom_churn_df, columns=one_hot_columns_telecom, dtype=int)
+        self.telecom_churn_df = pd.get_dummies(self.telecom_churn_df, columns=one_hot_columns_telecom, dtype=int)
+        
 
-        print("Datos sin borrar NaN:", len(telecom_churn_df))
-
+    def drop_nan(self):
         # Drop NaN values
-        telecom_churn_df = telecom_churn_df.dropna()
 
-        print("Datos borrados los NaN:", len(telecom_churn_df))
+        print("Datos sin borrar NaN:", len(self.telecom_churn_df))
 
-        print(telecom_churn_df.head())
+        self.telecom_churn_df = self.telecom_churn_df.dropna()
 
-        # Display the first few rows of the dataset
-        #print(telecom_churn_df.head())
+        print("Datos borrados los  NaN:", len(self.telecom_churn_df))
 
+
+    def split_dataset(self):
         # Split datasets
-        X = telecom_churn_df.drop("churn", axis=1)
-        y = telecom_churn_df["churn"]
+        X = self.telecom_churn_df.drop("churn", axis=1)
+        y = self.telecom_churn_df["churn"]
+
 
         # Scale values
         scaler_telecom_churn = StandardScaler()
@@ -61,6 +82,7 @@ class PreprocessingTelecom:
         )
 
         return X_train, X_test, y_train, y_test
-    
+
+
 telecom = PreprocessingTelecom()
 telecom.preprocess()
