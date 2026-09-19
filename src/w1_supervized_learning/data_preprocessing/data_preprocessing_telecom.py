@@ -20,21 +20,12 @@ columns = ["telecom_partner", "gender", "age", "state", "city", "num_dependents"
            "estimated_salary", "calls_made", "sms_sent", "data_used", "churn"]
 telecom_churn_df = telecom_churn_df[columns]
 
-# Encode telecom_partner
-telecom_churn_df["telecom_partner"] = telecom_churn_df["telecom_partner"].map({"Airtel": 0, "BSNL": 1, "Reliance Jio": 2, "Vodafone": 3})
-
-# Encode gender
+# Encode binary features
 telecom_churn_df["gender"] = telecom_churn_df["gender"].map({"F": 0, "M": 1})
 
-# Encode state
-telecom_churn_df["state"] = telecom_churn_df["state"].map({"Andhra Pradesh": 0, "Arunachal Pradesh": 1, "Assam": 2,
-    "Bihar": 3, "Chhattisgarh": 4, "Goa": 5, "Gujarat": 6, "Haryana": 7, "Himachal Pradesh": 8, "Jharkhand": 9,
-    "Karnataka": 10, "Kerala": 11, "Madhya Pradesh": 12, "Maharashtra": 13, "Manipur": 14, "Meghalaya": 15,
-    "Mizoram": 16, "Nagaland": 17, "Odisha": 18, "Punjab": 19, "Rajasthan": 20, "Sikkim": 21, "Tamil Nadu": 22,
-    "Telangana": 23, "Tripura": 24, "Uttar Pradesh": 25, "Uttarakhand": 26, "West Bengal": 27})
-
-# Encode city
-telecom_churn_df["city"] = telecom_churn_df["city"].map({"Bangalore": 0, "Chennai": 1, "Delhi": 2, "Hyderabad": 3, "Kolkata": 4, "Mumbai": 5})
+# Encode with one hot encoding the features with more than two categories
+one_hot_columns_telecom = ["telecom_partner", "state", "city"]
+telecom_churn_df = pd.get_dummies(telecom_churn_df, columns=one_hot_columns_telecom, dtype=int)
 
 print("Datos sin borrar NaN:", len(telecom_churn_df))
 
