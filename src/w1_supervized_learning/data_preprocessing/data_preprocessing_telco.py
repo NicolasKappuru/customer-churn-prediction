@@ -11,73 +11,85 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-path_dataset_telco = os.getenv("PATH_DATASET_TELCO")
-customer_churn_df = pd.read_csv(path_dataset_telco)
+class PreprocessingTelco:
 
-# Not PaperBilling, PaymentMethod,
+    def __init__(self):
+        pass
 
-# Remove features
-columns = ["gender", "SeniorCitizen", "Partner", "Dependents", "tenure", "PhoneService",
-           "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
-           "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
-           "Contract", "MonthlyCharges", "TotalCharges", "Churn"]
-customer_churn_df = customer_churn_df[columns]
+    def preprocess(self):
 
-# Encode binary features
+        path_dataset_telco = os.getenv("PATH_DATASET_TELCO")
+        telco_churn_df = pd.read_csv(path_dataset_telco)
 
-# Encode gender
-customer_churn_df["gender"] = customer_churn_df["gender"].map({"Male": 0, "Female": 1})
+        # Not PaperBilling, PaymentMethod,
 
-# Encode Partner
-customer_churn_df["Partner"] = customer_churn_df["Partner"].map({"No": 0, "Yes": 1})
+        # Remove features
+        columns = ["gender", "SeniorCitizen", "Partner", "Dependents", "tenure", "PhoneService",
+                "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
+                "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
+                "Contract", "MonthlyCharges", "TotalCharges", "Churn"]
+        telco_churn_df = telco_churn_df[columns]
 
-# Encode Dependents
-customer_churn_df["Dependents"] = customer_churn_df["Dependents"].map({"No": 0, "Yes": 1})
+        # Encode binary features
 
-# Encode PhoneService
-customer_churn_df["PhoneService"] = customer_churn_df["PhoneService"].map({"No": 0, "Yes": 1})
+        # Encode gender
+        telco_churn_df["gender"] = telco_churn_df["gender"].map({"Male": 0, "Female": 1})
 
-# Encode Churn
-customer_churn_df["Churn"] = customer_churn_df["Churn"].map({"No": 0, "Yes": 1})
+        # Encode Partner
+        telco_churn_df["Partner"] = telco_churn_df["Partner"].map({"No": 0, "Yes": 1})
 
-# Encode with one hot encoding the features with more than two categories
-one_hot_columns_telco = ["MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
-                         "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
-                         "Contract"]
-customer_churn_df = pd.get_dummies(customer_churn_df, columns=one_hot_columns_telco, dtype=int)
+        # Encode Dependents
+        telco_churn_df["Dependents"] = telco_churn_df["Dependents"].map({"No": 0, "Yes": 1})
 
-print("Datos sin borrar NaN:", len(customer_churn_df))
+        # Encode PhoneService
+        telco_churn_df["PhoneService"] = telco_churn_df["PhoneService"].map({"No": 0, "Yes": 1})
 
-# Drop NaN values
+        # Encode Churn
+        telco_churn_df["Churn"] = telco_churn_df["Churn"].map({"No": 0, "Yes": 1})
 
-# TotalCharges has some attributes in blank
-# Clean TotalCharges
-customer_churn_df["TotalCharges"] = pd.to_numeric(
-    customer_churn_df["TotalCharges"], errors="coerce"
-)
+        # Encode with one hot encoding the features with more than two categories
+        one_hot_columns_telco = ["MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
+                                "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
+                                "Contract"]
+        telco_churn_df = pd.get_dummies(telco_churn_df, columns=one_hot_columns_telco, dtype=int)
 
-customer_churn_df = customer_churn_df.dropna()
+        print("Datos sin borrar NaN:", len(telco_churn_df))
 
-print("Datos borrados los  NaN:", len(customer_churn_df))
+        # Drop NaN values
 
+        # TotalCharges has some attributes in blank
+        # Clean TotalCharges
+        telco_churn_df["TotalCharges"] = pd.to_numeric(
+            telco_churn_df["TotalCharges"], errors="coerce"
+        )
 
-print(customer_churn_df.head())
+        telco_churn_df = telco_churn_df.dropna()
 
-
-# Display the first few rows of the dataset
-#print(customer_churn_df.head())
-
-# Split datasets
-X = customer_churn_df.drop("Churn", axis=1)
-y = customer_churn_df["Churn"]
+        print("Datos borrados los  NaN:", len(telco_churn_df))
 
 
-# Scale values
-scaler_customer_churn = StandardScaler()
-X = scaler_customer_churn.fit_transform(X)
+        print(telco_churn_df.head())
 
-#print(X)
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+        # Display the first few rows of the dataset
+        #print(telco_churn_df.head())
+
+        # Split datasets
+        X = telco_churn_df.drop("Churn", axis=1)
+        y = telco_churn_df["Churn"]
+
+
+        # Scale values
+        scaler_telco_churn = StandardScaler()
+        X = scaler_telco_churn.fit_transform(X)
+
+        #print(X)
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        return X_train, X_test, y_train, y_test
+    
+telco = PreprocessingTelco()
+telco.preprocess()
