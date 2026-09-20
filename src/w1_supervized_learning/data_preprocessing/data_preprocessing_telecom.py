@@ -82,7 +82,7 @@ class PreprocessingTelecom:
     def split_dataset(self):
         # Split datasets
         X = self.telecom_churn_df.drop("churn", axis=1)
-        y = self.telecom_churn_df["churn"]
+        y = self.telecom_churn_df["churn"].astype(int)
 
 
         # Scale values
