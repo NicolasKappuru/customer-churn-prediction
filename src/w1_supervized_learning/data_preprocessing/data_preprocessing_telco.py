@@ -20,12 +20,13 @@ class PreprocessingTelco:
 
         self.select_features()
         self.make_feature_engineering()
+        self.clean_data()
+        print(self.telco_churn_df[['MultipleLines','InternetService', 'StreamingTV', 'NumberServices']].head())
         self.encode()
         self.drop_nan()
-        
-        print(self.telco_churn_df.head())
 
         return self.split_dataset()
+
     
     def select_features(self):
         # Select features
@@ -53,11 +54,43 @@ class PreprocessingTelco:
             "StreamingMovies"
         ]
 
-        self.telco_churn_df["numero_servicios"] = (
+        self.telco_churn_df["NumberServices"] = (
             self.telco_churn_df[service_columns]
             .eq("Yes")
             .sum(axis=1)
         )
+
+        self.telco_churn_df["NumberServices"] += (
+        self.telco_churn_df["InternetService"]
+            .ne("No")
+            .astype(int)
+        )
+
+    def clean_data(self):
+        # Clean data
+
+        # Deleting redundant data like No phone service and No internet service
+
+        internet_service_columns = [
+            "OnlineSecurity",
+            "OnlineBackup",
+            "DeviceProtection",
+            "TechSupport",
+            "StreamingTV",
+            "StreamingMovies"
+        ]
+
+        self.telco_churn_df[internet_service_columns] = (
+            self.telco_churn_df[internet_service_columns]
+            .replace("No internet service", "No")
+        )
+
+        self.telco_churn_df["MultipleLines"] = (
+            self.telco_churn_df["MultipleLines"]
+            .replace("No phone service", "No")
+        )
+
+
 
 
     def encode(self):
@@ -66,22 +99,14 @@ class PreprocessingTelco:
         # Encode gender
         self.telco_churn_df["gender"] = self.telco_churn_df["gender"].map({"Male": 0, "Female": 1})
 
-        # Encode Partner
-        self.telco_churn_df["Partner"] = self.telco_churn_df["Partner"].map({"No": 0, "Yes": 1})
-
-        # Encode Dependents
-        self.telco_churn_df["Dependents"] = self.telco_churn_df["Dependents"].map({"No": 0, "Yes": 1})
-
-        # Encode PhoneService
-        self.telco_churn_df["PhoneService"] = self.telco_churn_df["PhoneService"].map({"No": 0, "Yes": 1})
-
-        # Encode Churn
-        self.telco_churn_df["Churn"] = self.telco_churn_df["Churn"].map({"No": 0, "Yes": 1})
+        # Encode binary service features with Yes and No options
+        binary_columns_telco = ["Partner", "Dependents", "PhoneService", "MultipleLines",
+                    "OnlineSecurity", "OnlineBackup", "DeviceProtection", "TechSupport",
+                    "StreamingTV", "StreamingMovies", "Churn"]
+        self.telco_churn_df[binary_columns_telco] = self.telco_churn_df[binary_columns_telco].replace({"No": 0, "Yes": 1})
 
         # Encode with one hot encoding the features with more than two categories
-        one_hot_columns_telco = ["MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
-                                "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
-                                "Contract"]
+        one_hot_columns_telco = ["InternetService", "Contract"]
         self.telco_churn_df = pd.get_dummies(self.telco_churn_df, columns=one_hot_columns_telco, dtype=int)
         
 
