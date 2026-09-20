@@ -24,24 +24,38 @@ class PreprocessingTelecom:
         self.drop_nan()
         
         print(self.telecom_churn_df.head())
+        print(self.telecom_churn_df.shape[1])
+        print(self.telecom_churn_df.columns.tolist())
 
         return self.split_dataset()
     
     def select_features(self):
         # Select features
 
-        # customer_id, pincode and date_of_registration are left out,
-        # the date is used later in the feature engineering stage
-
+        # customer_id not
+    
         columns = ["telecom_partner", "gender", "age", "state", "city", "num_dependents",
-                "estimated_salary", "calls_made", "sms_sent", "data_used", "churn"]
+                "estimated_salary", "calls_made", "sms_sent", "data_used", "date_of_registration", "churn"]
         self.telecom_churn_df = self.telecom_churn_df[columns]
 
 
     def make_feature_engineering(self):
         # Feature Engineering
 
-        pass
+        self.telecom_churn_df["date_of_registration"] = pd.to_datetime(
+            self.telecom_churn_df["date_of_registration"], errors="coerce"
+        )
+
+        self.telecom_churn_df["registration_year"] = (
+            self.telecom_churn_df["date_of_registration"].dt.year
+        )
+        self.telecom_churn_df["registration_month"] = (
+            self.telecom_churn_df["date_of_registration"].dt.month
+        )
+
+        self.telecom_churn_df = self.telecom_churn_df.drop(
+            "date_of_registration", axis=1
+        )
 
 
     def encode(self):
