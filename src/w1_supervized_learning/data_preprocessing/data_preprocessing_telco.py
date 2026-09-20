@@ -132,7 +132,7 @@ class PreprocessingTelco:
     def split_dataset(self):
         # Split datasets
         X = self.telco_churn_df.drop("Churn", axis=1)
-        y = self.telco_churn_df["Churn"]
+        y = self.telco_churn_df["Churn"].astype(int)
 
 
         # Scale values
