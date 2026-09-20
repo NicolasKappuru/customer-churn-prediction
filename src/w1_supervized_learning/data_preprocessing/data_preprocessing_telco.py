@@ -132,14 +132,16 @@ class PreprocessingTelco:
     def split_dataset(self):
         # Split datasets
         X = self.telco_churn_df.drop("Churn", axis=1)
-        y = self.telco_churn_df["Churn"]
-
+        y = self.telco_churn_df["Churn"].astype(int)
 
         # Scale values
         scaler_telco_churn = StandardScaler()
         X = scaler_telco_churn.fit_transform(X)
 
         #print(X)
+
+        print(y.dtype)
+        print(y.unique())
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42
