@@ -21,9 +21,12 @@ class PreprocessingTelco:
         self.select_features()
         self.make_feature_engineering()
         self.clean_data()
-        print(self.telco_churn_df[['MultipleLines','InternetService', 'StreamingTV', 'NumberServices']].head())
         self.encode()
         self.drop_nan()
+
+        print(self.telco_churn_df.head())
+        print(self.telco_churn_df.shape[1])
+        print(self.telco_churn_df.columns.tolist())
 
         return self.split_dataset()
 
@@ -31,7 +34,7 @@ class PreprocessingTelco:
     def select_features(self):
         # Select features
 
-        # Not PaperBilling, PaymentMethod,
+        # Not customerID, PaperBilling, PaymentMethod,
 
         columns = ["gender", "SeniorCitizen", "Partner", "Dependents", "tenure", "PhoneService",
                 "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
