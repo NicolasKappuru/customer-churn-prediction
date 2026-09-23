@@ -24,10 +24,6 @@ class PreprocessingTelco:
         self.encode()
         self.drop_nan()
 
-        print(self.telco_churn_df.head())
-        print(self.telco_churn_df.shape[1])
-        print(self.telco_churn_df.columns.tolist())
-
         return self.split_dataset()
 
     
@@ -122,31 +118,21 @@ class PreprocessingTelco:
             self.telco_churn_df["TotalCharges"], errors="coerce"
         )
 
-        print("Datos sin borrar NaN:", len(self.telco_churn_df))
-
         self.telco_churn_df = self.telco_churn_df.dropna()
-
-        print("Datos borrados los  NaN:", len(self.telco_churn_df))
 
 
     def split_dataset(self):
-        # Split datasets
         X = self.telco_churn_df.drop("Churn", axis=1)
         y = self.telco_churn_df["Churn"].astype(int)
 
+        self.feature_names = X.columns.tolist()
 
-        # Scale values
-        scaler_telco_churn = StandardScaler()
-        X = scaler_telco_churn.fit_transform(X)
-
-        #print(X)
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
+        X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
         )
 
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train_raw)
+        X_test = scaler.transform(X_test_raw)
+
         return X_train, X_test, y_train, y_test
-
-
-telco = PreprocessingTelco()
-telco.preprocess()
