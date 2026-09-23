@@ -97,5 +97,6 @@ class PreprocessingTelco:
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train_raw)
         X_test = scaler.transform(X_test_raw)
+        
 
         return X_train, X_test, y_train, y_test
