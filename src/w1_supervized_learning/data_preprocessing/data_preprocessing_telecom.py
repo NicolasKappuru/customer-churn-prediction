@@ -96,7 +96,3 @@ class PreprocessingTelecom:
         )
 
         return X_train, X_test, y_train, y_test
-
-
-telecom = PreprocessingTelecom()
-telecom.preprocess()
