@@ -1,8 +1,8 @@
 # This preprocessing is for the Telco dataset. 
+import numpy as np
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 import os
 from dotenv import load_dotenv
 
@@ -19,10 +19,9 @@ class PreprocessingTelco:
         # Preprocessing data from dataset
 
         self.select_features()
-        self.make_feature_engineering()
-        self.clean_data()
         self.encode()
         self.drop_nan()
+        self.make_feature_engineering()
 
         return self.split_dataset()
 
@@ -30,104 +29,68 @@ class PreprocessingTelco:
     def select_features(self):
         # Select features
 
-        # Not customerID, PaperBilling, PaymentMethod,
+        # Not customerID (unique per row, useless for the model)
 
         columns = ["gender", "SeniorCitizen", "Partner", "Dependents", "tenure", "PhoneService",
                 "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
                 "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
-                "Contract", "MonthlyCharges", "TotalCharges", "Churn"]
+                "Contract", "PaperlessBilling", "PaymentMethod",
+                "MonthlyCharges", "TotalCharges", "Churn"]
         self.telco_churn_df = self.telco_churn_df[columns]
 
 
-    def make_feature_engineering(self):
-        # Feature Engineering
-
-        service_columns = [
-            "PhoneService",
-            "MultipleLines",
-            "OnlineSecurity",
-            "OnlineBackup",
-            "DeviceProtection",
-            "TechSupport",
-            "StreamingTV",
-            "StreamingMovies"
-        ]
-
-        self.telco_churn_df["NumberServices"] = (
-            self.telco_churn_df[service_columns]
-            .eq("Yes")
-            .sum(axis=1)
-        )
-
-        self.telco_churn_df["NumberServices"] += (
-        self.telco_churn_df["InternetService"]
-            .ne("No")
-            .astype(int)
-        )
-
-    def clean_data(self):
-        # Clean data
-
-        # Deleting redundant data like No phone service and No internet service
-
-        internet_service_columns = [
-            "OnlineSecurity",
-            "OnlineBackup",
-            "DeviceProtection",
-            "TechSupport",
-            "StreamingTV",
-            "StreamingMovies"
-        ]
-
-        self.telco_churn_df[internet_service_columns] = (
-            self.telco_churn_df[internet_service_columns]
-            .replace("No internet service", "No")
-        )
-
-        self.telco_churn_df["MultipleLines"] = (
-            self.telco_churn_df["MultipleLines"]
-            .replace("No phone service", "No")
-        )
-
-
-
-
     def encode(self):
-        # Encode binary features
+        # XGBoost handles categoricals natively, so instead of manual encoding
+        # we store them with the category dtype and set enable_categorical=True in the model.
+        # Values like "No phone service" / "No internet service" are kept as their own
+        # categories, so we avoid losing information.
 
-        # Encode gender
-        self.telco_churn_df["gender"] = self.telco_churn_df["gender"].map({"Male": 0, "Female": 1})
+        # Encode target
+        self.telco_churn_df["Churn"] = self.telco_churn_df["Churn"].map({"Yes": 1, "No": 0})
 
-        # Encode binary service features with Yes and No options
-        binary_columns_telco = ["Partner", "Dependents", "PhoneService", "MultipleLines",
-                    "OnlineSecurity", "OnlineBackup", "DeviceProtection", "TechSupport",
-                    "StreamingTV", "StreamingMovies", "Churn"]
-        self.telco_churn_df[binary_columns_telco] = self.telco_churn_df[binary_columns_telco].replace({"No": 0, "Yes": 1})
+        categorical_columns_telco = ["gender", "Partner", "Dependents", "PhoneService",
+                    "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
+                    "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
+                    "Contract", "PaperlessBilling", "PaymentMethod"]
+        self.telco_churn_df[categorical_columns_telco] = (
+            self.telco_churn_df[categorical_columns_telco].astype("category")
+        )
 
-        # Encode with one hot encoding the features with more than two categories
-        one_hot_columns_telco = ["InternetService", "Contract"]
-        self.telco_churn_df = pd.get_dummies(self.telco_churn_df, columns=one_hot_columns_telco, dtype=int)
-        
 
     def drop_nan(self):
         # Drop NaN values
 
         # TotalCharges has some attributes in blank
-        # Clean TotalCharges
+        # Blank TotalCharges belong to new customers (tenure 0), so we fill them with 0
         self.telco_churn_df["TotalCharges"] = pd.to_numeric(
             self.telco_churn_df["TotalCharges"], errors="coerce"
-        )
+        ).fillna(0)
 
         self.telco_churn_df = self.telco_churn_df.dropna()
 
 
+    def make_feature_engineering(self):
+        # Light feature engineering
+
+        # NewCustomer: customers with tenure 0 are more likely to churn
+        self.telco_churn_df["NewCustomer"] = (self.telco_churn_df["tenure"] == 0).astype(int)
+
+        # AvgMonthlyCharges: keeps the average billing per month
+        self.telco_churn_df["AvgMonthlyCharges"] = np.where(
+            self.telco_churn_df["tenure"] > 0,
+            self.telco_churn_df["TotalCharges"] / self.telco_churn_df["tenure"],
+            0
+        )
+
+
     def split_dataset(self):
+        # Split datasets
         X = self.telco_churn_df.drop("Churn", axis=1)
-        y = self.telco_churn_df["Churn"].astype(int)
+        y = self.telco_churn_df["Churn"]
 
-        self.feature_names = X.columns.tolist()
-
-        X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+        # XGBoost is a tree-based model, so scaling is not needed.
+        # We use stratify because the dataset is imbalanced.
+        X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
 
