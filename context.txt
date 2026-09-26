@@ -1,0 +1,55 @@
+The central question for this workshop is: What does your data look like, and
+what performance can you achieve with well-engineered baseline models?
+Your answers will establish the difficulty of the problem, the degree of class imbalance,
+data quality characteristics, and baseline performance metrics that serve as reference
+points for comparative analysis.
+
+
+
+General Workshop Definition: Data preparation and supervised learning baselines involve
+downloading, validating, preprocessing, and characterising the assigned dataset, then
+establishing rigorous baseline models using traditional machine learning techniques applied
+to appropriate feature representations. The goal is complete mastery of the data, its structure,
+and its challenges before proceeding to more complex approaches.
+
+
+Dataset Download and Integrity Verification: Download the assigned
+dataset, verify data integrity, and document all access steps reproducibly.
+
+
+Dataset Access and Acquisition
+Each group has been assigned a specific dataset for your domain. All datasets
+are freely available — no paid subscriptions are required. Your instructor has provided
+dataset-specific information separately. General principles for dataset acquisition:
+
+1. Verify Dataset Legitimacy and License:
+• Confirm you have legal access to the dataset with appropriate licenses and permissions
+• Read and understand any usage terms, restrictions, or citations required by the
+dataset provider
+• Verify dataset size and storage requirements on your system
+2. Download and Setup:
+• Document all download procedures in your README.md for reproducibility
+• Verify file integrity if checksums are provided
+• Organize files in a consistent directory structure (e.g., data/raw/,
+data/processed/)
+3. Understand Your Data Format:
+• Identify what types of files your dataset contains (images, CSV, JSON, timeseries,
+text, etc.)
+• Understand the label/target format and class definitions
+• Note any metadata, annotations, or auxiliary files
+
+
+Required Artifacts and Methodology
+1. Dataset Download and Integrity Verification:
+• Download the complete assigned dataset and document all steps in the
+README.md so a new team member can reproduce the setup from scratch
+• Verify file counts and MD5/SHA256 checksums where the dataset provider supplies
+them
+• Document the total dataset size on disk, number of samples per class, and data
+format characteristics
+• Write a dataset_info.py script that scans the dataset directory and prints a
+structured summary (sample counts per class, feature ranges, data types)
+
+
+Executive Summary: Overview of the dataset and key findings
+• Dataset Description: Source, access procedure, dataset statistics and characteristics

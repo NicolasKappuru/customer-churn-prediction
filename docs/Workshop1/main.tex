@@ -10,6 +10,7 @@
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{float}
+\usepackage{url}
 \usepackage[justification=centering]{caption}
 
 % APA style formatting
@@ -26,34 +27,37 @@
 
 \maketitle
 
-\begin{abstract}
 
+\section{Executive Summary }
 Customer Churn is a problem about customer discontinue a company's services or products. Machine learning techniques can be applied with purpose of predict if a customer 
 has probability of be churn, this information can help the company to take decisions for not lost clients. This work search explore different machine learning techniques
 to compare and get the best approach to solve this problem. 
 
-\end{abstract}
+\section{Dataset Download and Integrity Verification}
 
-\section{Introduction}
-Customer Churn refers to clients that potentialy can discontinue a service or a product of a company. The main context for this project is the telecommunication
+\subsection{Dataset Source and Acquisition}
+The Telco Customer Churn dataset was obtained from the public Kaggle page published by 
+BlastChar and identified as originating from IBM Sample Data Sets. To reproduce the setup, 
+download the complete \path{WA_Fn-UseC_-Telco-Customer-Churn.csv} 
+file from \url{https://www.kaggle.com/datasets/blastchar/telco-customer-churn} and 
+place it at \path{data/WA_Fn-UseC_-Telco-Customer-Churn.csv}. 
+The Kaggle page does not specify a standard open-source license; this project uses the data 
+for academic learning and analysis and acknowledges its source and original authors.
 
-This should be a section of about one page. Here, the context of
-the problem should be fully described. Also, previous solutions to the same problem
-should be referenced. Most of the bibliography is cited here. While referencing previous solutions, you can also mention computational techniques used, which provides a complete reference for the reader. Usually, this section does not include images or
-tables.
+\subsection{Dataset Characteristics}
+The CSV is 977,501 bytes (approximately 977.5 KB) and contains 7,043 customer records and 21 columns: 20 customer and service features, plus the binary \texttt{Churn} target. It has 1,869 \texttt{Yes} and 5,174 \texttt{No} records, indicating class imbalance.
 
-\section{Preprocessing data}
-Here you should describe the design of your solution, your
-technical decisions, and why you believe your solution is appropriate. Some general
-images are recommended to enhance your explanation, and this section is expected
-to be 1 to 2 pages long. It is not recommended to include code here, but if you are
-presenting a complex algorithm, you may add it. Remember to write full paragraphs,
-with one idea per paragraph, and avoid using itemized lists. Aim for clarity and
-readability. Include enough detail for reproducibility. Briefly mention any limitations
-or assumptions in your approach.
+\subsection{Integrity Verification}
+The provider does not supply an official checksum. To calculate the SHA-256 hash of the local project copy, run \path{python src/w1_supervized_learning/dataset_info/checksum.py} from the repository root. The script reads the CSV under \path{data/} and prints its checksum:
 
-\subsection{EDA}
-Dataset has the next features:
+\begin{center}
+\small\texttt{88BE4B93FBE0CC83421AF1C503794C97C342ECA914C1576DB7C276E61D61358A}
+\end{center}
+
+This value is a local reference because Kaggle does not provide an official checksum for comparison. To generate a structured dataset report, run \path{python src/w1_supervized_learning/dataset_info/dataset_info.py} from the repository root. It prints JSON with the file size, row and column counts, samples per \texttt{Churn} class, each column's data type and missing-value count, and numeric feature ranges. Both scripts use the Telco CSV by default; a different file can be supplied with \path{--csv}.
+
+\section{EDA}
+
 
 \begin{table}[H]
 \centering
