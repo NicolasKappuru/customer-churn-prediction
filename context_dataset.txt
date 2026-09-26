@@ -1,0 +1,23 @@
+## Verify Dataset Legitimacy and License
+
+### Legal Access and License
+
+The **Telco Customer Churn** dataset was obtained from its public Kaggle page, published by **BlastChar**. Kaggle identifies the dataset as originating from the **IBM Sample Data Sets**. The dataset page states that the data files are © Original Authors. No standard open-source license such as MIT, Apache 2.0, or CC-BY is explicitly specified on the Kaggle dataset page.
+
+For this academic project, the dataset is used for learning and analysis purposes, while maintaining attribution to the original source.
+
+Source: https://www.kaggle.com/datasets/blastchar/telco-customer-churn
+
+### Usage Terms and Citation
+
+The dataset source and original authors are acknowledged in this project. The dataset is described by Kaggle as a Telco Customer Churn dataset originating from IBM sample data. IBM describes the data as representing a fictional telecommunications company.
+
+### Dataset Size and Storage Requirements
+
+* **File:** `WA_Fn-UseC_-Telco-Customer-Churn.csv`
+* **Rows:** 7,043 customers
+* **Columns:** 21
+* **File size:** approximately 977.5 KB
+* **Storage required:** approximately 1 MB
+
+The dataset is small enough to be stored and processed locally without significant storage requirements.
