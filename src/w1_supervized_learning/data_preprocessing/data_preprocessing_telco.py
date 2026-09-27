@@ -5,6 +5,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import os
 from dotenv import load_dotenv
+from sklearn.preprocessing import StandardScaler
 
 load_dotenv()
 
@@ -40,11 +41,6 @@ class PreprocessingTelco:
 
 
     def encode(self):
-        # XGBoost handles categoricals natively, so instead of manual encoding
-        # we store them with the category dtype and set enable_categorical=True in the model.
-        # Values like "No phone service" / "No internet service" are kept as their own
-        # categories, so we avoid losing information.
-
         # Encode target
         self.telco_churn_df["Churn"] = self.telco_churn_df["Churn"].map({"Yes": 1, "No": 0})
 
@@ -52,8 +48,10 @@ class PreprocessingTelco:
                     "MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
                     "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
                     "Contract", "PaperlessBilling", "PaymentMethod"]
-        self.telco_churn_df[categorical_columns_telco] = (
-            self.telco_churn_df[categorical_columns_telco].astype("category")
+        self.telco_churn_df = pd.get_dummies(
+            self.telco_churn_df,
+            columns=categorical_columns_telco,
+            dtype=int,
         )
 
 
@@ -87,10 +85,11 @@ class PreprocessingTelco:
         # Split datasets
         X = self.telco_churn_df.drop("Churn", axis=1)
         y = self.telco_churn_df["Churn"]
+        self.feature_names = X.columns.tolist()
 
         # XGBoost is a tree-based model, so scaling is not needed.
         # We use stratify because the dataset is imbalanced.
-        X_train, X_test, y_train, y_test = train_test_split(
+        X_train_raw, X_test_raw, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
 
