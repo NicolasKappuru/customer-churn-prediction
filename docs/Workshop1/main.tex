@@ -237,7 +237,37 @@ The numerical comparisons show that churned customers have a shorter median tenu
 \end{figure}
 
 
-\section{Preprocessing Pipeline:}
+\section{Preprocessing Pipeline}
+
+The preprocessing pipeline is implemented by the preprocessing telco file. Consist in a Class with methods Methods that allow realise the preprocessing.
+This structure allow separate each step in the processing of data and is possible add steps simply adding methods to the class. 
+No data augmentation is applied because the nature of the dataset not has images, isn´t necessary this technique.
+
+\subsection{Format Standardization}
+The pipeline selects the customer and service features used for modeling and excludes 
+\texttt{customerID}, since it uniquely identifies each row and does not describe customer behavior. 
+Categorical inputs remain in their original form until after splitting, when they are encoded using the training feature schema.
+
+\subsection{Missing Data Handling}
+\texttt{TotalCharges} is converted to numeric values using imputing. Its 11 blank entries in this dataset belong 
+to customers with zero months of tenure, so they are imputed as zero. 
+The target \texttt{Churn} is mapped to binary values, with \texttt{No}=0 and \texttt{Yes}=1. 
+Any remaining rows with missing values are removed, but in this dataset there isn't that case because the 11 problematic samples where imputed. 
+For the current dataset, all 7,043 rows remain after this step.
+
+\subsection{Feature Engineering}
+Two customer-level features are added. 
+\texttt{NewCustomer} is set to 1 when tenure is zero and 0 otherwise.
+\texttt{AvgMonthlyCharges} is calculated as total charges divided by tenure for existing customers; it is set to zero when tenure is zero to avoid division by zero.
+
+\subsection{Train, Validation, and Test Split}
+The data is split before fitting the categorical encoder or scaler. A stratified split with random seed 42 assigns 70\% of the records to training and divides the remaining 30\% equally between validation and test, yielding approximately 70\%/15\%/15\%. Stratification preserves the target class proportions in each subset. The validation arrays are available as \texttt{X\_validation} and \texttt{y\_validation} on the preprocessing object.
+
+\subsection{Encoding, Normalization, and Scaling}
+After splitting, categorical features are converted to one-hot indicators with \texttt{OneHotEncoder}. The encoder uses \texttt{handle\_unknown=ignore} so unseen categories can be transformed using the training feature schema. The encoder and \texttt{StandardScaler} are fitted using training data only, then applied unchanged to validation and test data to prevent information leakage. Standard scaling is applied to the continuous features \texttt{tenure}, \texttt{MonthlyCharges}, \texttt{TotalCharges}, and \texttt{AvgMonthlyCharges}. The binary \texttt{SeniorCitizen} feature and one-hot indicator columns are not scaled.
+
+\subsection{Saved Splits}
+The transformed train, validation, and test arrays, their target labels, and the feature names are saved in compressed NumPy format at \path{data/telco_preprocessed_splits.npz}. The \texttt{preprocess()} method continues to return \texttt{X\_train}, \texttt{X\_test}, \texttt{y\_train}, and \texttt{y\_test} for compatibility with the existing model notebooks; the validation split is available as attributes and in the saved file.
 
 \section{Models}
 
