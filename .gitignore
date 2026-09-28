@@ -223,3 +223,6 @@ data/
 
 #Notebooks
 notebooks/
+!notebooks/
+notebooks/*
+!notebooks/EDA.ipynb
