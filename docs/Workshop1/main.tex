@@ -56,46 +56,190 @@ The provider does not supply an official checksum. To calculate the SHA-256 hash
 
 This value is a local reference because Kaggle does not provide an official checksum for comparison. To generate a structured dataset report, run \path{python src/w1_supervized_learning/dataset_info/dataset_info.py} from the repository root. It prints JSON with the file size, row and column counts, samples per \texttt{Churn} class, each column's data type and missing-value count, and numeric feature ranges. Both scripts use the Telco CSV by default; a different file can be supplied with \path{--csv}.
 
-\section{EDA}
 
+\section{Exploratory Data Analysis (EDA)}
+
+This section explore the data, explain what represents each feature and respective type, 
+the proportion in the values of numerical and categorical features, 
+the relation between each feature with the target and visual representation of statistics obtained.
+\\All process in this section can be explore in EDA notebook. 
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|l|p{10cm}|}
+\begin{tabularx}{\textwidth}{|l|X|l|}
 \hline
-\textbf{Feature} & \textbf{Description} \\ \hline
-customerID & Unique value that identify a customer \\ \hline
-gender & Determines whether customer is Male or Female \\ \hline
-SeniorCitizen & Determines whether a person is citizen or not \\ \hline
-Partner & Determines whether person has partner \\ \hline
-Dependents & Determines whether customer has a dependent \\ \hline
-tenure & Number of months has stayed with the company \\ \hline
-PhoneService & Whether customer has phone service \\ \hline
-MultipleLines & Whether the customer has multiple lines, or one, or does not have phone service \\ \hline
-InternetService & Internet service provider (Fiber optic, DSL or no) \\ \hline
-OnlineSecurity & Whether customer has online security, or not, or does not have internet service \\ \hline
-OnlineBackup & Whether customer has online backup, or not, or does not have internet service \\ \hline
-DeviceProtection & Whether customer has device protection, or not, or does not have internet service \\ \hline
-TechSupport & Whether customer has tech support, or not, or does not have internet service \\ \hline
-StreamingTV & Whether customer has streaming tv, or not, or does not have internet service \\ \hline
-StreamingMovies & Whether customer has streaming movies, or not, or does not have internet service \\ \hline
-Contract & Contract term duration (Month-to-month, One year, Two year) \\ \hline
-PaperlessBilling & Whether customer has paperless billing or not \\ \hline
-PaymentMethod & Payment method (Electronic check, Mailed check, Bank transfer (automatic), Credit card) \\ \hline
-MonthlyCharges & Value paid by customer monthly \\ \hline
-TotalCharges & Total value paid by customer \\ \hline
-Churn & Whether the customer churned or not, stopped using the service last month. \\ \hline
-\end{tabular}
+\textbf{Feature} & \textbf{Description} & \textbf{Data type} \\ \hline
+customerID & Unique value that identify a customer & \texttt{str} \\ \hline
+gender & Determines whether customer is Male or Female & \texttt{str} \\ \hline
+SeniorCitizen & Determines whether a person is citizen or not & \texttt{int64} \\ \hline
+Partner & Determines whether person has partner & \texttt{str} \\ \hline
+Dependents & Determines whether customer has a dependent & \texttt{str} \\ \hline
+tenure & Number of months has stayed with the company & \texttt{int64} \\ \hline
+PhoneService & Whether customer has phone service & \texttt{str} \\ \hline
+MultipleLines & Whether the customer has multiple lines, or one, or does not have phone service & \texttt{str} \\ \hline
+InternetService & Internet service provider (Fiber optic, DSL or no) & \texttt{str} \\ \hline
+OnlineSecurity & Whether customer has online security, or not, or does not have internet service & \texttt{str} \\ \hline
+OnlineBackup & Whether customer has online backup, or not, or does not have internet service & \texttt{str} \\ \hline
+DeviceProtection & Whether customer has device protection, or not, or does not have internet service & \texttt{str} \\ \hline
+TechSupport & Whether customer has tech support, or not, or does not have internet service & \texttt{str} \\ \hline
+StreamingTV & Whether customer has streaming tv, or not, or does not have internet service & \texttt{str} \\ \hline
+StreamingMovies & Whether customer has streaming movies, or not, or does not have internet service & \texttt{str} \\ \hline
+Contract & Contract term duration (Month-to-month, One year, Two year) & \texttt{str} \\ \hline
+PaperlessBilling & Whether customer has paperless billing or not & \texttt{str} \\ \hline
+PaymentMethod & Payment method (Electronic check, Mailed check, Bank transfer (automatic), Credit card) & \texttt{str} \\ \hline
+MonthlyCharges & Value paid by customer monthly & \texttt{float64} \\ \hline
+TotalCharges & Total value paid by customer & \texttt{str} \\ \hline
+Churn & Whether the customer churned or not, stopped using the service last month. & \texttt{str} \\ \hline
+\end{tabularx}
 \caption{\centering Dataset features description}
 \label{tab:features}
 \end{table}
 
-\subsection{Subsection 2}
-Subsection example 1
+\subsection{Target Distribution}
+Of the 7,043 customers, 5,174 (73.46\%) stayed and 1,869 (26.54\%) churned. The majority-to-minority ratio is 2.77:1, so the target is moderately imbalanced. The class counts are summarized in Table~\ref{tab:churn-distribution} and visualized as a bar chart in the EDA notebook.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{../graphics/customer_churn_target_distribution.png}
+\caption{\centering Distribution of customers by churn status.}
+\label{fig:churn-target-distribution}
+\end{figure}
 
-\subsection{Subsection 3}
-Subsection example 2
+
+
+\subsection{Feature Statistics}
+Table~\ref{tab:numeric-summary} summarizes the non-binary numeric features: customer tenure and charges. The binary \texttt{SeniorCitizen} feature is excluded from these measurements.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Feature} & \textbf{N} & \textbf{Mean} & \textbf{SD} & \textbf{Min} & \textbf{Max} \\
+\midrule
+tenure (months) & 7,043 & 32.37 & 24.56 & 0 & 72 \\
+MonthlyCharges & 7,043 & 64.76 & 30.09 & 18.25 & 118.75 \\
+TotalCharges & 7,032 & 2,283.30 & 2,266.77 & 18.80 & 8,684.80 \\
+\bottomrule
+\end{tabular}
+\caption{\centering Summary statistics for numeric features.}
+\label{tab:numeric-summary}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/numeric_feature_histograms.png}
+\caption{\centering Histograms of tenure, monthly charges, and total charges.}
+\label{fig:numeric-feature-histograms}
+\end{figure}
+
+\subsection{Categorical Features}
+The categorical features describe customer demographics and household status, phone and internet services, service add-ons, streaming, contract and billing arrangements, and payment method. Each bar shows the percentage of all 7,043 customers in that category. The unique identifier \texttt{customerID} and target \texttt{Churn} are excluded here; the target distribution is shown separately in Figure~\ref{fig:churn-target-distribution}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/categorical_distributions_01_customer_profile.png}
+\caption{\centering Distributions of customer profile features.}
+\label{fig:categorical-customer-profile}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/categorical_distributions_02_phone_services.png}
+\caption{\centering Distributions of household and phone service features.}
+\label{fig:categorical-phone-services}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/categorical_distributions_03_internet_and_security.png}
+\caption{\centering Distributions of internet service and online service features.}
+\label{fig:categorical-internet-security}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/categorical_distributions_04_protection_and_support.png}
+\caption{\centering Distributions of device protection, technical support, and streaming TV.}
+\label{fig:categorical-protection-support}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/categorical_distributions_05_streaming_and_contract.png}
+\caption{\centering Distributions of streaming movies, contract, and paperless billing.}
+\label{fig:categorical-streaming-contract}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/categorical_distributions_06_payment_method.png}
+\caption{\centering Distribution of customer payment methods.}
+\label{fig:categorical-payment-method}
+\end{figure}
+
+\subsection{Data Quality}
+The CSV contains no parsed missing cells or duplicate rows, and all 7,043 customer IDs are unique. However, 
+11 \texttt{TotalCharges} values are blank strings (0.16\% of records). Is a little portion unusable. There are 7,032 values equal (99.84\% of records ) 
+
+\subsection{Feature Relationships}
+These charts compare each feature with the churn target to identify differences between customers who stayed and those who left. The numerical-feature boxplots compare the distributions of tenure, monthly charges, and total charges across the two target classes. For categorical features, each pair of bars shows the percentage of customers within a category who stayed or churned; the two percentages sum to 100\% for each category. These are descriptive associations and do not establish causation.
+
+The numerical comparisons show that churned customers have a shorter median tenure (10 months versus 38) and higher mean monthly charges (74.44 versus 61.27). Among categorical features, churn is more common for month-to-month contracts (42.7\%) than one-year (11.3\%) or two-year contracts (2.8\%), and for fiber-optic internet (41.9\%) and electronic-check payments (45.3\%).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/churn_numeric_feature_relationships.png}
+\caption{\centering Numeric feature distributions by churn status.}
+\label{fig:churn-numeric-relationships}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/churn_categorical_relationships_01_customer_profile.png}
+\caption{\centering Churn rates by customer profile features.}
+\label{fig:churn-categorical-profile}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/churn_categorical_relationships_02_household_phone.png}
+\caption{\centering Churn rates by household and phone features.}
+\label{fig:churn-categorical-household-phone}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/churn_categorical_relationships_03_internet_security.png}
+\caption{\centering Churn rates by internet and online security features.}
+\label{fig:churn-categorical-internet-security}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/churn_categorical_relationships_04_protection_support.png}
+\caption{\centering Churn rates by device protection, tech support, and streaming TV.}
+\label{fig:churn-categorical-protection-support}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/churn_categorical_relationships_05_streaming_contract.png}
+\caption{\centering Churn rates by streaming movies, contract, and billing features.}
+\label{fig:churn-categorical-streaming-contract}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{../graphics/churn_categorical_relationships_06_payment_method.png}
+\caption{\centering Churn rates by payment method.}
+\label{fig:churn-categorical-payment-method}
+\end{figure}
+
+
+\section{Preprocessing Pipeline:}
+
+\section{Models}
 
 \section{Results and Discussion}
 Explain the experiments you performed to demonstrate
