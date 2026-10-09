@@ -1,5 +1,6 @@
 # This preprocessing is for the Telco dataset.
 from pathlib import Path
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -36,6 +37,13 @@ class PreprocessingTelco:
     def __init__(self, dataset_path=None, split_output_path=None):
         self.project_root = Path(__file__).resolve().parents[3]
         data_dir = self.project_root / "data"
+        self.preprocessing_output_path = (
+            self.project_root
+            / "src"
+            / "w1_supervized_learning"
+            / "checkpoints"
+            / "telco_preprocessor.pkl"
+        )
         
         self.dataset_path = (
             Path(dataset_path).expanduser()
@@ -63,7 +71,9 @@ class PreprocessingTelco:
         self.select_features()
         self.drop_nan()
         self.make_feature_engineering()
-        return self.split_dataset()
+        X_train, X_test, y_train, y_test = self.split_dataset()
+        self.save_preprocessor()
+        return X_train, X_test, y_train, y_test
 
 
     def select_features(self):
@@ -218,3 +228,16 @@ class PreprocessingTelco:
             "test": len(y_test),
         }
         return X_train, X_test, y_train, y_test
+
+    def save_preprocessor(self):
+        artifact = {
+            "encoder": self.encoder,
+            "scaler": self.scaler,
+            "categorical_features": self.categorical_features,
+            "continuous_features": self.continuous_features,
+            "feature_names": self.feature_names,
+        }
+
+        self.preprocessing_output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.preprocessing_output_path, "wb") as f:
+            pickle.dump(artifact, f)
