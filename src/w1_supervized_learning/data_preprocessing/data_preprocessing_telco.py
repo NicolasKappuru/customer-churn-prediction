@@ -1,14 +1,10 @@
 # This preprocessing is for the Telco dataset.
-import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from dotenv import load_dotenv
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
-load_dotenv()
 
 
 class PreprocessingTelco:
@@ -38,47 +34,37 @@ class PreprocessingTelco:
     random_state = 42
 
     def __init__(self, dataset_path=None, split_output_path=None):
-        project_root = Path(__file__).resolve().parents[3]
-        self.dataset_path = self.resolve_dataset_path(dataset_path)
-        self.split_output_path = (
-            Path(split_output_path)
-            if split_output_path is not None
-            else project_root / "data" / "telco_preprocessed_splits.npz"
+        self.project_root = Path(__file__).resolve().parents[3]
+        data_dir = self.project_root / "data"
+        
+        self.dataset_path = (
+            Path(dataset_path).expanduser()
+            if dataset_path is not None
+            else data_dir / "WA_Fn-UseC_-Telco-Customer-Churn.csv"
         )
+
+        if not self.dataset_path.is_absolute():
+            self.dataset_path = self.project_root / self.dataset_path
+        self.dataset_path = self.dataset_path.resolve()
+        resolved_split_output_path = (
+            Path(split_output_path).expanduser()
+            if split_output_path is not None
+            else data_dir / "telco_preprocessed_splits.npz"
+        )
+
+        if not resolved_split_output_path.is_absolute():
+            resolved_split_output_path = self.project_root / resolved_split_output_path
+        self.split_output_path = resolved_split_output_path.resolve()
         self.telco_churn_df = pd.read_csv(self.dataset_path)
 
-    def resolve_dataset_path(self, dataset_path=None):
-        project_root = Path(__file__).resolve().parents[3]
-        default_path = (
-            project_root / "data" / "WA_Fn-UseC_-Telco-Customer-Churn.csv"
-        )
-
-        if dataset_path is not None:
-            resolved_path = Path(dataset_path).expanduser()
-            if not resolved_path.is_absolute():
-                resolved_path = Path.cwd() / resolved_path
-        else:
-            configured_path = os.getenv("PATH_DATASET_TELCO", "").strip()
-            resolved_path = Path(configured_path).expanduser() if configured_path else default_path
-            if not resolved_path.is_absolute():
-                resolved_path = Path.cwd() / resolved_path
-            if not resolved_path.is_file() and dataset_path is None:
-                resolved_path = default_path
-
-        if not resolved_path.is_file():
-            raise FileNotFoundError(f"Telco dataset not found: {resolved_path}")
-        return resolved_path
 
     def preprocess(self):
-        """Clean, engineer, split, encode, scale, and save the Telco data.
-
-        No augmentation is applied: synthetic or image-style transformations are
-        not appropriate for these customer-level tabular records.
-        """
+        """Clean, engineer, split, encode, scale, and save the Telco data."""
         self.select_features()
         self.drop_nan()
         self.make_feature_engineering()
         return self.split_dataset()
+
 
     def select_features(self):
         columns = [
@@ -104,6 +90,7 @@ class PreprocessingTelco:
             "Churn",
         ]
         self.telco_churn_df = self.telco_churn_df[columns].copy()
+
 
     def encode(self, X_train, X_validation, X_test):
         """Fit categorical encoding on training data and transform all splits."""
