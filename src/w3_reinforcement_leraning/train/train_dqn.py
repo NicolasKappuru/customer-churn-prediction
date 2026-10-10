@@ -32,7 +32,13 @@ EPSILON_MIN = 0.05
 EPSILON_DECAY = 0.995
 LOG_INTERVAL = 100
 TRAINING_CUSTOMER_FRACTION = 0.80
-CHECKPOINT_PATH = PROJECT_ROOT / "checkpoints" / "agent_best.pt"
+CHECKPOINT_PATH = (
+    PROJECT_ROOT
+    / "src"
+    / "w3_reinforcement_leraning"
+    / "checkpoints"
+    / "agent_best.pt"
+)
 
 BASE_CONFIG = DQNConfig()
 CONFIGURATIONS = (

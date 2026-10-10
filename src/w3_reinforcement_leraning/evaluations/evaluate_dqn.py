@@ -24,7 +24,13 @@ from w3_reinforcement_leraning.environment.constants import ACTION_DEFINITIONS
 from w3_reinforcement_leraning.environment.env import TelcoRetentionEnv
 
 
-DEFAULT_CHECKPOINT = PROJECT_ROOT / "checkpoints" / "agent_best.pt"
+DEFAULT_CHECKPOINT = (
+    PROJECT_ROOT
+    / "src"
+    / "w3_reinforcement_leraning"
+    / "checkpoints"
+    / "agent_best.pt"
+)
 
 
 def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
