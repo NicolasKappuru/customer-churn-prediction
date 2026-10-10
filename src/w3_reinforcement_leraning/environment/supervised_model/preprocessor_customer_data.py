@@ -113,7 +113,7 @@ class PreprocessorCustomerData:
     def preprocess_customer(self, customer: Mapping[str, Any]) -> pd.DataFrame:
         """Return one raw customer's encoded and scaled features in model order."""
 
-        print(f"Features de entrada: {len(customer)}")
+        #print(f"Features de entrada: {len(customer)}")
 
         if not isinstance(customer, Mapping):
             raise TypeError("customer must be a mapping of feature names to values.")
@@ -201,7 +201,7 @@ class PreprocessorCustomerData:
         if not np.isfinite(processed_customer.to_numpy(dtype=np.float32)).all():
             raise ValueError("Processed customer features must all be finite.")
 
-        print(f"Features procesados: {processed_customer.shape[1]}")
+        #print(f"Features procesados: {processed_customer.shape[1]}")
         return processed_customer
 
     @staticmethod

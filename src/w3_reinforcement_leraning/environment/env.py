@@ -14,13 +14,6 @@ import pandas as pd
 
 from w3_reinforcement_leraning.environment.constants import (  
     ACTION_DEFINITIONS,
-    CATEGORICAL_FEATURES,
-    CONTINUOUS_FEATURES,
-    ENGINEERED_FEATURES,
-    INTERNET_DEPENDENT_SERVICES,
-    OBSERVATION_FEATURES,
-    RAW_FEATURES,
-    SERVICE_PRICES,
 )
 
 from w3_reinforcement_leraning.environment.customer_selector import (

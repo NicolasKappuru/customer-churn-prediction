@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections import Counter
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -17,14 +19,17 @@ from w3_reinforcement_leraning.environment.constants import ACTION_DEFINITIONS
 from w3_reinforcement_leraning.environment.env import TelcoRetentionEnv
 
 
-def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, float]]:
-    """Run one random valid action per episode and log each transition."""
+def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, Any]]:
+    """Run random valid actions and report episode and action diagnostics."""
     if episodes <= 0:
         raise ValueError("episodes must be greater than zero.")
 
     action_rng = np.random.default_rng(seed)
     env = TelcoRetentionEnv()
-    results: list[dict[str, float]] = []
+    results: list[dict[str, Any]] = []
+    action_frequencies: Counter[int] = Counter()
+    episode_lengths: Counter[int] = Counter()
+    accepted_actions = 0
 
     try:
         print(
@@ -40,51 +45,72 @@ def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, flo
                     "the environment observation space."
                 )
 
-            customer_before = env.customer_data_df.copy(deep=True)
-            valid_actions = env.action_manager.get_valid_actions(
-                env.customer_data_df
-            )
-            if not valid_actions:
-                raise ValueError(f"Episode {episode}: no valid actions available.")
+            episode_return = 0.0
+            episode_length = 0
+            episode_actions: list[int] = []
+            final_info: dict[str, Any] = {}
+            terminated = False
+            truncated = False
 
-            action = int(action_rng.choice(valid_actions))
-            action_name = ACTION_DEFINITIONS[action].name
-            observation, reward, terminated, truncated, info = env.step(action)
+            while not (terminated or truncated):
+                customer_before = env.customer_data_df.copy(deep=True)
+                valid_actions = env.action_manager.get_valid_actions(
+                    env.customer_data_df
+                )
+                if not valid_actions:
+                    raise ValueError(
+                        f"Episode {episode}: no valid actions available."
+                    )
 
-            if not env.observation_space.contains(observation):
-                raise ValueError(
-                    f"Episode {episode}: step observation does not match "
-                    "the environment observation space."
+                action = int(action_rng.choice(valid_actions))
+                action_name = ACTION_DEFINITIONS[action].name
+                observation, reward, terminated, truncated, info = env.step(action)
+
+                if not env.observation_space.contains(observation):
+                    raise ValueError(
+                        f"Episode {episode}: step observation does not match "
+                        "the environment observation space."
+                    )
+
+                customer_after = env.customer_data_df
+                accepted = not customer_before.equals(customer_after)
+                accepted_actions += int(accepted)
+                episode_length += 1
+                episode_return += float(reward)
+                episode_actions.append(action)
+                action_frequencies[action] += 1
+                final_info = info
+
+                probability_before = float(info["probability_before"])
+                probability_after = float(info["probability_after"])
+                probability_change = probability_after - probability_before
+                print(
+                    f"Episode {episode:03d}/{episodes} | "
+                    f"step={episode_length} | "
+                    f"valid={valid_actions} | "
+                    f"action={action} ({action_name}) | "
+                    f"accepted={accepted} | "
+                    f"p_churn={probability_before:.3f}"
+                    f"->{probability_after:.3f} "
+                    f"(delta={probability_change:+.3f}) | "
+                    f"cost={float(info['action_cost']):.2f} | "
+                    f"reward={float(reward):+.4f} | "
+                    f"terminated={terminated} | truncated={truncated}"
                 )
 
-            customer_after = env.customer_data_df
-            accepted = not customer_before.equals(customer_after)
-            result = {
-                "reward": float(reward),
-                "probability_before": float(info["probability_before"]),
-                "probability_after": float(info["probability_after"]),
-                "action_cost": float(info["action_cost"]),
-                "accepted": float(accepted),
-            }
-            results.append(result)
-
-            probability_change = (
-                result["probability_after"] - result["probability_before"]
-            )
-            print(
-                f"Episode {episode:03d}/{episodes} | "
-                f"valid={valid_actions} | "
-                f"action={action} ({action_name}) | "
-                f"accepted={accepted} | "
-                f"p_churn={result['probability_before']:.3f}"
-                f"->{result['probability_after']:.3f} "
-                f"(delta={probability_change:+.3f}) | "
-                f"cost={result['action_cost']:.2f} | "
-                f"reward={result['reward']:+.4f} | "
-                f"terminated={terminated} | truncated={truncated}"
+            episode_lengths[episode_length] += 1
+            results.append(
+                {
+                    "episode_return": episode_return,
+                    "episode_length": episode_length,
+                    "actions": episode_actions,
+                    "probability_before": float(final_info["probability_before"]),
+                    "probability_after": float(final_info["probability_after"]),
+                    "action_cost": float(final_info["action_cost"]),
+                }
             )
 
-        rewards = np.asarray([result["reward"] for result in results])
+        returns = np.asarray([result["episode_return"] for result in results])
         probabilities_before = np.asarray(
             [result["probability_before"] for result in results]
         )
@@ -92,16 +118,41 @@ def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, flo
             [result["probability_after"] for result in results]
         )
         costs = np.asarray([result["action_cost"] for result in results])
-        accepted_count = int(sum(result["accepted"] for result in results))
 
         print("\nSummary")
         print(f"Episodes:                 {len(results)}")
-        print(f"Accepted actions:         {accepted_count}/{len(results)}")
-        print(f"Mean reward:              {rewards.mean():.4f}")
-        print(f"Total reward:             {rewards.sum():.4f}")
+        print(
+            f"Accepted actions:         "
+            f"{accepted_actions}/{sum(episode_lengths.values())}"
+        )
+        print(f"Mean episode return:      {returns.mean():.4f}")
+        print(f"Total episode return:     {returns.sum():.4f}")
+        print("Episode length distribution (steps: episodes):")
+        for length, count in sorted(episode_lengths.items()):
+            print(f"  {length}: {count}")
+        print("Action frequency (index: name: count):")
+        for action_index, definition in enumerate(ACTION_DEFINITIONS):
+            print(
+                f"  {action_index}: {definition.name}: "
+                f"{action_frequencies[action_index]}"
+            )
+        missing_actions = [
+            action_index
+            for action_index in range(len(ACTION_DEFINITIONS))
+            if action_frequencies[action_index] == 0
+        ]
+        print(
+            "All actions occurred: "
+            f"{'YES' if not missing_actions else 'NO'}"
+        )
+        if missing_actions:
+            print(f"Actions not selected: {missing_actions}")
         print(f"Mean churn probability:   {probabilities_before.mean():.4f}")
         print(f"Mean final probability:   {probabilities_after.mean():.4f}")
-        print(f"Mean probability change:  {(probabilities_after - probabilities_before).mean():+.4f}")
+        print(
+            "Mean probability change:  "
+            f"{(probabilities_after - probabilities_before).mean():+.4f}"
+        )
         print(f"Total action cost:        {costs.sum():.2f}")
         return results
     finally:
