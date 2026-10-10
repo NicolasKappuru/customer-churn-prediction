@@ -36,12 +36,16 @@ class CustomerSelector:
         return pd.read_csv(self.dataset_path)
 
     def generate_customer_df(self) -> pd.DataFrame:
+
+
         """Create a random sample of churned customers without ID or target."""
         required_columns = {"customerID", "Churn"}
         missing_columns = required_columns.difference(self.dataset.columns)
         if missing_columns:
             missing = ", ".join(sorted(missing_columns))
             raise ValueError(f"Telco dataset is missing required columns: {missing}")
+
+
 
         churned_customers = self.dataset.loc[self.dataset["Churn"].eq("Yes")].drop(
             columns=["customerID", "Churn"]
@@ -51,6 +55,9 @@ class CustomerSelector:
                 f"Requested {self.sample_size} churned customers, but only "
                 f"{len(churned_customers)} are available."
             )
+        
+        print(f"Row number: {churned_customers.shape[0]}")
+
 
         return churned_customers.sample(
             n=self.sample_size,
