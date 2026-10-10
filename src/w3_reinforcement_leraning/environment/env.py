@@ -33,6 +33,9 @@ from w3_reinforcement_leraning.environment.supervised_model.preprocessor_custome
 from w3_reinforcement_leraning.environment.supervised_model.supervised_model import (  
     SupervisedModel
 )
+from w3_reinforcement_leraning.environment.actions_manager import (
+    ActionsManager
+)
 
 class TelcoRetentionEnv(gym.Env):
     def __init__(self):
@@ -41,6 +44,9 @@ class TelcoRetentionEnv(gym.Env):
         self.customer_selector = CustomerSelector()
         self.preprocessor_customer_data = PreprocessorCustomerData()
         self.supervised_model = SupervisedModel()
+        self.action_manager = ActionsManager()
+
+        self.customer_data_df: pd.DataFrame | None = None
 
         self.probability_churn_before = 0
         self.probability_churn_after = 0
@@ -57,23 +63,50 @@ class TelcoRetentionEnv(gym.Env):
         super().reset(seed=seed)
         """ Start each episode with this reset """
         
-        customer_data_df = self.customer_selector.get_random_customer() # select a customer random
-        customer_dic = customer_data_df.iloc[0].to_dict()
+        self.customer_data_df = self.customer_selector.get_random_customer() # select a customer random
+        customer_dic = self.customer_data_df.iloc[0].to_dict()
 
         customer_features = self.preprocessor_customer_data.preprocess_customer(customer_dic) # preprocess the data of customer
 
-        churn_probability = self.supervised_model.predict_probability(customer_features) # get probability initial of be churn
-        self.probability_churn_before = churn_probability
+        self.probability_churn_before = self.supervised_model.predict_probability(customer_features) # get probability initial of be churn
 
         observation_df = customer_features.copy() # create a copy of df and add the feat of churn probability
-        observation_df["churn_probability"] = churn_probability
+        observation_df["churn_probability"] = self.probability_churn_before
 
         observation = observation_df.to_numpy(dtype=np.float32).flatten() # create observation like defined vector of 48 floats
 
         return observation, {}
 
-        def step(self):
-            pass
+
+    def step(self, action):
+        self.customer_data_df, action_cost = self.action_manager.apply_action(self.customer_data_df, action)
+        customer_dic = self.customer_data_df.iloc[0].to_dict()  
+
+        customer_features = self.preprocessor_customer_data.preprocess_customer(customer_dic)
+
+        self.probability_churn_after = (self.supervised_model.predict_probability(customer_features))
+
+        observation_df = customer_features.copy()
+        observation_df["churn_probability"] = self.probability_churn_after
+
+        observation = observation_df.to_numpy(dtype=np.float32).flatten()
+
+
+        churn_disminution = self.probability_churn_before - self.probability_churn_after
+        cost = 1 - action_cost
+
+        reward = churn_disminution * cost
+
+        terminated = True
+        truncated = False
+        info = {
+            "probability_before": self.probability_churn_before,
+            "probability_after": self.probability_churn_after,
+            "action": action,
+            "action_cost": action_cost,
+        }
+
+        return observation, reward, terminated, truncated, info
 
 
 
