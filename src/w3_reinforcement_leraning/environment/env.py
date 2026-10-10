@@ -12,7 +12,7 @@ import pandas as pd
 
 
 
-from w3_reinforcement_leraning.environment.constants import (  # noqa: E402
+from w3_reinforcement_leraning.environment.constants import (  
     ACTION_DEFINITIONS,
     CATEGORICAL_FEATURES,
     CONTINUOUS_FEATURES,
@@ -22,16 +22,34 @@ from w3_reinforcement_leraning.environment.constants import (  # noqa: E402
     RAW_FEATURES,
     SERVICE_PRICES,
 )
-from w3_reinforcement_leraning.environment.supervised_model.preprocessing_data import (  
-    TelcoPreprocessor,
+from w3_reinforcement_leraning.environment.supervised_model.preprocessor_customer_data import (  
+    PreprocessorCustomerData,
 )
 from w3_reinforcement_leraning.environment.supervised_model.supervised_model import (  
-    MODEL_ARTIFACT,
+    SupervisedModel
 )
 
-class TelcoRetentionEnv(gym.Env[np.ndarray, int]):
-    def __init__():
-        pass
+class TelcoRetentionEnv(gym.Env):
+    def __init__(self):
+
+        
+        
+        super().__init__()
+
+        self.action_space = spaces.Discrete(len(ACTION_DEFINITIONS))
+        self.observation_space = spaces.Box( # Observation space is the vector of information processed
+            low=-np.inf,
+            high=np.inf,
+            shape=(48,),
+            dtype=np.float32
+        )
+
+        def reset(self):
+            pass
+
+
+        def step(self):
+            pass
 
 
 
