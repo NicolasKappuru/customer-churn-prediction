@@ -9,9 +9,13 @@ import pandas as pd
 
 from w3_reinforcement_leraning.environment.constants import (
     ACTION_DEFINITIONS,
-    INTERNET_DEPENDENT_SERVICES,
     RAW_FEATURES,
-    SERVICE_PRICES,
+    DSL_SERVICE_PRICE,
+    DISCOUNT_PERCENTAGE,
+    OTHER_ACTION_BENEFIT,
+    SECURE_PLAN_BENEFIT_PER_SERVICE,
+    SECURE_PLAN_SERVICE_PRICE,
+    SECURE_PLAN_SERVICES,
 )
 
 
@@ -21,36 +25,35 @@ class ActionsManager:
     def get_valid_actions(self, df_customer_data: pd.DataFrame) -> list[int]:
         """Return valid zero-based action indices for a raw one-row customer DataFrame."""
         customer = self._get_customer_row(df_customer_data)
-        valid_actions = [2, 3, 4]
+        valid_actions = []
 
-        if customer["Contract"] == "Month-to-month":
-            valid_actions.extend((0, 1))
-
-        if customer["PhoneService"] == "No":
-            valid_actions.append(5)
-        elif customer["MultipleLines"] == "No":
-            valid_actions.append(6)
+        if customer["Contract"] in {"Month-to-month", "One year"}:
+            valid_actions.append(0)
 
         internet_service = customer["InternetService"]
-        if internet_service == "No":
-            valid_actions.extend((7, 8))
-        elif internet_service in {"DSL", "Fiber optic"}:
-            for action_index, service in enumerate(
-                INTERNET_DEPENDENT_SERVICES, start=9
-            ):
-                if customer[service] == "No":
-                    valid_actions.append(action_index)
-        else:
+        if internet_service not in {"No", "DSL", "Fiber optic"}:
             raise ValueError(
                 "InternetService must be 'No', 'DSL', or 'Fiber optic'."
             )
 
+        if internet_service == "No" or any(
+            customer[service] != "Yes" for service in SECURE_PLAN_SERVICES
+        ):
+            valid_actions.append(1)
+
+        if (
+            customer["PaperlessBilling"] != "No"
+            or customer["PaymentMethod"] != "Credit card (automatic)"
+        ):
+            valid_actions.append(2)
+
+        valid_actions.append(3)
         return sorted(valid_actions)
 
     def apply_action(
         self, df_customer_data: pd.DataFrame, action: int
-    ) -> tuple[pd.DataFrame, float]:
-        """Return the resulting customer row and the cost of an accepted action."""
+    ) -> tuple[pd.DataFrame, float, float]:
+        """Return the updated customer, action cost, and action benefit."""
         customer = self._get_customer_row(df_customer_data)
         if isinstance(action, bool) or not isinstance(action, Integral):
             raise TypeError("action must be an integer action index.")
@@ -67,50 +70,55 @@ class ActionsManager:
 
         action_definition = ACTION_DEFINITIONS[action_index]
         if random.random() >= action_definition.acceptance_probability:
-            return df_customer_data, 0.0
+            return df_customer_data, 0.0, 0.0
 
         updated_customer = df_customer_data.copy(deep=True)
+        action_benefit = OTHER_ACTION_BENEFIT
         if action_index == 0:
-            updated_customer.loc[:, "Contract"] = "One year"
+            updated_customer.loc[:, "Contract"] = (
+                "One year"
+                if customer["Contract"] == "Month-to-month"
+                else "Two year"
+            )
         elif action_index == 1:
-            updated_customer.loc[:, "Contract"] = "Two year"
-        elif action_index in (2, 3, 4):
-            discount = action_definition.cost
-            updated_customer.loc[:, "MonthlyCharges"] = (
-                pd.to_numeric(updated_customer["MonthlyCharges"], errors="raise")
-                * (1 - discount)
-            )
-        elif action_index == 5:
-            updated_customer.loc[:, "PhoneService"] = "Yes"
-            updated_customer.loc[:, "MultipleLines"] = "No"
-            updated_customer.loc[:, "MonthlyCharges"] = (
-                pd.to_numeric(updated_customer["MonthlyCharges"], errors="raise")
-                + SERVICE_PRICES[action_index]
-            )
-        elif action_index == 6:
-            updated_customer.loc[:, "MultipleLines"] = "Yes"
-            updated_customer.loc[:, "MonthlyCharges"] = (
-                pd.to_numeric(updated_customer["MonthlyCharges"], errors="raise")
-                + SERVICE_PRICES[action_index]
-            )
-        elif action_index in (7, 8):
-            updated_customer.loc[:, "InternetService"] = (
-                "DSL" if action_index == 7 else "Fiber optic"
-            )
-            updated_customer.loc[:, list(INTERNET_DEPENDENT_SERVICES)] = "No"
-            updated_customer.loc[:, "MonthlyCharges"] = (
-                pd.to_numeric(updated_customer["MonthlyCharges"], errors="raise")
-                + SERVICE_PRICES[action_index]
-            )
+            if customer["InternetService"] == "No":
+                updated_customer.loc[:, "InternetService"] = "DSL"
+                monthly_charges = pd.to_numeric(
+                    updated_customer["MonthlyCharges"], errors="raise"
+                )
+                updated_customer.loc[:, "MonthlyCharges"] = (
+                    monthly_charges + DSL_SERVICE_PRICE
+                )
+
+            missing_services = [
+                service
+                for service in SECURE_PLAN_SERVICES
+                if customer[service] != "Yes"
+            ]
+            if missing_services:
+                updated_customer.loc[:, missing_services] = "Yes"
+                monthly_charges = pd.to_numeric(
+                    updated_customer["MonthlyCharges"], errors="raise"
+                )
+                updated_customer.loc[:, "MonthlyCharges"] = (
+                    monthly_charges
+                    + SECURE_PLAN_SERVICE_PRICE * len(missing_services)
+                )
+                action_benefit = (
+                    SECURE_PLAN_BENEFIT_PER_SERVICE * len(missing_services)
+                )
+            else:
+                action_benefit = 0.0
+        elif action_index == 2:
+            updated_customer.loc[:, "PaperlessBilling"] = "No"
+            updated_customer.loc[:, "PaymentMethod"] = "Credit card (automatic)"
         else:
-            service = INTERNET_DEPENDENT_SERVICES[action_index - 9]
-            updated_customer.loc[:, service] = "Yes"
             updated_customer.loc[:, "MonthlyCharges"] = (
                 pd.to_numeric(updated_customer["MonthlyCharges"], errors="raise")
-                + SERVICE_PRICES[action_index]
+                * (1 - DISCOUNT_PERCENTAGE)
             )
 
-        return updated_customer, action_definition.cost
+        return updated_customer, action_definition.cost, action_benefit
 
     @staticmethod
     def _get_customer_row(df_customer_data: pd.DataFrame) -> pd.Series:

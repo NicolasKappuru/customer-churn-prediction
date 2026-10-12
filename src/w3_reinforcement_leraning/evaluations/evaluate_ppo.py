@@ -123,7 +123,7 @@ def evaluate_ppo(
         length_distribution = Counter(episode_lengths)
         missing_actions = [
             index
-            for index in range(agent.config.action_size)
+            for index in range(len(ACTION_DEFINITIONS))
             if action_counts[index] == 0
         ]
 
@@ -155,7 +155,7 @@ def evaluate_ppo(
             "episode_lengths": dict(length_distribution),
             "action_frequencies": {
                 index: action_counts[index]
-                for index in range(agent.config.action_size)
+                for index in range(len(ACTION_DEFINITIONS))
             },
             "all_actions_occurred": not missing_actions,
             "accepted_actions": accepted_actions,

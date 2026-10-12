@@ -12,21 +12,10 @@ class RetentionAction:
 
 # Actions defined with name, acceptance probability and cost
 ACTION_DEFINITIONS = (
-    RetentionAction("Offer One Year contract", 0.0),
-    RetentionAction("Offer Two Year contract", 0.0),
-    RetentionAction("Offer 5% discount", 0.95, 0.05),
-    RetentionAction("Offer 10% discount", 0.95, 0.10),
-    RetentionAction("Offer 15% discount", 0.95, 0.15),
-    RetentionAction("Offer Phone Service", 0.90),
-    RetentionAction("Offer Multiple Lines", 0.90),
-    RetentionAction("Offer DSL Internet", 0.90),
-    RetentionAction("Offer Fiber Optic Internet", 0.90),
-    RetentionAction("Offer Online Security", 0.90),
-    RetentionAction("Offer Online Backup", 0.90),
-    RetentionAction("Offer Device Protection", 0.90),
-    RetentionAction("Offer Tech Support", 0.90),
-    RetentionAction("Offer Streaming TV", 0.90),
-    RetentionAction("Offer Streaming Movies", 0.90),
+    RetentionAction("Offer One Year contract", 0.60),
+    RetentionAction("Offer Secure plan", 0.80),
+    RetentionAction("Offer billing and payment change", 0.95),
+    RetentionAction("Offer 30% discount", 0.95, 0.10),
 )
 
 # 19 features of the customer, without churn and customer id
@@ -87,25 +76,17 @@ OBSERVATION_FEATURES = (
     "churn_probability", #1
 )
 
-# Price approximated for services
-SERVICE_PRICES = {
-    5: 20.0,
-    6: 5.0,
-    7: 25.0,
-    8: 50.0,
-    9: 5.0,
-    10: 5.0,
-    11: 5.0,
-    12: 5.0,
-    13: 10.0,
-    14: 10.0,
-}
-
-INTERNET_DEPENDENT_SERVICES = (
+SECURE_PLAN_SERVICES = (
     "OnlineSecurity",
     "OnlineBackup",
     "DeviceProtection",
     "TechSupport",
-    "StreamingTV",
-    "StreamingMovies",
 )
+
+SECURE_PLAN_SERVICE_PRICE = 5.0
+DSL_SERVICE_PRICE = 25.0
+
+SECURE_PLAN_BENEFIT_PER_SERVICE = 0.05
+OTHER_ACTION_BENEFIT = 0.0
+
+DISCOUNT_PERCENTAGE = 0.30

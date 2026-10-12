@@ -43,6 +43,9 @@ class TelcoRetentionEnv(gym.Env):
 
         self.probability_churn_before = 0
         self.probability_churn_after = 0
+
+        self.estimated_profit_before = 0
+        self.estimated_profit_after = 0
         
         self.action_space = spaces.Discrete(len(ACTION_DEFINITIONS))
         self.observation_space = spaces.Box( # Observation space is the vector of information processed
@@ -59,6 +62,8 @@ class TelcoRetentionEnv(gym.Env):
         self.customer_data_df = self.customer_selector.get_random_customer() # select a customer random
         customer_dic = self.customer_data_df.iloc[0].to_dict()
 
+        self.estimated_profit_before = (customer_dic["MonthlyCharges"] * 12) / 100
+
         customer_features = self.preprocessor_customer_data.preprocess_customer(customer_dic) # preprocess the data of customer
 
         self.probability_churn_before = self.supervised_model.predict_probability(customer_features) # get probability initial of be churn
@@ -72,8 +77,10 @@ class TelcoRetentionEnv(gym.Env):
 
 
     def step(self, action):
-        self.customer_data_df, action_cost = self.action_manager.apply_action(self.customer_data_df, action)
+        self.customer_data_df, action_cost, action_benefit = self.action_manager.apply_action(self.customer_data_df, action)
         customer_dic = self.customer_data_df.iloc[0].to_dict()  
+
+        self.estimated_profit_after = (customer_dic["MonthlyCharges"] * 12) / 100
 
         customer_features = self.preprocessor_customer_data.preprocess_customer(customer_dic)
 
@@ -87,8 +94,11 @@ class TelcoRetentionEnv(gym.Env):
 
         churn_disminution = self.probability_churn_before - self.probability_churn_after
         cost = 1 - action_cost
+        benefit_multiplier = 1 + action_benefit
+        #cost = 1
+        #estimated_profit = (self.estimated_profit_after - self.estimated_profit_before) * 0.02
 
-        reward = churn_disminution * cost
+        reward = churn_disminution * cost * benefit_multiplier  #+ estimated_profit
 
         terminated = True
         truncated = False
@@ -97,6 +107,8 @@ class TelcoRetentionEnv(gym.Env):
             "probability_after": self.probability_churn_after,
             "action": action,
             "action_cost": action_cost,
+            "action_benefit": action_benefit,
+            "benefit_multiplier": benefit_multiplier,
         }
 
         return observation, reward, terminated, truncated, info
