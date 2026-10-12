@@ -12,13 +12,15 @@ from torch import nn
 from torch.distributions import Categorical
 from torch.optim import Adam
 
+from w3_reinforcement_leraning.environment.constants import ACTION_DEFINITIONS
+
 
 @dataclass(frozen=True)
 class PPOConfig:
     """PPO hyperparameters, kept together for easy experiments."""
 
     state_size: int = 48
-    action_size: int = 15
+    action_size: int = len(ACTION_DEFINITIONS)
     hidden_size: int = 128
     learning_rate: float = 3e-4
     gamma: float = 0.95

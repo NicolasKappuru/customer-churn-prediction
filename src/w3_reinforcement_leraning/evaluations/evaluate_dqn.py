@@ -117,7 +117,7 @@ def evaluate_dqn(
             )
 
         length_distribution = Counter(episode_lengths)
-        all_action_indices = range(agent.config.action_size)
+        all_action_indices = range(len(ACTION_DEFINITIONS))
         missing_actions = [
             index for index in all_action_indices if action_counts[index] == 0
         ]

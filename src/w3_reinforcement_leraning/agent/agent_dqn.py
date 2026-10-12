@@ -13,13 +13,15 @@ import torch
 from torch import nn
 from torch.optim import Adam
 
+from w3_reinforcement_leraning.environment.constants import ACTION_DEFINITIONS
+
 
 @dataclass(frozen=True)
 class DQNConfig:
     """Hyperparameters that can be tuned from the training script."""
 
     state_size: int = 48
-    action_size: int = 15
+    action_size: int = len(ACTION_DEFINITIONS)
     hidden_size: int = 128
     learning_rate: float = 5e-4
     gamma: float = 0.95
