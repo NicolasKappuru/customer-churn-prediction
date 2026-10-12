@@ -12,8 +12,8 @@ class RetentionAction:
 
 # Actions defined with name, acceptance probability and cost
 ACTION_DEFINITIONS = (
-    RetentionAction("Offer One Year contract", 0.85),
-    RetentionAction("Offer Two Year contract", 0.85),
+    RetentionAction("Offer One Year contract", 0.0),
+    RetentionAction("Offer Two Year contract", 0.0),
     RetentionAction("Offer 5% discount", 0.95, 0.05),
     RetentionAction("Offer 10% discount", 0.95, 0.10),
     RetentionAction("Offer 15% discount", 0.95, 0.15),
