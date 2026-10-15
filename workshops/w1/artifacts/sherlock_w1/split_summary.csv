@@ -1,0 +1,5 @@
+part,cohort,label_month,n_users,churn_rate,n_churn,n_stay,days_to_expire_p01,days_to_expire_p50,days_to_expire_p99
+fit,train_feb,2017-02,744699,0.06392,47604,697095,-6.0,17.0,56.0
+stop,train_feb,2017-02,124117,0.06392,7934,116183,-5.0,17.0,55.0
+tune,train_feb,2017-02,124115,0.06392,7933,116182,-6.0,17.0,56.0
+holdout,train,2017-03,970960,0.08994,87330,883630,-7.0,18.0,61.0

@@ -218,8 +218,17 @@ __marimo__/
 .streamlit/secrets.toml
 
 
-#Data
+# Data and generated exports
 data/
+**/data/
+exports/
+**/exports/
+export-*/
+**/export-*/
+**/export-*.zip
+
+# Gitignore cannot ignore files based on their size. Files larger than 100 MB
+# must be rejected with a pre-commit hook or stored with Git LFS.
 
 #Notebooks
 notebooks/
