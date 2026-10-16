@@ -68,12 +68,11 @@ def build_features(members, trans, user_day, users, cutoff, params):
     return combined.select(["msno"] + features)
 
 
-def attach_labels(feature_tables, labelled_users, test_users) -> dict:
+def attach_labels(feature_tables, labelled_users) -> dict:
     """Attach the labels to each cohort table and check they share one schema."""
     out = {}
     for split, feats in feature_tables.items():
-        keys = (labelled_users[split].select("msno", "is_churn")
-                if split in labelled_users else test_users.select("msno"))
+        keys = labelled_users[split].select("msno", "is_churn")
         out[split] = keys.join(feats, on="msno", how="left", maintain_order="left")
     schemas = {s: f.drop("is_churn", strict=False).schema for s, f in out.items()}
     assert all(s == schemas["train"] for s in schemas.values()), "cohort tables differ"

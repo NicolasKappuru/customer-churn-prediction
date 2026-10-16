@@ -38,13 +38,13 @@ def save_classification_report(y_true, proba, threshold, model_id, out_dir):
     return rep_dict
 
 
-def save_classification_reports(y_hold, registry, thresholds, out_dir):
+def save_classification_reports(y_test, registry, thresholds, out_dir):
     """Write a JSON and text classification report per model."""
     report_dir = Path(out_dir) / "metrics" / "classification_reports"
     for model_id in MODEL_IDS:
         save_classification_report(
-            y_hold,
-            registry.proba[model_id]["holdout"],
+            y_test,
+            registry.proba[model_id]["test"],
             thresholds[model_id],
             model_id,
             report_dir,

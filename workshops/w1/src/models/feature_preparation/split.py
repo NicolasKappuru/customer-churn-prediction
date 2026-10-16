@@ -1,7 +1,7 @@
-"""Shared fit / stop / tune / holdout split.
+"""Shared fit / stop / tune / test split.
 
 Development (February) is split once by a stable ``msno`` hash, stratified by
-label, into ``fit``, ``stop`` and ``tune``; holdout is the whole March cohort,
+label, into ``fit``, ``stop`` and ``tune``; test is the whole March cohort,
 kept out of every decision. The hash makes the assignment reproducible without
 depending on any RNG order.
 """
@@ -14,7 +14,7 @@ import pandas as pd
 
 from ..constants import (
     DEV_COHORT,
-    HOLD_COHORT,
+    TEST_COHORT,
     SEED,
     SPLIT_HASH_SALT,
     SPLIT_SHARES,
@@ -56,29 +56,29 @@ def _stratified_hash_assign(rows, shares, y_all, hash_unit):
 # ---------------------------------------------------------------------------
 
 def make_shared_split(
-    train_df,
+    cohort_df,
     cohort_labels,
     y_all,
     smoke_users=None,
     seed=SEED,
     dev_cohort=DEV_COHORT,
-    hold_cohort=HOLD_COHORT,
+    test_cohort=TEST_COHORT,
 ):
-    """Create the fit/stop/tune/holdout split and return ``(split, dev_rows)``.
+    """Create the fit/stop/tune/test split and return ``(split, dev_rows)``.
 
     An optional ``smoke_users`` shrinks every part keeping both classes.
     """
-    hash_unit = train_df["msno"].map(_msno_hash_unit).to_numpy()
-    holdout_rows = np.flatnonzero(cohort_labels == hold_cohort)
+    hash_unit = cohort_df["msno"].map(_msno_hash_unit).to_numpy()
+    test_rows = np.flatnonzero(cohort_labels == test_cohort)
     dev_rows = np.flatnonzero(cohort_labels == dev_cohort)
-    # Only development is split; holdout stays whole as the outer evaluation.
+    # Only development is split; test stays whole as the outer evaluation.
     assignment = _stratified_hash_assign(dev_rows, SPLIT_SHARES, y_all, hash_unit)
 
     split = {
         "fit": np.sort(dev_rows[assignment == "fit"]),
         "stop": np.sort(dev_rows[assignment == "stop"]),
         "tune": np.sort(dev_rows[assignment == "tune"]),
-        "holdout": holdout_rows,
+        "test": test_rows,
     }
     if smoke_users is not None:
         rng = np.random.default_rng(seed)
@@ -119,13 +119,13 @@ def make_shared_split(
 def validate_and_save_split(
     split,
     dev_rows,
-    train_df,
+    cohort_df,
     cohort_labels,
     y_all,
     meta,
     out_dir,
     dev_cohort=DEV_COHORT,
-    hold_cohort=HOLD_COHORT,
+    test_cohort=TEST_COHORT,
 ):
     """Check the split invariants, save indices and return ``(summary, fit_rate)``."""
     seen = {}
@@ -143,8 +143,8 @@ def validate_and_save_split(
 
         seen[part] = idx
 
-    # A cross-month holdout: every part keeps its own cohort.
-    assert set(cohort_labels[split["holdout"]]) == {hold_cohort}
+    # A cross-month test: every part keeps its own cohort.
+    assert set(cohort_labels[split["test"]]) == {test_cohort}
     assert all(
         set(cohort_labels[split[part]]) == {dev_cohort}
         for part in ("fit", "stop", "tune")
@@ -154,7 +154,7 @@ def validate_and_save_split(
     )
     assert np.array_equal(dev_rows, expected_dev_rows)
 
-    days_to_expire = train_df["days_to_expire"].to_numpy()
+    days_to_expire = cohort_df["days_to_expire"].to_numpy()
     summary = pd.DataFrame(
         [
             {

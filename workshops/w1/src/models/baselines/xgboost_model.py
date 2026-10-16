@@ -37,7 +37,6 @@ def prepare_xgboost_data(tree_frame, split_data):
         fit_labels=split_data.y("fit"),
         tune_frame=tree_frame(split_data.rows("tune"), "fit"),
         tune_labels=split_data.y("tune"),
-        holdout_frame=tree_frame(split_data.rows("holdout"), "fit"),
         stop_frame=tree_frame(split_data.rows("stop"), "fit"),
         stop_labels=split_data.y("stop"),
     )

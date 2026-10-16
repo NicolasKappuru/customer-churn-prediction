@@ -21,14 +21,13 @@ LOGISTIC_SOLVER = "newton-cholesky"
 
 
 # Data preparation
-def prepare_logistic_data(train_df, features, split_data):
+def prepare_logistic_data(cohort_df, features, split_data):
     """Select raw model columns and labels for each split."""
     return BaselineData(
-        fit_frame=train_df.iloc[split_data.rows("fit")][features],
+        fit_frame=cohort_df.iloc[split_data.rows("fit")][features],
         fit_labels=split_data.y("fit"),
-        tune_frame=train_df.iloc[split_data.rows("tune")][features],
+        tune_frame=cohort_df.iloc[split_data.rows("tune")][features],
         tune_labels=split_data.y("tune"),
-        holdout_frame=train_df.iloc[split_data.rows("holdout")][features],
     )
 
 
@@ -123,7 +122,7 @@ def register_logistic(registry, model, data, study, counts, seconds):
 # Run
 def run_logistic(
     *,
-    train_df,
+    cohort_df,
     features,
     numeric,
     categorical,
@@ -137,7 +136,7 @@ def run_logistic(
     eps=EPS,
 ):
     """Coordinate M1 preparation, tuning, final fit, and registration."""
-    data = prepare_logistic_data(train_df, features, split_data)
+    data = prepare_logistic_data(cohort_df, features, split_data)
     objective = partial(
         logistic_objective,
         data=data,

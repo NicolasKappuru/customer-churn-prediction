@@ -10,7 +10,7 @@ from ..constants import MODEL_IDS
 
 def fit_development_models(
     *,
-    train_df,
+    cohort_df,
     features,
     numeric,
     categorical,
@@ -30,7 +30,7 @@ def fit_development_models(
 
     m1 = fit_logistic(
         records["M1"]["best_C"],
-        train_df.iloc[dev_rows][features],
+        cohort_df.iloc[dev_rows][features],
         y_dev,
         numeric=numeric,
         categorical=categorical,
@@ -61,10 +61,10 @@ def fit_development_models(
     return models
 
 
-def score_holdout(
+def score_test(
     *,
     models,
-    train_df,
+    cohort_df,
     features,
     split_data,
     registry,
@@ -76,19 +76,19 @@ def score_holdout(
     if not Path(selection_manifest).is_file():
         raise FileNotFoundError(selection_manifest)
 
-    rows = split_data.rows("holdout")
-    y_hold = split_data.y("holdout")
-    tree_holdout = tree_frame(rows, "development")
-    holdout_proba = {
+    rows = split_data.rows("test")
+    y_test = split_data.y("test")
+    tree_test = tree_frame(rows, "development")
+    test_proba = {
         "M1": models["M1"].predict_proba(
-            train_df.iloc[rows][features]
+            cohort_df.iloc[rows][features]
         )[:, 1],
         "M2": models["M2"].predict_proba(
             rf_data.frame(rows, "development")
         )[:, 1],
-        "M3": models["M3"].predict_proba(tree_holdout)[:, 1],
+        "M3": models["M3"].predict_proba(tree_test)[:, 1],
     }
     for model_id in MODEL_IDS:
-        registry.set_proba(model_id, "holdout", holdout_proba[model_id])
-    print("holdout probabilities ready for all tabular models")
-    return y_hold, holdout_proba
+        registry.set_proba(model_id, "test", test_proba[model_id])
+    print("test probabilities ready for all tabular models")
+    return y_test, test_proba

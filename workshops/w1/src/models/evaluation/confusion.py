@@ -67,7 +67,7 @@ def _draw_confusion(ax_counts, ax_norm, y_true, proba, threshold, title):
         ax.set_ylabel("Clase real")
 
 
-def save_confusion(y_true, proba, threshold, model_id, out_dir, tag="holdout"):
+def save_confusion(y_true, proba, threshold, model_id, out_dir, tag="test"):
     """Save a single high-resolution confusion figure (counts + normalised) as PNG+SVG."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -85,7 +85,7 @@ def save_confusion(y_true, proba, threshold, model_id, out_dir, tag="holdout"):
     return fig
 
 
-def gallery_confusion(entries, thresholds, out_dir, tag="holdout", per_page=3):
+def gallery_confusion(entries, thresholds, out_dir, tag="test", per_page=3):
     """Paginated gallery, up to `per_page` models per figure (counts + normalised cols)."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -120,22 +120,22 @@ def gallery_confusion(entries, thresholds, out_dir, tag="holdout", per_page=3):
 
 
 def save_confusion_figures(
-    y_hold, registry, thresholds, out_dir, show_plots=True
+    y_test, registry, thresholds, out_dir, show_plots=True
 ):
     """Write individual matrices and a paginated gallery."""
     confusion_dir = Path(out_dir) / "figures" / "confusion"
     entries = {
-        model_id: (y_hold, registry.proba[model_id]["holdout"])
+        model_id: (y_test, registry.proba[model_id]["test"])
         for model_id in MODEL_IDS
     }
     for model_id in MODEL_IDS:
         fig = save_confusion(
-            y_hold, entries[model_id][1], thresholds[model_id],
-            model_id, confusion_dir, tag="holdout",
+            y_test, entries[model_id][1], thresholds[model_id],
+            model_id, confusion_dir, tag="test",
         )
         plt.close(fig)
     gallery = gallery_confusion(
-        entries, thresholds, confusion_dir, tag="holdout", per_page=3
+        entries, thresholds, confusion_dir, tag="test", per_page=3
     )
     for fig in gallery:
         show_or_close(fig, show_plots)

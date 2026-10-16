@@ -1,4 +1,4 @@
 number,value,datetime_start,datetime_complete,duration,params_max_depth,params_max_features,params_min_samples_leaf,params_min_samples_split,params_n_estimators,system_attrs_fixed_params,state
-0,0.14596004145390984,2026-10-16 13:51:17.660124,2026-10-16 13:52:38.696596,0 days 00:01:21.036472,12,sqrt,5,10,150,"{'n_estimators': 150, 'max_depth': 12, 'min_samples_leaf': 5, 'min_samples_split': 10, 'max_features': 'sqrt'}",COMPLETE
-1,0.145933683201758,2026-10-16 13:52:38.803184,2026-10-16 13:53:59.764730,0 days 00:01:20.961546,12,sqrt,5,14,150,,COMPLETE
-2,0.14611649980266164,2026-10-16 13:53:59.919387,2026-10-16 13:55:08.263364,0 days 00:01:08.343977,24,sqrt,54,32,100,,COMPLETE
+0,0.14636782177602192,2026-10-16 14:43:14.429975,2026-10-16 14:44:45.357667,0 days 00:01:30.927692,12,sqrt,5,10,150,"{'n_estimators': 150, 'max_depth': 12, 'min_samples_leaf': 5, 'min_samples_split': 10, 'max_features': 'sqrt'}",COMPLETE
+1,0.1464154968827006,2026-10-16 14:44:45.456510,2026-10-16 14:46:08.714480,0 days 00:01:23.257970,12,sqrt,5,14,150,,COMPLETE
+2,0.1462687301230363,2026-10-16 14:46:08.857743,2026-10-16 14:47:18.248824,0 days 00:01:09.391081,24,sqrt,54,99,100,,COMPLETE

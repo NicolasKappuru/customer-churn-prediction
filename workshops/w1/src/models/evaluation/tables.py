@@ -34,16 +34,16 @@ def _model_metadata(record):
     }
 
 
-def build_holdout_tables(y_tune, y_hold, registry, thresholds, selection):
+def build_test_tables(y_tune, y_test, registry, thresholds, selection):
     """Evaluate all models at their tune threshold and at 0.5."""
     rows_main = []
     rows_half = []
     for model_id in MODEL_IDS:
-        proba = registry.proba[model_id]["holdout"]
-        row = evaluate(y_hold, proba, model_id, thresholds[model_id])
+        proba = registry.proba[model_id]["test"]
+        row = evaluate(y_test, proba, model_id, thresholds[model_id])
         row.update(_model_metadata(registry.records[model_id]))
         rows_main.append(row)
-        rows_half.append(metrics_at_half(y_hold, proba, model_id))
+        rows_half.append(metrics_at_half(y_test, proba, model_id))
 
     main = pd.DataFrame(rows_main).sort_values("log_loss").reset_index(drop=True)
     at_half = pd.DataFrame(rows_half).sort_values("log_loss").reset_index(drop=True)
@@ -52,9 +52,9 @@ def build_holdout_tables(y_tune, y_hold, registry, thresholds, selection):
     return main, at_half
 
 
-def save_holdout_tables(main, at_half, out_dir):
+def save_test_tables(main, at_half, out_dir):
     """Write both fixed-threshold metrics tables."""
     metrics_dir = Path(out_dir) / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
-    main.to_csv(metrics_dir / "holdout_metrics.csv", index=False)
-    at_half.to_csv(metrics_dir / "holdout_metrics_at_05.csv", index=False)
+    main.to_csv(metrics_dir / "test_metrics.csv", index=False)
+    at_half.to_csv(metrics_dir / "test_metrics_at_05.csv", index=False)

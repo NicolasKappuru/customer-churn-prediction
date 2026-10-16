@@ -16,34 +16,34 @@ from ..constants import CLASS_LABELS, MODEL_IDS
 from .figure_utils import show_or_close
 
 
-def plot_roc_pr(y_hold, registry, out_dir, show_plots=True):
+def plot_roc_pr(y_test, registry, out_dir, show_plots=True):
     """Save the shared ROC and precision-recall figure."""
     curves_dir = Path(out_dir) / "figures" / "curves"
     curves_dir.mkdir(parents=True, exist_ok=True)
     fig, (ax_roc, ax_pr) = plt.subplots(1, 2, figsize=(14, 6))
 
     for model_id in MODEL_IDS:
-        proba = registry.proba[model_id]["holdout"]
-        fpr, tpr, _ = roc_curve(y_hold, proba)
+        proba = registry.proba[model_id]["test"]
+        fpr, tpr, _ = roc_curve(y_test, proba)
         ax_roc.plot(
             fpr, tpr,
-            label=f"{model_id} (AUC={roc_auc_score(y_hold, proba):.3f})",
+            label=f"{model_id} (AUC={roc_auc_score(y_test, proba):.3f})",
         )
-        precision, recall, _ = precision_recall_curve(y_hold, proba)
+        precision, recall, _ = precision_recall_curve(y_test, proba)
         ax_pr.plot(
             recall, precision,
-            label=f"{model_id} (AP={average_precision_score(y_hold, proba):.3f})",
+            label=f"{model_id} (AP={average_precision_score(y_test, proba):.3f})",
         )
 
     ax_roc.plot([0, 1], [0, 1], "k--", alpha=0.5, label="chance")
-    ax_roc.set(title="ROC (holdout)", xlabel="FPR", ylabel="TPR")
+    ax_roc.set(title="ROC (test)", xlabel="FPR", ylabel="TPR")
     ax_roc.legend(fontsize=7)
     ax_pr.axhline(
-        float(np.mean(y_hold)), color="k", ls="--", alpha=0.5,
+        float(np.mean(y_test)), color="k", ls="--", alpha=0.5,
         label="prevalence",
     )
     ax_pr.set(
-        title="Precision-Recall (holdout)",
+        title="Precision-Recall (test)",
         xlabel="Recall", ylabel="Precision",
     )
     ax_pr.legend(fontsize=7)
@@ -55,7 +55,7 @@ def plot_roc_pr(y_hold, registry, out_dir, show_plots=True):
 
 
 def plot_reliability_histogram(
-    y_hold, registry, primary_winner, out_dir, show_plots=True
+    y_test, registry, primary_winner, out_dir, show_plots=True
 ):
     """Save calibration diagnostics without fitting a calibrator."""
     curves_dir = Path(out_dir) / "figures" / "curves"
@@ -63,9 +63,9 @@ def plot_reliability_histogram(
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     for model_id in MODEL_IDS:
-        proba = registry.proba[model_id]["holdout"]
+        proba = registry.proba[model_id]["test"]
         fraction_positive, mean_predicted = calibration_curve(
-            y_hold, proba, n_bins=10, strategy="quantile"
+            y_test, proba, n_bins=10, strategy="quantile"
         )
         axes[0].plot(
             mean_predicted, fraction_positive,
@@ -73,14 +73,14 @@ def plot_reliability_histogram(
         )
     axes[0].plot([0, 1], [0, 1], "k--", alpha=0.5)
     axes[0].set(
-        title="Reliability (holdout, diagnostic only)",
+        title="Reliability (test, diagnostic only)",
         xlabel="Mean predicted probability",
         ylabel="Observed churn rate",
     )
     axes[0].legend(fontsize=7)
 
-    winner_proba = registry.proba[primary_winner]["holdout"]
-    labels = np.asarray(y_hold)
+    winner_proba = registry.proba[primary_winner]["test"]
+    labels = np.asarray(y_test)
     for cls in (0, 1):
         axes[1].hist(
             winner_proba[labels == cls], bins=40, alpha=0.6,

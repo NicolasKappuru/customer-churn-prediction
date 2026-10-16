@@ -34,7 +34,6 @@ def prepare_random_forest_data(data, split_data):
         fit_labels=split_data.y("fit"),
         tune_frame=data.frame(split_data.rows("tune"), "fit"),
         tune_labels=split_data.y("tune"),
-        holdout_frame=data.frame(split_data.rows("holdout"), "fit"),
     )
 
 

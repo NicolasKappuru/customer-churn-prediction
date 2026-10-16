@@ -4,10 +4,9 @@ DATASET_VERSION = 5
 EXPECTED_CUTOFFS = {
     "train_feb": "2017-01-31",
     "train": "2017-02-28",
-    "test": "2017-03-31",
 }
 DEV_COHORT = "train_feb"
-HOLD_COHORT = "train"
+TEST_COHORT = "train"  # March labels: existing export of the raw train_v2 cohort.
 
 SEED = 110
 EPS = 1e-7
@@ -28,5 +27,4 @@ STUDY_TAGS = {"M1": "newton_cholesky_v1", "M2": "rf_bounded_v2"}
 
 TRAIN_VERBOSE = 1
 SMOKE_USERS = 10
-SMOKE_TEST_ROWS = 10
 

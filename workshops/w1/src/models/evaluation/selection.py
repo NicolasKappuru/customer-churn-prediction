@@ -10,7 +10,7 @@ from .metrics import select_threshold
 
 
 def select_on_tune(y_tune, registry, contract_hash, out_dir):
-    """Freeze tune decisions and save their manifest before holdout scoring."""
+    """Freeze tune decisions and save their manifest before test scoring."""
     thresholds = {
         model_id: select_threshold(y_tune, registry.proba[model_id]["tune"])
         for model_id in MODEL_IDS

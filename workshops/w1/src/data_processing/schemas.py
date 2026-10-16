@@ -15,7 +15,6 @@ from w1.src.data_processing.constants import LOG_COLS, _TXN_KEYS
 SCHEMA = {
     "train": {"msno": pl.String, "is_churn": pl.Int8},
     "train_v2": {"msno": pl.String, "is_churn": pl.Int8},
-    "sample_submission_v2": {"msno": pl.String, "is_churn": pl.Int8},
     "members_v3": {"msno": pl.String, "city": pl.Int8, "bd": pl.Int16,
                    "registered_via": pl.Int8, "registration_init_time": pl.Int32,
                    "gender": pl.String},
@@ -39,7 +38,6 @@ SCHEMA = {
 _COLUMNS = {
     "train": ["msno", "is_churn"],
     "train_v2": ["msno", "is_churn"],
-    "sample_submission_v2": ["msno"],
     "members_v3": ["msno", "city", "registered_via", "bd", "registration_init_time", "gender"],
     "transactions": ["msno"] + _TXN_KEYS,
     "transactions_v2": ["msno"] + _TXN_KEYS,

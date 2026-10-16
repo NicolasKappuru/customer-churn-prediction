@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..constants import DATASET_VERSION, DEV_COHORT, EXPECTED_CUTOFFS, HOLD_COHORT
+from ..constants import DATASET_VERSION, DEV_COHORT, EXPECTED_CUTOFFS, TEST_COHORT
 
 
 # ---------------------------------------------------------------------------
@@ -28,7 +28,9 @@ def load_metadata(input_dir, expected_cutoffs=EXPECTED_CUTOFFS):
             f"Expected dataset_version {DATASET_VERSION}, "
             f"got {meta.get('dataset_version')!r}."
         )
-    if meta["cutoffs"] != expected_cutoffs:
+    # Older exports also contain an unused April competition cohort.
+    cutoffs = {cohort: meta["cutoffs"].get(cohort) for cohort in expected_cutoffs}
+    if cutoffs != expected_cutoffs:
         raise ValueError(f"Unexpected cutoffs: {meta['cutoffs']}")
 
     features = meta["features"]
@@ -59,15 +61,15 @@ def load_cohorts(
     meta,
     features,
     dev_cohort=DEV_COHORT,
-    hold_cohort=HOLD_COHORT,
+    test_cohort=TEST_COHORT,
 ):
-    """Load and verify cohorts and test; return ``(train_df, test_df, y_all, cohort_labels)``."""
+    """Load February development and March test; return frame, labels, cohort IDs."""
     input_dir = Path(input_dir)
     cohort_frames = {}
 
     # Read each labelled cohort, keeping the order the export wrote and
     # confirming it with the published hash before adding the cohort tag.
-    for cohort in (dev_cohort, hold_cohort):
+    for cohort in (dev_cohort, test_cohort):
         frame = pd.read_parquet(
             input_dir / f"{cohort}.parquet",
             columns=["msno", "is_churn"] + features,
@@ -79,33 +81,22 @@ def load_cohorts(
         frame.insert(1, "cohort", cohort)
         cohort_frames[cohort] = frame
 
-    # Stack development first, then holdout; ``row`` is the shared index every
+    # Stack development first, then test; ``row`` is the shared index every
     # split below is expressed in, and ``cohort`` stays recoverable as text.
-    train_df = pd.concat(
-        [cohort_frames[dev_cohort], cohort_frames[hold_cohort]],
+    cohort_df = pd.concat(
+        [cohort_frames[dev_cohort], cohort_frames[test_cohort]],
         ignore_index=True,
     )
-    train_df["cohort"] = train_df["cohort"].astype("category")
-    train_df["row"] = np.arange(len(train_df))
-    cohort_labels = train_df["cohort"].to_numpy(dtype=str)
+    cohort_df["cohort"] = cohort_df["cohort"].astype("category")
+    cohort_df["row"] = np.arange(len(cohort_df))
+    cohort_labels = cohort_df["cohort"].to_numpy(dtype=str)
 
-    # Test carries features only (no labels) and its own row order.
-    test_df = pd.read_parquet(
-        input_dir / "test.parquet",
-        columns=["msno"] + features,
-    ).reset_index(drop=True)
-    assert test_df["msno"].is_unique
-    assert _order_hash(test_df["msno"]) == meta["hash_test"], (
-        "test parquet misaligned"
-    )
-    test_df["row"] = np.arange(len(test_df))
-
-    y_all = train_df["is_churn"].to_numpy(dtype=np.int32)
+    y_all = cohort_df["is_churn"].to_numpy(dtype=np.int32)
     assert set(np.unique(y_all)) == {0, 1}
 
     # Per-cohort diagnostics; a user may appear in both months with a different
     # label, which is the production setting (scored every month).
-    for cohort in (dev_cohort, hold_cohort):
+    for cohort in (dev_cohort, test_cohort):
         mask = cohort_labels == cohort
         print(
             f"{cohort:9s} rows: {mask.sum():>9,}"
@@ -113,10 +104,9 @@ def load_cohorts(
             f" | churn rate: {y_all[mask].mean():.4f}"
         )
     print(
-        "stacked train:", train_df.shape,
-        "| test:", test_df.shape,
+        "labelled cohorts:", cohort_df.shape,
         "| users in both labelled months:",
-        int(train_df["msno"].duplicated(keep=False).sum() // 2),
+        int(cohort_df["msno"].duplicated(keep=False).sum() // 2),
     )
 
-    return train_df, test_df, y_all, cohort_labels
+    return cohort_df, y_all, cohort_labels

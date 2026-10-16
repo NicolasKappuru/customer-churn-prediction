@@ -86,24 +86,19 @@ def transform_tabular(frame, state):
 # Phases
 # ---------------------------------------------------------------------------
 
-def make_phase_rows(split, dev_rows, train_count, smoke_users=None):
-    """Map each phase (``fit`` / ``development`` / ``train``) to its training rows."""
-    phase_rows = {
+def make_phase_rows(split, dev_rows):
+    """Use only February rows to fit either preprocessing phase."""
+    return {
         "fit": split["fit"],
         "development": dev_rows,
-        "train": np.arange(train_count),
     }
-    if smoke_users is not None:
-        phase_rows["train"] = np.sort(np.concatenate(list(split.values())))
-    return phase_rows
 
 
 class PhasePreprocessor:
     """Fit and cache one tabular state per phase and transform rows with it."""
 
-    def __init__(self, train_df, test_df, phase_rows, features, categorical):
-        self.train_df = train_df
-        self.test_df = test_df
+    def __init__(self, cohort_df, phase_rows, features, categorical):
+        self.cohort_df = cohort_df
         self.phase_rows = phase_rows
         self.features = features
         self.categorical = categorical
@@ -114,16 +109,12 @@ class PhasePreprocessor:
         if phase not in self._cache:
             rows = self.phase_rows[phase]
             self._cache[phase] = fit_tabular_preprocessor(
-                self.train_df.iloc[rows], self.features, self.categorical
+                self.cohort_df.iloc[rows], self.features, self.categorical
             )
         return self._cache[phase]
 
-    def batch(self, rows, phase, dataset="train"):
-        """Transform indexed ``dataset`` rows with the ``phase`` state."""
-        if dataset == "train":
-            frame = self.train_df
-        elif dataset == "test":
-            frame = self.test_df
-        else:
-            raise ValueError(f"Unknown dataset: {dataset!r}")
-        return transform_tabular(frame.iloc[np.asarray(rows)], self.state(phase))
+    def batch(self, rows, phase):
+        """Transform labelled cohort rows using the February phase state."""
+        return transform_tabular(
+            self.cohort_df.iloc[np.asarray(rows)], self.state(phase)
+        )

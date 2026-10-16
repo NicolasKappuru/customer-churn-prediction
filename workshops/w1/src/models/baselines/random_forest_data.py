@@ -22,11 +22,10 @@ def encode_rf_frame(frame, vocab, features, categorical):
 
 
 class RandomForestData:
-    """Cache phase vocabularies and provide encoded train/test frames."""
+    """Cache February vocabularies and encode labelled cohort rows."""
 
-    def __init__(self, train_df, test_df, phase_rows, features, categorical):
-        self.train_df = train_df
-        self.test_df = test_df
+    def __init__(self, cohort_df, phase_rows, features, categorical):
+        self.cohort_df = cohort_df
         self.phase_rows = phase_rows
         self.features = features
         self.categorical = categorical
@@ -36,19 +35,13 @@ class RandomForestData:
         if phase not in self._vocab:
             rows = self.phase_rows[phase]
             self._vocab[phase] = build_rf_vocabulary(
-                self.train_df.iloc[rows], self.categorical
+                self.cohort_df.iloc[rows], self.categorical
             )
         return self._vocab[phase]
 
-    def frame(self, rows, phase, dataset="train"):
-        if dataset == "train":
-            source = self.train_df
-        elif dataset == "test":
-            source = self.test_df
-        else:
-            raise ValueError(f"Unknown dataset: {dataset!r}")
+    def frame(self, rows, phase):
         return encode_rf_frame(
-            source.iloc[np.asarray(rows)],
+            self.cohort_df.iloc[np.asarray(rows)],
             self.vocab(phase),
             self.features,
             self.categorical,

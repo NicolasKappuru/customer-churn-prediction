@@ -24,10 +24,9 @@ from ..baselines.xgboost_model import (
 from ..constants import (
     DEV_COHORT,
     EXPECTED_CUTOFFS,
-    HOLD_COHORT,
+    TEST_COHORT,
     OPTUNA_MAX_TRIALS,
     SEED,
-    SMOKE_TEST_ROWS,
     SMOKE_USERS,
     TRAIN_VERBOSE,
     TRIALS_FULL,
@@ -57,7 +56,6 @@ def run_config(smoke_test=False):
             TREE_EARLY_STOP_SMOKE if smoke_test else TREE_EARLY_STOP_FULL
         ),
         "smoke_users": SMOKE_USERS if smoke_test else None,
-        "smoke_test_rows": SMOKE_TEST_ROWS if smoke_test else None,
         "rf_n_estimators_max": RF_N_ESTIMATORS_MAX,
         "rf_max_depth_cap": RF_MAX_DEPTH_CAP,
         "rf_min_samples_leaf_min": RF_MIN_SAMPLES_LEAF_MIN,
