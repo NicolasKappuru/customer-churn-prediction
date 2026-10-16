@@ -28,10 +28,12 @@ def load_metadata(input_dir, expected_cutoffs=EXPECTED_CUTOFFS):
             f"Expected dataset_version {DATASET_VERSION}, "
             f"got {meta.get('dataset_version')!r}."
         )
-    # Older exports also contain an unused April competition cohort.
-    cutoffs = {cohort: meta["cutoffs"].get(cohort) for cohort in expected_cutoffs}
-    if cutoffs != expected_cutoffs:
-        raise ValueError(f"Unexpected cutoffs: {meta['cutoffs']}")
+    if meta["cutoffs"] != expected_cutoffs:
+        raise ValueError(
+            f"Expected labelled February development and March test cutoffs "
+            f"{expected_cutoffs}, got {meta['cutoffs']}. "
+            "Regenerate the export with w1_data_preprocessing.ipynb."
+        )
 
     features = meta["features"]
     categorical = meta["categorical"]

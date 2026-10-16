@@ -1,9 +1,9 @@
 {
-  "contract_hash": "8d3bba0315c6",
+  "contract_hash": "c07d474b4bd5",
   "tune_log_loss": {
     "M1": 0.155348,
     "M2": 0.146269,
-    "M3": 0.203632
+    "M3": 0.20362
   },
   "thresholds": {
     "M1": 0.3,

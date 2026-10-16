@@ -17,9 +17,9 @@ def make_contract(meta, split, smoke, env, extra=None):
         "dataset_version": meta["dataset_version"],
         **{
             key: meta[key]
-            for key in ("hash_train_feb", "hash_train")
+            for key in ("hash_train_feb", "hash_test")
         },
-        "cutoffs": {cohort: meta["cutoffs"][cohort] for cohort in ("train_feb", "train")},
+        "cutoffs": {cohort: meta["cutoffs"][cohort] for cohort in ("train_feb", "test")},
         "split_protocol": SPLIT_PROTOCOL,
         "split_sizes": {part: int(len(rows)) for part, rows in split.items()},
         "smoke": smoke,

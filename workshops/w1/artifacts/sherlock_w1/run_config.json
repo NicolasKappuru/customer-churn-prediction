@@ -29,10 +29,10 @@
   "contract": {
     "dataset_version": 5,
     "hash_train_feb": "4d16c16bdde9e221f017bae6cb4982a7c66240e4",
-    "hash_train": "33dd6c70cac949f0cf6cbd720ee995d9830b4ca6",
+    "hash_test": "33dd6c70cac949f0cf6cbd720ee995d9830b4ca6",
     "cutoffs": {
       "train_feb": "2017-01-31",
-      "train": "2017-02-28"
+      "test": "2017-02-28"
     },
     "split_protocol": "cross_month_feb_to_mar",
     "split_sizes": {
@@ -52,11 +52,11 @@
     }
   },
   "selection": {
-    "contract_hash": "8d3bba0315c6",
+    "contract_hash": "c07d474b4bd5",
     "tune_log_loss": {
       "M1": 0.155348,
       "M2": 0.146269,
-      "M3": 0.203632
+      "M3": 0.20362
     },
     "thresholds": {
       "M1": 0.3,

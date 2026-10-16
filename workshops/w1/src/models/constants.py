@@ -3,10 +3,10 @@
 DATASET_VERSION = 5
 EXPECTED_CUTOFFS = {
     "train_feb": "2017-01-31",
-    "train": "2017-02-28",
+    "test": "2017-02-28",
 }
 DEV_COHORT = "train_feb"
-TEST_COHORT = "train"  # March labels: existing export of the raw train_v2 cohort.
+TEST_COHORT = "test"
 
 SEED = 110
 EPS = 1e-7
