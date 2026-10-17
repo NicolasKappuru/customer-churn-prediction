@@ -1,4 +1,4 @@
-number,value,datetime_start,datetime_complete,duration,params_max_depth,params_max_features,params_min_samples_leaf,params_min_samples_split,params_n_estimators,system_attrs_fixed_params,state
-0,0.14636794765950623,2026-10-16 16:16:59.380592,2026-10-16 16:18:26.809162,0 days 00:01:27.428570,12,sqrt,5,10,150,"{'n_estimators': 150, 'max_depth': 12, 'min_samples_leaf': 5, 'min_samples_split': 10, 'max_features': 'sqrt'}",COMPLETE
-1,0.1464154968827006,2026-10-16 16:18:26.907717,2026-10-16 16:19:50.300999,0 days 00:01:23.393282,12,sqrt,5,14,150,,COMPLETE
-2,0.1462687301230363,2026-10-16 16:19:50.405387,2026-10-16 16:21:00.009160,0 days 00:01:09.603773,24,sqrt,54,99,100,,COMPLETE
+number,value,datetime_start,datetime_complete,duration,params_max_depth,params_max_features,params_min_samples_leaf,params_min_samples_split,params_n_estimators,system_attrs_fixed_params,system_attrs_tpe:relative_params:0,state
+0,0.14485059920119506,2026-10-17 15:33:59.499654,2026-10-17 15:34:54.786346,0 days 00:00:55.286692,12,sqrt,5,10,150,"{'n_estimators': 150, 'max_depth': 12, 'min_samples_leaf': 5, 'min_samples_split': 10, 'max_features': 'sqrt'}",,COMPLETE
+1,0.1452299948207376,2026-10-17 15:34:54.887825,2026-10-17 15:35:45.155085,0 days 00:00:50.267260,12,sqrt,24,27,150,,"{""max_depth"": 12, ""max_features"": ""sqrt"", ""min_samples_leaf"": 24, ""min_samples_split"": 27, ""n_estimators"": 150}",COMPLETE
+2,0.14576630701269203,2026-10-17 15:35:45.238580,2026-10-17 15:36:18.400762,0 days 00:00:33.162182,12,sqrt,53,11,100,,"{""max_depth"": 12, ""max_features"": ""sqrt"", ""min_samples_leaf"": 53, ""min_samples_split"": 11, ""n_estimators"": 100}",COMPLETE

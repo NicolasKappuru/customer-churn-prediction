@@ -17,6 +17,7 @@ TREE_MAX_ROUNDS_SMOKE = 50
 TREE_EARLY_STOP_FULL = 100
 TREE_EARLY_STOP_SMOKE = 20
 XGB_BALANCED_WEIGHT = True
+XGB_BALANCED_FACTOR = 2.0  # multiplier over the natural class ratio to boost recall
 XGB_INITIAL_PARAMS = {
     "learning_rate": 0.05,
     "max_depth": 6,
@@ -42,12 +43,16 @@ def prepare_xgboost_data(tree_frame, split_data):
     )
 
 
-def balanced_scale_pos_weight(labels, balanced=XGB_BALANCED_WEIGHT):
-    """Compute the class weight from the supplied training labels."""
+def balanced_scale_pos_weight(labels, balanced=XGB_BALANCED_WEIGHT, factor=XGB_BALANCED_FACTOR):
+    """Compute the class weight from the supplied training labels.
+
+    ``factor`` multiplies the natural negatives/positives ratio so the model
+    predicts more positives, trading some precision for higher recall.
+    """
     labels = np.asarray(labels)
     positives = max(int((labels == 1).sum()), 1)
     negatives = int((labels == 0).sum())
-    return negatives / positives if balanced else 1.0
+    return (negatives / positives) * factor if balanced else 1.0
 
 
 # Model
@@ -68,8 +73,7 @@ def make_xgboost_model(
         n_estimators=n_estimators,
         tree_method="hist",
         device=device,
-        enable_categorical=True,
-        eval_metric="logloss",
+        eval_metric="aucpr",
         early_stopping_rounds=early_stop,
         scale_pos_weight=balanced_scale_pos_weight(labels, balanced),
         random_state=seed,

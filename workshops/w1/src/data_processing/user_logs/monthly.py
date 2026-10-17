@@ -98,16 +98,50 @@ def _widen_ranks(md, templates):
     return log
 
 
-def _add_relative_diffs(log):
-    """Difference between the last and the second-to-last active month."""
-    exprs = []
-    for how in ("sum", "mean"):
-        for metric in ("25", "50", "75", "985", "100", "unq", "total_secs"):
-            exprs.append((pl.col(f"{how}_last_month_{metric}")
-                          - pl.col(f"{how}_last_second_month_{metric}"))
-                         .alias(f"{how}_diff_last_2_month_{metric}"))
-    exprs.append((pl.col("last_login") - pl.col("last_second_login")).alias("login_difference"))
-    return log.with_columns(exprs)
+# def _add_relative_diffs(log):
+#     """Difference between the last and the second-to-last active month."""
+#     exprs = []
+#     for how in ("sum", "mean"):
+#         for metric in ("25", "50", "75", "985", "100", "unq", "total_secs"):
+#             exprs.append((pl.col(f"{how}_last_month_{metric}")
+#                           - pl.col(f"{how}_last_second_month_{metric}"))
+#                          .alias(f"{how}_diff_last_2_month_{metric}"))
+#     exprs.append((pl.col("last_login") - pl.col("last_second_login")).alias("login_difference"))
+#     return log.with_columns(exprs)
+
+
+# Columns removed in the simplified feature set.
+_LOG_COLS_TO_DROP = [
+    # per-channel sum/mean for channels 25, 50, 75, 985, 100 (all 3 months)
+    *[f"{s}_last_month_{c}"        for s in ("sum", "mean") for c in ("25", "50", "75", "985", "100")],
+    *[f"{s}_last_second_month_{c}" for s in ("sum", "mean") for c in ("25", "50", "75", "985", "100")],
+    *[f"{s}_last_third_month_{c}"  for s in ("sum", "mean") for c in ("25", "50", "75", "985", "100")],
+    # unq: keep only sum_last_month_unq
+    "mean_last_month_unq",
+    "sum_last_second_month_unq", "mean_last_second_month_unq",
+    "sum_last_third_month_unq",  "mean_last_third_month_unq",
+    # total_secs: keep sum_last, mean_last, sum_last_second only
+    "mean_last_second_month_total_secs",
+    "sum_last_third_month_total_secs", "mean_last_third_month_total_secs",
+    # third-month activity count
+    "last_third_login",
+]
+
+
+def _add_trend_features(log):
+    """Month-over-month trend features + login_difference (replaces _add_relative_diffs)."""
+    return log.with_columns([
+        (pl.col("last_login") - pl.col("last_second_login"))
+            .alias("login_difference"),
+        (pl.col("last_sum_total_songs") / (pl.col("last_second_sum_total_songs") + 1))
+            .alias("trend_songs"),
+        (pl.col("sum_last_month_total_secs") / (pl.col("sum_last_second_month_total_secs") + 1))
+            .alias("trend_secs"),
+        (pl.col("last_ratio_100") - pl.col("last_second_ratio_100"))
+            .alias("trend_ratio100"),
+        (pl.col("last_ratio_25") - pl.col("last_second_ratio_25"))
+            .alias("trend_ratio25"),
+    ])
 
 
 def build_log_features(user_day, users, cutoff, params):
@@ -124,7 +158,9 @@ def build_log_features(user_day, users, cutoff, params):
                     if c in log.columns])
     log = log.with_columns(pl.col("last_login_date_last").fill_null(0).cast(pl.Int64))
     log = log.fill_null(0)
-    return _add_relative_diffs(log)
+    # log = _add_relative_diffs(log)  # replaced by simplified trend features below
+    log = log.drop([c for c in _LOG_COLS_TO_DROP if c in log.columns])
+    return _add_trend_features(log)
 
 
 def relative_log_recency(frame, cutoff):

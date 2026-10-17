@@ -19,11 +19,11 @@
     "rf_min_samples_split_min": 10
   },
   "env": {
-    "numpy": "2.5.4",
+    "numpy": "2.5.3",
     "pandas": "3.0.6",
-    "sklearn": "1.8.0",
-    "xgboost": "3.1.1",
-    "optuna": "4.6.0",
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1",
+    "optuna": "5.0.0",
     "xgb_device": "cuda"
   },
   "contract": {
@@ -46,29 +46,29 @@
     "rf_max_depth_cap": 24,
     "xgb_balanced_weight": true,
     "libs": {
-      "xgboost": "3.1.1",
-      "optuna": "4.6.0",
-      "sklearn": "1.8.0"
+      "xgboost": "3.4.1",
+      "optuna": "5.0.0",
+      "sklearn": "1.9.1"
     }
   },
   "selection": {
-    "contract_hash": "c07d474b4bd5",
+    "contract_hash": "555f250276fd",
     "tune_log_loss": {
-      "M1": 0.155348,
-      "M2": 0.146269,
-      "M3": 0.20362
+      "M1": 0.155374,
+      "M2": 0.144851,
+      "M3": 0.494016
     },
     "thresholds": {
-      "M1": 0.3,
-      "M2": 0.27,
-      "M3": 0.67
+      "M1": 0.28,
+      "M2": 0.26,
+      "M3": 0.88
     },
     "primary_winner": "M2"
   },
   "thresholds": {
-    "M1": 0.3,
-    "M2": 0.27,
-    "M3": 0.67
+    "M1": 0.28,
+    "M2": 0.26,
+    "M3": 0.88
   },
   "trained_on": "February 2017",
   "evaluated_on": "March 2017 (test)",

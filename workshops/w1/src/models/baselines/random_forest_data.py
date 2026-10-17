@@ -17,7 +17,7 @@ def encode_rf_frame(frame, vocab, features, categorical):
     encoded = frame[features].copy()
     for column in categorical:
         codes = {level: index for index, level in enumerate(vocab[column])}
-        encoded[column] = encoded[column].map(codes).fillna(-1).astype("float64")
+        encoded[column] = encoded[column].map(codes).fillna(-1).astype("int64")
     return encoded
 
 
