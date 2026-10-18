@@ -22,9 +22,6 @@ from ..baselines.xgboost_model import (
     XGB_BALANCED_WEIGHT,
 )
 from ..constants import (
-    DEV_COHORT,
-    EXPECTED_CUTOFFS,
-    TEST_COHORT,
     OPTUNA_MAX_TRIALS,
     SEED,
     SMOKE_USERS,
