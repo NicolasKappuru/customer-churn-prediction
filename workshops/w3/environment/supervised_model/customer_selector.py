@@ -20,7 +20,7 @@ class CustomerSelector:
     specific msno, add it under the key 'user_logs' in the returned dict.
     """
 
-    def __init__(self, data_dir: Path = DEFAULT_DATA_DIR, sample_size: int = 500) -> None:
+    def __init__(self, data_dir: Path = DEFAULT_DATA_DIR, sample_size: int = 1500) -> None:
         data_dir = Path(data_dir)
 
         train = pd.read_parquet(data_dir / "train.parquet")
@@ -39,8 +39,18 @@ class CustomerSelector:
             .tolist()
         )
 
-        txn = pd.read_parquet(data_dir / "transactions_v2.parquet")
+        # Training combined both files and deduplicated — replicate that here.
+        _TXN_KEYS = [
+            "payment_method_id", "payment_plan_days", "plan_list_price",
+            "actual_amount_paid", "is_auto_renew", "transaction_date",
+            "membership_expire_date", "is_cancel",
+        ]
+        txn = pd.concat([
+            pd.read_parquet(data_dir / "transactions.parquet"),
+            pd.read_parquet(data_dir / "transactions_v2.parquet"),
+        ], ignore_index=True)
         txn = txn[txn["transaction_date"] <= _CUTOFF_INT]
+        txn = txn.drop_duplicates(subset=["msno", *_TXN_KEYS], keep="first")
         txn_map = txn.groupby("msno").apply(
             lambda g: g.to_dict("records"), include_groups=False
         ).to_dict()
