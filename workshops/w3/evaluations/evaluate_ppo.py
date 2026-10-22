@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import random
 import sys
 from collections import Counter
@@ -13,8 +14,10 @@ from typing import Any
 
 import numpy as np
 import torch
+from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+load_dotenv(PROJECT_ROOT / ".env")
 W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
@@ -34,6 +37,12 @@ def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
         return function(*args, **kwargs)
 
 
+def _render_config() -> tuple[str | None, float]:
+    render = os.getenv("RENDER", "false").strip().lower() == "true"
+    delay  = float(os.getenv("RENDER_DELAY", "2.0"))
+    return ("human" if render else None), delay
+
+
 def evaluate_ppo(
     checkpoint_path: str | Path = DEFAULT_CHECKPOINT,
     episodes: int = 100,
@@ -47,7 +56,8 @@ def evaluate_ppo(
     torch.manual_seed(seed)
 
     agent, checkpoint_metadata = PPOAgent.load_checkpoint(checkpoint_path)
-    env = KKBoxRetentionEnv()
+    render_mode, render_delay = _render_config()
+    env = KKBoxRetentionEnv(render_mode=render_mode, render_delay=render_delay)
     episode_returns: list[float] = []
     episode_lengths: list[int] = []
     action_counts: Counter[int] = Counter()
@@ -89,6 +99,8 @@ def evaluate_ppo(
                         "the environment observation space."
                     )
 
+                if not env.render():
+                    return {}
                 accepted_actions += int(env.customer_data is not customer_before)
                 action_counts[action] += 1
                 total_action_cost += float(info["action_cost"])
