@@ -32,9 +32,9 @@ class KKBoxRetentionEnv(gym.Env):
         59 preprocessed XGBoost features + 1 churn probability
     """
 
-    metadata = {"render_modes": []}
+    metadata = {"render_modes": ["human"]}
 
-    def __init__(self) -> None:
+    def __init__(self, render_mode: str | None = None, render_delay: float = 2.0) -> None:
         super().__init__()
         self.customer_selector = CustomerSelector()
         self.preprocessor_customer_data = PreprocessorCustomerData()
@@ -48,6 +48,12 @@ class KKBoxRetentionEnv(gym.Env):
         # Observation cache: list of (observation, churn_probability) per pool index.
         # Auto-rebuilt whenever the pool size changes (e.g. after train/val split).
         self._obs_cache: list[tuple[np.ndarray, float]] | None = None
+
+        self.render_mode = render_mode
+        self._bridge = None
+        if render_mode == "human":
+            from render.bridge import KKBoxRenderBridge
+            self._bridge = KKBoxRenderBridge(render_delay=render_delay)
 
         self.action_space = spaces.Discrete(len(ACTION_DEFINITIONS))
         self.observation_space = spaces.Box(
@@ -67,6 +73,14 @@ class KKBoxRetentionEnv(gym.Env):
         idx = int(self.np_random.integers(0, len(pool)))
         self.customer_data = pool[idx]
         observation, self.probability_churn_before = self._obs_cache[idx]
+
+        if self._bridge is not None:
+            with redirect_stdout(io.StringIO()):
+                features_df = self.preprocessor_customer_data.preprocess_customer(self.customer_data)
+            self._bridge.on_reset(
+                features=dict(features_df.iloc[0]),
+                churn_prob=self.probability_churn_before,
+            )
 
         return observation, {}
 
@@ -106,4 +120,25 @@ class KKBoxRetentionEnv(gym.Env):
             "action_cost": action_cost,
         }
 
+        if self._bridge is not None:
+            accepted = float(self.probability_churn_after) < float(self.probability_churn_before)
+            self._bridge.on_step(
+                new_features=dict(customer_features.iloc[0]),
+                new_churn=float(self.probability_churn_after),
+                action=action,
+                reward=float(reward),
+                accepted=accepted,
+            )
+
         return observation, reward, terminated, truncated, info
+
+    def render(self) -> bool:
+        """Pump pygame events and redraw. Returns False when the window is closed."""
+        if self._bridge is not None:
+            return self._bridge.tick()
+        return True
+
+    def close(self) -> None:
+        if self._bridge is not None:
+            self._bridge.close()
+        super().close()
