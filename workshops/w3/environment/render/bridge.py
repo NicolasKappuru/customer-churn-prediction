@@ -35,6 +35,7 @@ class KKBoxRenderBridge:
         self._renderer._scroll     = {0: 0, 1: 0, 2: 0}
         self._renderer._max_scroll = {0: 0, 1: 0, 2: 0}
         self._draw()
+        self._hold()
 
     def on_step(
         self,
