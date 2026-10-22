@@ -16,3 +16,6 @@ python workshops/w3/evaluations/evaluate_dqn.py --episodes 100 --seed 2025
 
 python workshops/w3/evaluations/evaluate_ppo.py
 python workshops/w3/evaluations/evaluate_ppo.py --episodes 100 --seed 2025
+
+
+python workshops/w3/evaluations/dqn_vs_ppo.py
