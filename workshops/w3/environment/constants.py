@@ -15,7 +15,7 @@ class RetentionAction:
 # Each action targets a distinct feature group to prevent the agent from
 # learning to spam a single dominant strategy.
 ACTION_DEFINITIONS = (
-    RetentionAction("Offer subscription renewal", 0.50),              # targets last_is_cancel / last_is_auto_renew
+    RetentionAction("Offer subscription renewal", 0.40),              # targets last_is_cancel / last_is_auto_renew
     RetentionAction("Offer annual plan + re-engagement", 0.70, 0.10), # targets last_plan_days + engagement logs
     RetentionAction("Offer 5% discount on renewal", 0.85, 0.15, 0.20), # active: 0.85 | lapsed: 0.20
 )
