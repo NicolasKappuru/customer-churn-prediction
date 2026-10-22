@@ -8,16 +8,16 @@ class RetentionAction:
     name: str
     acceptance_probability: float
     cost: float = 0.0
+    acceptance_probability_lapsed: float | None = None  # if set, used when customer is cancelled/lapsed
 
 
-# Actions defined with name, acceptance probability and cost.
+# Actions defined with name, acceptance probability, cost, and optional lapsed acceptance.
 # Each action targets a distinct feature group to prevent the agent from
 # learning to spam a single dominant strategy.
 ACTION_DEFINITIONS = (
-    RetentionAction("Offer subscription renewal", 0.90),       # targets last_is_cancel / last_is_auto_renew
-    RetentionAction("Offer annual plan upgrade", 0.90),        # targets last_plan_days / days_to_expire
-    RetentionAction("Offer 50% discount on renewal", 0.90, 0.10),  # targets average_amount_paid / last_discount
-    RetentionAction("Send engagement campaign", 0.90),         # targets days_since_last_log / trend_songs
+    RetentionAction("Offer subscription renewal", 0.50),              # targets last_is_cancel / last_is_auto_renew
+    RetentionAction("Offer annual plan + re-engagement", 0.70, 0.10), # targets last_plan_days + engagement logs
+    RetentionAction("Offer 5% discount on renewal", 0.85, 0.15, 0.20), # active: 0.85 | lapsed: 0.20
 )
 
 # Raw customer data structure keys
@@ -63,27 +63,23 @@ DEFAULT_PLAN_PRICE: float = 149.0
 RENEWAL_TRANSACTION_DATE: int = 20170128
 RENEWAL_EXPIRE_DATE: int = 20170227      # +30 days from transaction date
 
-# Action 1 — plan_upgrade: commits customer to an annual plan
+# Action 1 — plan_upgrade: annual plan at 20% off list price
 UPGRADE_PLAN_DAYS: int = 365
-UPGRADE_PLAN_PRICE: float = 1490.0       # ~10x the default monthly price
+UPGRADE_PLAN_PRICE: float = 1490.0       # list price (~10x monthly)
+UPGRADE_DISCOUNT_RATIO: float = 0.20     # 20% off → customer pays 1192
 UPGRADE_TRANSACTION_DATE: int = 20170128
 UPGRADE_EXPIRE_DATE: int = 20180127      # +365 days from transaction date
 
-# Action 2 — discount_offer: 50% off on the current plan
-DISCOUNT_RATIO: float = 0.50
+# Action 2 — discount_offer: 5% off current monthly plan
+DISCOUNT_RATIO: float = 0.05
 DISCOUNT_TRANSACTION_DATE: int = 20170128
 DISCOUNT_EXPIRE_DATE: int = 20170227     # +30 days from transaction date
 
-# Action 3 — engagement_boost: simulated high-activity listening session
-# Date is within January 2017 (the last eligible month for trend_songs)
-ENGAGEMENT_LOG_DATE: int = 20170129
-ENGAGEMENT_NUM_25: int = 5
-ENGAGEMENT_NUM_50: int = 3
-ENGAGEMENT_NUM_75: int = 2
-ENGAGEMENT_NUM_985: int = 1
-ENGAGEMENT_NUM_100: int = 35
-ENGAGEMENT_NUM_UNQ: int = 40
-ENGAGEMENT_TOTAL_SECS: float = 9000.0
-
-# Minimum days of inactivity required for engagement_boost to be valid
-ENGAGEMENT_INACTIVITY_THRESHOLD: int = 7
+# Action 1 — engagement logs: 4 sessions in January 2017 simulating re-engagement
+# after accepting the annual plan offer
+ENGAGEMENT_LOGS: tuple[dict, ...] = (
+    {"date": 20170126, "num_25": 8,  "num_50": 5, "num_75": 3, "num_985": 2, "num_100": 20, "num_unq": 30, "total_secs": 5400.0},
+    {"date": 20170128, "num_25": 5,  "num_50": 3, "num_75": 2, "num_985": 1, "num_100": 35, "num_unq": 40, "total_secs": 9000.0},
+    {"date": 20170129, "num_25": 10, "num_50": 6, "num_75": 4, "num_985": 2, "num_100": 25, "num_unq": 35, "total_secs": 7200.0},
+    {"date": 20170131, "num_25": 3,  "num_50": 2, "num_75": 1, "num_985": 0, "num_100": 15, "num_unq": 20, "total_secs": 3600.0},
+)

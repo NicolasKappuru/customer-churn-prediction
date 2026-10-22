@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import io
+from contextlib import redirect_stdout
+
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
@@ -20,11 +23,10 @@ class KKBoxRetentionEnv(gym.Env):
     The agent selects one retention action; the reward is the reduction in
     predicted churn probability, discounted by action cost.
 
-    Action space:  Discrete(4)
-        0 — renewal_offer       add a monthly renewal transaction (auto-renew restored)
-        1 — plan_upgrade        add an annual plan transaction
-        2 — discount_offer      add a 50 % discounted renewal transaction
-        3 — engagement_boost    add a high-activity user-log entry
+    Action space:  Discrete(3)
+        0 — renewal_offer             add a monthly renewal transaction (auto-renew restored)
+        1 — annual_plan_engagement    add an annual plan transaction + engagement logs
+        2 — discount_offer            add a 20% discounted renewal transaction
 
     Observation space: Box(shape=(60,), dtype=float32)
         59 preprocessed XGBoost features + 1 churn probability
@@ -40,9 +42,12 @@ class KKBoxRetentionEnv(gym.Env):
         self.action_manager = ActionsManager()
 
         self.customer_data: dict | None = None
-
         self.probability_churn_before: float = 0.0
         self.probability_churn_after: float = 0.0
+
+        # Observation cache: list of (observation, churn_probability) per pool index.
+        # Auto-rebuilt whenever the pool size changes (e.g. after train/val split).
+        self._obs_cache: list[tuple[np.ndarray, float]] | None = None
 
         self.action_space = spaces.Discrete(len(ACTION_DEFINITIONS))
         self.observation_space = spaces.Box(
@@ -55,19 +60,30 @@ class KKBoxRetentionEnv(gym.Env):
     def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.ndarray, dict]:
         super().reset(seed=seed)
 
-        self.customer_data = self.customer_selector.get_random_customer()
+        pool = self.customer_selector._pool
+        if self._obs_cache is None or len(self._obs_cache) != len(pool):
+            self._build_obs_cache()
 
-        customer_features = self.preprocessor_customer_data.preprocess_customer(self.customer_data)
-        self.probability_churn_before = self.supervised_model.predict_probability(customer_features)
-
-        observation_df = customer_features.copy()
-        observation_df["churn_probability"] = self.probability_churn_before
-        observation = observation_df.to_numpy(dtype=np.float32).flatten()
+        idx = int(self.np_random.integers(0, len(pool)))
+        self.customer_data = pool[idx]
+        observation, self.probability_churn_before = self._obs_cache[idx]
 
         return observation, {}
 
+    def _build_obs_cache(self) -> None:
+        pool = self.customer_selector._pool
+        cache = []
+        for customer in pool:
+            with redirect_stdout(io.StringIO()):
+                features = self.preprocessor_customer_data.preprocess_customer(customer)
+                prob = float(self.supervised_model.predict_probability(features))
+            obs_df = features.copy()
+            obs_df["churn_probability"] = prob
+            cache.append((obs_df.to_numpy(dtype=np.float32).flatten(), prob))
+        self._obs_cache = cache
+
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
-        self.customer_data, action_cost, action_benefit = self.action_manager.apply_action(
+        self.customer_data, action_cost = self.action_manager.apply_action(
             self.customer_data, action
         )
 
@@ -79,10 +95,7 @@ class KKBoxRetentionEnv(gym.Env):
         observation = observation_df.to_numpy(dtype=np.float32).flatten()
 
         churn_disminution = self.probability_churn_before - self.probability_churn_after
-        cost = 1 - action_cost
-        benefit_multiplier = 1 + action_benefit
-
-        reward = churn_disminution * cost * benefit_multiplier
+        reward = churn_disminution * (1 - action_cost)
 
         terminated = True
         truncated = False
@@ -91,8 +104,6 @@ class KKBoxRetentionEnv(gym.Env):
             "probability_after": self.probability_churn_after,
             "action": action,
             "action_cost": action_cost,
-            "action_benefit": action_benefit,
-            "benefit_multiplier": benefit_multiplier,
         }
 
         return observation, reward, terminated, truncated, info

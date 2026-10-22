@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import pickle
 from pathlib import Path
 
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_DATA_DIR = PROJECT_ROOT / "workshops" / "data" / "parquet"
+DEFAULT_POOL_DIR = PROJECT_ROOT / "workshops" / "data" / "pool_users"
 _CUTOFF_INT = 20170131
 
 
@@ -18,10 +20,23 @@ class CustomerSelector:
     omitted because user_logs.parquet is very large (6+ GB); the preprocessor
     handles their absence gracefully.  If you have filtered log data for a
     specific msno, add it under the key 'user_logs' in the returned dict.
+
+    The customer pool is serialised to a pickle file alongside the parquet
+    data after the first build so subsequent runs skip the expensive I/O.
+    Delete the cache file to force a fresh sample from the raw data.
     """
 
     def __init__(self, data_dir: Path = DEFAULT_DATA_DIR, sample_size: int = 1500) -> None:
         data_dir = Path(data_dir)
+        pool_dir = DEFAULT_POOL_DIR
+        pool_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = pool_dir / f".rl_pool_{sample_size}.pkl"
+
+        if cache_path.exists():
+            with open(cache_path, "rb") as f:
+                self._pool: list[dict] = pickle.load(f)
+            print(f"CustomerSelector ready: {len(self._pool)} churned users (cached)")
+            return
 
         train = pd.read_parquet(data_dir / "train.parquet")
         churned_msno = train.loc[train["is_churn"] == 1, "msno"].tolist()
@@ -62,6 +77,8 @@ class CustomerSelector:
             row["user_logs"] = []
             self._pool.append(row)
 
+        with open(cache_path, "wb") as f:
+            pickle.dump(self._pool, f)
         print(f"CustomerSelector ready: {len(self._pool)} churned users")
 
     def get_random_customer(self) -> dict:
