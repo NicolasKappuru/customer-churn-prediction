@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import io
+import os
+import sys
+import warnings
 from contextlib import redirect_stdout
 
 import numpy as np
@@ -52,8 +55,17 @@ class KKBoxRetentionEnv(gym.Env):
         self.render_mode = render_mode
         self._bridge = None
         if render_mode == "human":
-            from render.bridge import KKBoxRenderBridge
-            self._bridge = KKBoxRenderBridge(render_delay=render_delay)
+            if self._display_available():
+                from render.bridge import KKBoxRenderBridge
+                self._bridge = KKBoxRenderBridge(render_delay=render_delay)
+            else:
+                warnings.warn(
+                    "render_mode='human' requested but no display found "
+                    "(DISPLAY/WAYLAND_DISPLAY not set). Rendering disabled. "
+                    "Use 'export DISPLAY=:0' or 'ssh -X' to enable it.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
 
         self.action_space = spaces.Discrete(len(ACTION_DEFINITIONS))
         self.observation_space = spaces.Box(
@@ -142,3 +154,9 @@ class KKBoxRetentionEnv(gym.Env):
         if self._bridge is not None:
             self._bridge.close()
         super().close()
+
+    @staticmethod
+    def _display_available() -> bool:
+        if sys.platform == "win32":
+            return True
+        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
