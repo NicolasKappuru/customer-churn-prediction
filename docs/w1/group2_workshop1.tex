@@ -1,0 +1,127 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage[english]{babel}
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[justification=centering]{caption}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true,
+    columns=fullflexible
+}
+
+% APA style formatting
+\geometry{a4paper, margin=1in}
+\setstretch{1.5}
+\captionsetup[table]{labelfont=bf, justification=raggedright, singlelinecheck=false}
+\captionsetup[figure]{font=small, labelfont=bf, justification=raggedright, singlelinecheck=false}
+
+\title{ Machine Learning for Customer Churn Prediction}
+\author{Nelson David Posso Suarez \\ Javier Alejandro Penagos Hernandez \\ Nicolas Castro Rivera }
+\date{}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Executive Summary}
+Customer Churn is a problem about customer discontinue a company's services or products. Machine learning techniques can be applied with purpose of predict if a customer 
+has probability of be churn, this information can help the company to take decisions for not lost clients. This work search explore different machine learning techniques
+to compare and get the best approach to solve this problem.
+
+
+% ─────────────────────────────────────────────
+\section{Dataset Download and Integrity Verification}
+% ─────────────────────────────────────────────
+
+\subsection{Dataset Source and Acquisition}
+
+The dataset is the  \textbf{WSDM -- KKBox Music Service Churn Prediction Challenge}, 
+publicly available through the Kaggle competition platform at 
+\\ \url{https://www.kaggle.com/competitions/kkbox-churn-prediction-challenge}. 
+\\ The dataset was released by KKBox Co., Ltd.\ under the competition's terms of use, which permit academic and non-commercial research purposes. No paid subscription is required; a free Kaggle account is sufficient to access all files.
+To reproduce this experiment, the following two steps are required:
+
+\begin{enumerate}
+    \item \textbf{Accept the competition terms:} Create a free Kaggle account, navigate to the competition page, and accept the data usage rules. This step is mandatory before any file can be downloaded.
+
+    \item \textbf{Download and place the raw files:} Download all nine \texttt{.csv.7z} archives provided by the competition and place them, \textbf{without extracting}, in the directory \texttt{workshops/data/}. The preprocessing pipeline extracts and converts them automatically during execution.
+\end{enumerate}
+
+No further manual setup is required. The data pipeline reads the compressed archives directly from \texttt{workshops/data/} and writes the intermediate \texttt{.parquet} files to \texttt{workshops/data/parquet/}. The final processed cohorts are produced in \texttt{workshops/w1/export-tabular-v5/}.
+
+\subsection{Dataset Characteristics}
+
+The competition provides nine compressed files (\texttt{.csv.7z}). Table~\ref{tab:files} summarises each file, its role in the pipeline, and its approximate uncompressed row count.
+
+\begin{table}[H]
+\centering
+\caption{KKBox dataset files and their characteristics.}
+\label{tab:files}
+\begin{tabularx}{\textwidth}{lXrr}
+\toprule
+\textbf{File} & \textbf{Description} & \textbf{Rows (approx.)} & \textbf{Columns} \\
+\midrule
+\texttt{train.csv}                    & February cohort labels: user ID and churn target        & 992{,}931      & 2  \\
+\texttt{train\_v2.csv}                & March cohort labels: user ID and churn target           & 970{,}960      & 2  \\
+\texttt{members\_v3.csv}              & User demographic profiles (age, gender, city, etc.)     & 6{,}769{,}473  & 7  \\
+\texttt{transactions.csv}             & Earlier subscription transaction records                & 19{,}435{,}022 & 9  \\
+\texttt{transactions\_v2.csv}         & Recent subscription transaction records                 & 21{,}591{,}521 & 9  \\
+\texttt{user\_logs.csv}               & Earlier daily listening behaviour logs                  & 18{,}396{,}362 & 9  \\
+\texttt{user\_logs\_v2.csv}           & Recent daily listening behaviour logs                   & 18{,}396{,}362 & 9  \\
+\texttt{sample\_submission\_v2.csv}   & Test set user IDs for competition submission            & 224{,}000      & 2  \\
+\texttt{sample\_submission\_zero.csv} & Baseline submission with all predictions set to zero    & 224{,}000      & 2  \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+
+\subsection{Integrity Verification}
+
+The Kaggle platform does not publish official checksums for competition datasets. To guarantee that collaborators download the correct files, SHA-256 hashes were computed directly on the nine \texttt{.csv.7z} archives using the project script \texttt{workshops/w1/src/data\_info/dataset\_info.py}. The full hashes are stored in \texttt{workshops/data/checksums.json}; Table~\ref{tab:integrity} shows the first 16 characters of each digest together with the compressed file size on disk.
+
+\begin{table}[H]
+\centering
+\caption{SHA-256 checksums of the raw \texttt{.csv.7z} archives (first 16 hex characters shown).}
+\label{tab:integrity}
+\begin{tabular}{llr}
+\toprule
+\textbf{File} & \textbf{SHA-256 (prefix)} & \textbf{Size (MB)} \\
+\midrule
+\texttt{train.csv.7z}                    & \texttt{e2e7cec3392158ad} &    33.6 \\
+\texttt{train\_v2.csv.7z}                & \texttt{683158156862e226} &    32.8 \\
+\texttt{members\_v3.csv.7z}              & \texttt{a0e0b92b2ef9cc11} &   242.3 \\
+\texttt{transactions.csv.7z}             & \texttt{ff273f50f8e690c7} &   707.5 \\
+\texttt{transactions\_v2.csv.7z}         & \texttt{78d01c8e90b86479} &    48.9 \\
+\texttt{user\_logs.csv.7z}               & \texttt{2d21a83ddeeaf508} & 7{,}136.1 \\
+\texttt{user\_logs\_v2.csv.7z}           & \texttt{5e7b1d2b6fce3ff0} &   686.0 \\
+\texttt{sample\_submission\_v2.csv.7z}   & \texttt{329dfe694ccc76c7} &    30.7 \\
+\texttt{sample\_submission\_zero.csv.7z} & \texttt{8d709c30a1e7dc52} &    32.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+To verify the downloaded files, run the following command from the project root:
+
+\begin{lstlisting}[language=bash]
+python workshops/w1/src/data_info/dataset_info.py
+\end{lstlisting}
+
+The script computes the SHA-256 of each archive in \texttt{workshops/data/}, compares the result against \texttt{checksums.json}, and prints \texttt{OK} or \texttt{FAIL} for each file. It exits with code~1 if any file is missing or does not match.
+
+\end{document}
