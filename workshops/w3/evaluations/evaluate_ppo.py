@@ -55,9 +55,9 @@ def evaluate_ppo(
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    agent, checkpoint_metadata = PPOAgent.load_checkpoint(checkpoint_path)
     render_mode, render_delay = _render_config()
     env = KKBoxRetentionEnv(render_mode=render_mode, render_delay=render_delay)
+    agent, checkpoint_metadata = PPOAgent.load_checkpoint(checkpoint_path)
     episode_returns: list[float] = []
     episode_lengths: list[int] = []
     action_counts: Counter[int] = Counter()
