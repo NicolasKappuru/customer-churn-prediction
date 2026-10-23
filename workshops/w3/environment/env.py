@@ -159,4 +159,15 @@ class KKBoxRetentionEnv(gym.Env):
     def _display_available() -> bool:
         if sys.platform == "win32":
             return True
-        return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+        if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+            return False
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["xdpyinfo"],
+                capture_output=True,
+                timeout=2,
+            )
+            return result.returncode == 0
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))

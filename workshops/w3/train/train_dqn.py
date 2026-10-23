@@ -49,10 +49,25 @@ class ValidationResult:
     action_counts: dict[int, int]
 
 
+@dataclass
+class _EpisodeResult:
+    episode_return: float
+    episode_length: int
+    epsilon: float
+
+
 def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
     """Hide preprocessing progress prints while keeping training logs readable."""
     with redirect_stdout(io.StringIO()):
         return function(*args, **kwargs)
+
+
+def _seed_all(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def _create_train_validation_envs(
@@ -113,6 +128,178 @@ def _evaluate_agent(
     )
 
 
+def _run_dqn_episode(
+    agent: DQNAgent,
+    env: KKBoxRetentionEnv,
+    config_seed: int,
+    episode: int,
+    epsilon: float,
+) -> tuple[_EpisodeResult, float | None]:
+    """Run one training episode. Returns (result, last_loss)."""
+    state, _ = _quiet_env_call(env.reset, seed=config_seed + episode)
+    episode_return = 0.0
+    episode_length = 0
+    terminated = False
+    truncated = False
+    last_loss: float | None = None
+
+    while not (terminated or truncated):
+        if env.customer_data is None:
+            raise RuntimeError("Environment reset did not initialize customer data.")
+        valid_actions = env.action_manager.get_valid_actions(env.customer_data)
+        action = agent.select_action(state, valid_actions, epsilon)
+        next_state, reward, terminated, truncated, _ = _quiet_env_call(
+            env.step, action,
+        )
+        next_valid_actions = (
+            env.action_manager.get_valid_actions(env.customer_data)
+            if not (terminated or truncated)
+            else ()
+        )
+        agent.remember(
+            state, action, reward, next_state,
+            terminated or truncated, next_valid_actions,
+        )
+        last_loss = agent.train_step()
+        state = next_state
+        episode_return += float(reward)
+        episode_length += 1
+        epsilon = max(EPSILON_MIN, epsilon * EPSILON_DECAY)
+
+    return _EpisodeResult(episode_return, episode_length, epsilon), last_loss
+
+
+def _log_dqn_progress(
+    config_name: str,
+    episode: int,
+    episodes_per_config: int,
+    episode_return: float,
+    recent_returns: list[float],
+    episode_length: int,
+    epsilon: float,
+    loss: float | None,
+) -> None:
+    loss_text = f"{loss:.5f}" if loss is not None else "warming up"
+    print(
+        f"{config_name} | episode={episode}/{episodes_per_config} | "
+        f"return={episode_return:+.4f} | "
+        f"mean_return_{len(recent_returns)}={np.mean(recent_returns):+.4f} | "
+        f"length={episode_length} | epsilon={epsilon:.3f} | loss={loss_text}"
+    )
+
+
+def _run_dqn_validation(
+    agent: DQNAgent,
+    validation_env: KKBoxRetentionEnv,
+    config_name: str,
+    episode: int,
+    config_seed: int,
+    validation_episodes: int,
+    best_validation_return: float,
+    checkpoint: Path,
+) -> tuple[float, float]:
+    """Run validation and save checkpoint if improved. Returns (val_return, new_best)."""
+    validation = _evaluate_agent(
+        agent, validation_env,
+        episodes=validation_episodes,
+        seed=config_seed + 1_000_000 + episode * validation_episodes,
+    )
+    print(
+        f"Validation | {config_name} | episode={episode} | "
+        f"mean_return={validation.mean_return:+.4f} | "
+        f"mean_length={validation.mean_episode_length:.2f} | "
+        f"actions={validation.action_counts}"
+    )
+    if validation.mean_return > best_validation_return:
+        best_validation_return = validation.mean_return
+        agent.save_checkpoint(
+            checkpoint,
+            configuration_name=config_name,
+            validation_mean_return=validation.mean_return,
+            validation_episode=episode,
+            training_seed=config_seed,
+        )
+        print(
+            f"Saved new best checkpoint "
+            f"(validation return={best_validation_return:+.4f})."
+        )
+    return validation.mean_return, best_validation_return
+
+
+def _train_dqn_config(
+    config_name: str,
+    config: DQNConfig,
+    training_env: KKBoxRetentionEnv,
+    validation_env: KKBoxRetentionEnv,
+    episodes_per_config: int,
+    validation_interval: int,
+    validation_episodes: int,
+    config_seed: int,
+    best_validation_return: float,
+    checkpoint: Path,
+) -> tuple[dict[str, float | str], float]:
+    """Train one configuration. Returns (result_dict, updated_best_validation_return)."""
+    agent = DQNAgent(config=config)
+    epsilon = EPSILON_START
+    rolling_returns: list[float] = []
+    config_best_return = float("-inf")
+    config_best_episode = 0
+    validation_episodes_completed = 0
+
+    print(f"\nConfiguration {config_name}: {asdict(config)} | device={agent.device}")
+
+    for episode in range(1, episodes_per_config + 1):
+        result, last_loss = _run_dqn_episode(
+            agent, training_env, config_seed, episode, epsilon,
+        )
+        epsilon = result.epsilon
+        rolling_returns.append(result.episode_return)
+
+        if episode % LOG_INTERVAL == 0 or episode == 1:
+            _log_dqn_progress(
+                config_name, episode, episodes_per_config,
+                result.episode_return, rolling_returns[-LOG_INTERVAL:],
+                result.episode_length, epsilon, last_loss,
+            )
+
+        if episode % validation_interval == 0 or episode == episodes_per_config:
+            val_return, best_validation_return = _run_dqn_validation(
+                agent, validation_env, config_name, episode, config_seed,
+                validation_episodes, best_validation_return, checkpoint,
+            )
+            validation_episodes_completed += validation_episodes
+            if val_return > config_best_return:
+                config_best_return = val_return
+                config_best_episode = episode
+
+    return (
+        {
+            "configuration": config_name,
+            "best_validation_return": config_best_return,
+            "best_validation_episode": float(config_best_episode),
+            "validation_episodes": float(validation_episodes_completed),
+        },
+        best_validation_return,
+    )
+
+
+def _print_summary(
+    summary: list[dict[str, float | str]], checkpoint: Path
+) -> None:
+    print("\nConfiguration comparison (best validation return)")
+    for result in sorted(
+        summary,
+        key=lambda item: float(item["best_validation_return"]),
+        reverse=True,
+    ):
+        print(
+            f"  {result['configuration']}: "
+            f"{float(result['best_validation_return']):+.4f} "
+            f"at episode {int(float(result['best_validation_episode']))}"
+        )
+    print(f"Selected checkpoint: {checkpoint}")
+
+
 def train_dqn(
     episodes_per_config: int = EPISODES_PER_CONFIG,
     validation_interval: int = VALIDATION_INTERVAL,
@@ -126,12 +313,7 @@ def train_dqn(
     if validation_interval <= 0 or validation_episodes <= 0:
         raise ValueError("Validation interval and episode count must be positive.")
 
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
+    _seed_all(seed)
     training_env, validation_env = _create_train_validation_envs(seed)
     summary: list[dict[str, float | str]] = []
     best_validation_return = float("-inf")
@@ -148,132 +330,15 @@ def train_dqn(
 
         for config_index, (config_name, config) in enumerate(CONFIGURATIONS):
             config_seed = seed + config_index * 10_000
-            random.seed(config_seed)
-            np.random.seed(config_seed)
-            torch.manual_seed(config_seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(config_seed)
-
-            agent = DQNAgent(config=config)
-            epsilon = EPSILON_START
-            rolling_returns: list[float] = []
-            config_best_return = float("-inf")
-            config_best_episode = 0
-            validation_episodes_completed = 0
-
-            print(
-                f"\nConfiguration {config_name}: "
-                f"{asdict(config)} | device={agent.device}"
+            _seed_all(config_seed)
+            result, best_validation_return = _train_dqn_config(
+                config_name, config, training_env, validation_env,
+                episodes_per_config, validation_interval, validation_episodes,
+                config_seed, best_validation_return, checkpoint,
             )
+            summary.append(result)
 
-            for episode in range(1, episodes_per_config + 1):
-                state, _ = _quiet_env_call(
-                    training_env.reset,
-                    seed=config_seed + episode,
-                )
-                episode_return = 0.0
-                episode_length = 0
-                terminated = False
-                truncated = False
-
-                while not (terminated or truncated):
-                    if training_env.customer_data is None:
-                        raise RuntimeError(
-                            "Environment reset did not initialize customer data."
-                        )
-                    valid_actions = training_env.action_manager.get_valid_actions(
-                        training_env.customer_data
-                    )
-                    action = agent.select_action(state, valid_actions, epsilon)
-                    next_state, reward, terminated, truncated, _ = _quiet_env_call(
-                        training_env.step, action,
-                    )
-                    next_valid_actions = (
-                        training_env.action_manager.get_valid_actions(
-                            training_env.customer_data
-                        )
-                        if not (terminated or truncated)
-                        else ()
-                    )
-                    agent.remember(
-                        state, action, reward, next_state,
-                        terminated or truncated, next_valid_actions,
-                    )
-                    loss = agent.train_step()
-                    state = next_state
-                    episode_return += float(reward)
-                    episode_length += 1
-                    epsilon = max(EPSILON_MIN, epsilon * EPSILON_DECAY)
-
-                rolling_returns.append(episode_return)
-                if episode % LOG_INTERVAL == 0 or episode == 1:
-                    recent_returns = rolling_returns[-LOG_INTERVAL:]
-                    loss_text = f"{loss:.5f}" if loss is not None else "warming up"
-                    print(
-                        f"{config_name} | episode={episode}/{episodes_per_config} | "
-                        f"return={episode_return:+.4f} | "
-                        f"mean_return_{len(recent_returns)}="
-                        f"{np.mean(recent_returns):+.4f} | "
-                        f"length={episode_length} | epsilon={epsilon:.3f} | "
-                        f"loss={loss_text}"
-                    )
-
-                should_validate = (
-                    episode % validation_interval == 0
-                    or episode == episodes_per_config
-                )
-                if should_validate:
-                    validation = _evaluate_agent(
-                        agent, validation_env,
-                        episodes=validation_episodes,
-                        seed=config_seed + 1_000_000 + episode * validation_episodes,
-                    )
-                    validation_episodes_completed += validation_episodes
-                    print(
-                        f"Validation | {config_name} | episode={episode} | "
-                        f"mean_return={validation.mean_return:+.4f} | "
-                        f"mean_length={validation.mean_episode_length:.2f} | "
-                        f"actions={validation.action_counts}"
-                    )
-
-                    if validation.mean_return > config_best_return:
-                        config_best_return = validation.mean_return
-                        config_best_episode = episode
-                    if validation.mean_return > best_validation_return:
-                        best_validation_return = validation.mean_return
-                        agent.save_checkpoint(
-                            checkpoint,
-                            configuration_name=config_name,
-                            validation_mean_return=validation.mean_return,
-                            validation_episode=episode,
-                            training_seed=config_seed,
-                        )
-                        print(
-                            f"Saved new best checkpoint "
-                            f"(validation return={best_validation_return:+.4f})."
-                        )
-
-            summary.append(
-                {
-                    "configuration": config_name,
-                    "best_validation_return": config_best_return,
-                    "best_validation_episode": float(config_best_episode),
-                    "validation_episodes": float(validation_episodes_completed),
-                }
-            )
-
-        print("\nConfiguration comparison (best validation return)")
-        for result in sorted(
-            summary,
-            key=lambda item: float(item["best_validation_return"]),
-            reverse=True,
-        ):
-            print(
-                f"  {result['configuration']}: "
-                f"{float(result['best_validation_return']):+.4f} "
-                f"at episode {int(float(result['best_validation_episode']))}"
-            )
-        print(f"Selected checkpoint: {checkpoint}")
+        _print_summary(summary, checkpoint)
         return summary
     finally:
         training_env.close()
