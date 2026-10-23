@@ -5,7 +5,6 @@
 \usepackage{graphicx}
 \usepackage{tabularx}
 \usepackage{booktabs}
-\usepackage{caption}
 \usepackage[english]{babel}
 \usepackage{setspace}
 \usepackage{geometry}
@@ -13,6 +12,7 @@
 \usepackage{url}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{longtable}
 \usepackage[justification=centering]{caption}
 
 \lstset{
@@ -26,8 +26,9 @@
 % APA style formatting
 \geometry{a4paper, margin=1in}
 \setstretch{1.5}
-\captionsetup[table]{labelfont=bf, justification=raggedright, singlelinecheck=false}
-\captionsetup[figure]{font=small, labelfont=bf, justification=raggedright, singlelinecheck=false}
+\captionsetup[table]{labelfont=bf, justification=centering, singlelinecheck=false}
+\captionsetup[longtable]{labelfont=bf, justification=centering, singlelinecheck=false}
+\captionsetup[figure]{font=small, labelfont=bf, justification=centering, singlelinecheck=false}
 
 \title{ Machine Learning for Customer Churn Prediction}
 \author{Nelson David Posso Suarez \\ Javier Alejandro Penagos Hernandez \\ Nicolas Castro Rivera }
@@ -70,8 +71,6 @@ The competition provides nine compressed files (\texttt{.csv.7z}). Table~\ref{ta
 
 \begin{table}[H]
 \centering
-\caption{KKBox dataset files and their characteristics.}
-\label{tab:files}
 \begin{tabularx}{\textwidth}{lXrr}
 \toprule
 \textbf{File} & \textbf{Description} & \textbf{Rows (approx.)} & \textbf{Columns} \\
@@ -87,6 +86,8 @@ The competition provides nine compressed files (\texttt{.csv.7z}). Table~\ref{ta
 \texttt{sample\_submission\_zero.csv} & Baseline submission with all predictions set to zero    & 224{,}000      & 2  \\
 \bottomrule
 \end{tabularx}
+\caption{KKBox dataset files and their characteristics.}
+\label{tab:files}
 \end{table}
 
 
@@ -97,8 +98,6 @@ The Kaggle platform does not publish official checksums for competition datasets
 
 \begin{table}[H]
 \centering
-\caption{SHA-256 checksums of the raw \texttt{.csv.7z} archives (first 16 hex characters shown).}
-\label{tab:integrity}
 \begin{tabular}{llr}
 \toprule
 \textbf{File} & \textbf{SHA-256 (prefix)} & \textbf{Size (MB)} \\
@@ -114,6 +113,8 @@ The Kaggle platform does not publish official checksums for competition datasets
 \texttt{sample\_submission\_zero.csv.7z} & \texttt{8d709c30a1e7dc52} &    32.8 \\
 \bottomrule
 \end{tabular}
+\caption{SHA-256 checksums of the raw \texttt{.csv.7z} archives (first 16 hex characters shown).}
+\label{tab:integrity}
 \end{table}
 
 To verify the downloaded files, run the following command from the project root:
@@ -123,5 +124,216 @@ python workshops/w1/src/data_info/dataset_info.py
 \end{lstlisting}
 
 The script computes the SHA-256 of each archive in \texttt{workshops/data/}, compares the result against \texttt{checksums.json}, and prints \texttt{OK} or \texttt{FAIL} for each file. It exits with code~1 if any file is missing or does not match.
+
+% ─────────────────────────────────────────────
+\section{Exploratory Data Analysis}
+% ─────────────────────────────────────────────
+
+The KKBox dataset is composed of four distinct relational tables. Tables~\ref{tab:schema_train}--\ref{tab:schema_transactions} describe the features present in each raw file, including a brief description and data type as stored in the source CSV.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|l|X|l|}
+\hline
+\textbf{Feature} & \textbf{Description} & \textbf{Data type} \\ \hline
+msno      & Hashed subscriber identifier (primary key) & \texttt{str} \\ \hline
+is\_churn & Churn label: 1 if the user did not renew within 30 days of expiry, 0 otherwise & \texttt{int8} \\ \hline
+\end{tabularx}
+\caption{Schema of \texttt{train.csv} and \texttt{train\_v2.csv}}
+\label{tab:schema_train}
+\end{table}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|l|X|l|}
+\hline
+\textbf{Feature} & \textbf{Description} & \textbf{Data type} \\ \hline
+msno                     & Hashed subscriber identifier (primary key) & \texttt{str} \\ \hline
+city                     & City of residence encoded as an integer code (1--22) & \texttt{int8} \\ \hline
+bd                       & Subscriber age in years. Contains invalid values outside the range [1, 100] & \texttt{int16} \\ \hline
+gender                   & Subscriber gender (male / female). Contains missing values & \texttt{str} \\ \hline
+registered\_via          & Registration channel encoded as an integer code & \texttt{int8} \\ \hline
+registration\_init\_time & Account registration date in YYYYMMDD format & \texttt{int32} \\ \hline
+expiration\_date         & Membership expiration date in YYYYMMDD format. Not used as a model feature & \texttt{int32} \\ \hline
+\end{tabularx}
+\caption{Schema of \texttt{members\_v3.csv}}
+\label{tab:schema_members}
+\end{table}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|l|X|l|}
+\hline
+\textbf{Feature} & \textbf{Description} & \textbf{Data type} \\ \hline
+msno        & Hashed subscriber identifier (foreign key) & \texttt{str} \\ \hline
+date        & Listening date in YYYYMMDD format & \texttt{int32} \\ \hline
+num\_25     & Number of songs played less than 25\% of their duration & \texttt{int32} \\ \hline
+num\_50     & Number of songs played between 25\% and 50\% of their duration & \texttt{int32} \\ \hline
+num\_75     & Number of songs played between 50\% and 75\% of their duration & \texttt{int32} \\ \hline
+num\_985    & Number of songs played between 75\% and 98.5\% of their duration & \texttt{int32} \\ \hline
+num\_100    & Number of songs played at least 98.5\% of their duration (completed) & \texttt{int32} \\ \hline
+num\_unq    & Number of unique songs played on that day & \texttt{int32} \\ \hline
+total\_secs & Total seconds of music listened to on that day & \texttt{float64} \\ \hline
+\end{tabularx}
+\caption{Schema of \texttt{user\_logs.csv} and \texttt{user\_logs\_v2.csv}}
+\label{tab:schema_logs}
+\end{table}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|l|X|l|}
+\hline
+\textbf{Feature} & \textbf{Description} & \textbf{Data type} \\ \hline
+msno                     & Hashed subscriber identifier (foreign key) & \texttt{str} \\ \hline
+payment\_method\_id      & Payment method encoded as an integer code (2--41) & \texttt{int8} \\ \hline
+payment\_plan\_days      & Number of days in the purchased subscription plan & \texttt{int16} \\ \hline
+plan\_list\_price        & Listed price of the subscription plan in New Taiwan Dollars (NTD) & \texttt{int16} \\ \hline
+actual\_amount\_paid     & Amount actually paid by the subscriber in NTD & \texttt{int16} \\ \hline
+is\_auto\_renew          & Flag indicating automatic renewal (1 = yes, 0 = no) & \texttt{int8} \\ \hline
+transaction\_date        & Date of the transaction in YYYYMMDD format & \texttt{int32} \\ \hline
+membership\_expire\_date & Membership expiration date after the transaction in YYYYMMDD format & \texttt{int32} \\ \hline
+is\_cancel               & Flag indicating subscription cancellation (1 = yes, 0 = no) & \texttt{int8} \\ \hline
+\end{tabularx}
+\caption{Schema of \texttt{transactions.csv} and \texttt{transactions\_v2.csv}}
+\label{tab:schema_transactions}
+\end{table}
+
+\subsection{Target Distribution}
+
+\subsection{Feature Statistics}
+
+\subsection{Data Quality}
+
+\subsection{Feature Relationships}
+
+% ─────────────────────────────────────────────
+\section{Preprocessing Pipeline}
+% ─────────────────────────────────────────────
+
+The preprocessing pipeline implemented in this work is partially based on the public analysis published by Asad Rizvi~\cite{rizvi2018kkbox}, which includes an exploratory data analysis and a feature engineering approach for the KKBox Churn Prediction Challenge. From his work we adopted the general structure for joining the relational tables and several feature engineering ideas at the transaction and listening level. However, his approach targeted a different modelling objective and proposed a larger feature set with a different temporal framing. We discarded a significant portion of his proposed features, simplified the listening aggregation scheme, and redesigned the cohort structure around a month-over-month temporal split that better reflects a real production scoring scenario.
+
+The full pipeline is implemented in \texttt{workshops/w1/w1\_data\_preprocessing.ipynb}. The model training and evaluation that consumes the pipeline output is in \texttt{workshops/w1/w1\_tabular\_models.ipynb}.
+
+\subsection{Raw Extraction and Parquet Conversion}
+
+The nine \texttt{.csv.7z} archives in \texttt{workshops/data/} are extracted and converted to Parquet format by the \texttt{convert\_raw\_to\_parquet()} function (\texttt{workshops/w1/src/data\_processing/utils.py}), called in Section~2 of the preprocessing notebook. Each archive is decompressed one at a time using the \texttt{7z} binary, and only the columns defined in the project schema are retained and cast to compact integer or float types. The resulting files are written with \texttt{zstd} compression to \texttt{workshops/data/parquet/}. The conversion is idempotent: existing Parquet files are skipped, so the step can be safely resumed after an interruption.
+
+Parquet was chosen over CSV because it is a columnar binary format that stores type information natively. Reading a single column from a large Parquet file does not require parsing the entire file, which reduces both I/O and memory usage significantly compared to CSV for the multi-million-row tables in this dataset.
+
+\subsection{Cohort Definition and User Index}
+
+The dataset is structured around two labelled cohorts defined in Section~3 of the preprocessing notebook:
+
+\begin{itemize}
+    \item \textbf{February development cohort} (\texttt{train.csv}): 992{,}931 users with features cut at 2017-01-31 and churn labels for February 2017. Churn rate: 6.4\%.
+    \item \textbf{March test cohort} (\texttt{train\_v2.csv}): 970{,}960 users with features cut at 2017-02-28 and churn labels for March 2017. Churn rate: 9.0\%.
+\end{itemize}
+
+A shared integer index (\texttt{uid}) is assigned over the union of both cohorts (1{,}082{,}190 unique users), replacing the raw \texttt{msno} string for all subsequent joins. A user who appears in both months receives the same \texttt{uid} but a different cutoff, feature snapshot, and label, which mirrors monthly scoring in production.
+
+\subsection{Member Features}
+
+Static demographic features are extracted from \texttt{members\_v3.parquet} in Section~4 of the preprocessing notebook. Invalid ages (outside the range [1, 100]) and negative registration channel values are imputed with the mean age and mode channel computed exclusively on the February cohort. Three derived features are added: \texttt{tenure\_days} (days elapsed from the registration date to the feature cutoff), \texttt{registration\_year}, and \texttt{registration\_month}. A binary flag \texttt{bd\_missing} marks rows where the original age was invalid or absent. This domain contributes \textbf{7 features} per user.
+
+\subsection{Transaction Features}
+
+Transaction records from both \texttt{transactions.parquet} and \texttt{transactions\_v2.parquet} are concatenated and deduplicated in Sections~5--6 of the preprocessing notebook. Exact duplicates—rows identical across all eight transaction fields for the same user—are removed, keeping only the first occurrence. Per-record derived columns are then computed: plan duration, plan coverage ratio, discount (list price minus amount paid), and behavioural flags. These records are subsequently aggregated into \textbf{one row per user}, yielding approximately 29 features covering counts, sums, averages, last-record attributes, and timing features relative to the cutoff (e.g., \texttt{days\_to\_expire}, \texttt{days\_since\_last\_transaction}). All transaction history up to the cohort cutoff is used; no fixed time window is applied.
+
+\subsection{Listening Log Features}
+
+Daily listening logs from both \texttt{user\_logs.parquet} and \texttt{user\_logs\_v2.parquet} are processed in Sections~7--8 of the preprocessing notebook. Records are restricted to the three calendar months ending at the feature cutoff and filtered to target users. Negative play counts are set to zero and non-finite \texttt{total\_secs} values are replaced by zero. The resulting user-day table is grouped to monthly sums and active-day counts. A daily p99.9 clipping limit is applied to the per-day mean of each listening counter—these limits are fitted exclusively on the February cohort and reused for March to prevent leakage.
+
+The last three active months for each user are then pivoted into a wide row (\texttt{last\_*}, \texttt{last\_second\_*}, \texttt{last\_third\_*}). Several redundant per-channel columns are dropped, and four month-over-month trend features are added: \texttt{trend\_songs}, \texttt{trend\_secs}, \texttt{trend\_ratio100}, and \texttt{trend\_ratio25}. Recency features (\texttt{days\_since\_last\_log}, \texttt{has\_listening\_logs}) are computed relative to the cutoff. This domain contributes approximately \textbf{23 features} per user.
+
+\subsection{Final Assembly and Saved Outputs}
+
+The three feature domains are assembled in Sections~9--10 of the preprocessing notebook by left-joining member, transaction, and listening features onto the user list. Users absent from a given domain receive zero for all count and sum columns; presence flags (\texttt{has\_member\_record}, \texttt{has\_transactions}, \texttt{has\_listening\_logs}) mark whether a record existed. Table~\ref{tab:features59} lists the resulting \textbf{59 features} per user together with their source table.
+
+\renewcommand{\arraystretch}{1.3}
+\begin{longtable}{|l|p{7.5cm}|l|}
+\hline
+\textbf{Feature} & \textbf{Description} & \textbf{Source} \\ \hline
+\endfirsthead
+\hline
+\textbf{Feature} & \textbf{Description} & \textbf{Source} \\ \hline
+\endhead
+\hline
+\multicolumn{3}{r}{\small\textit{Continued on next page}} \\
+\endfoot
+\hline
+\caption{Final feature set (59 features) with source table.}
+\label{tab:features59}
+\endlastfoot
+city & City of residence (integer code) & members\_v3 \\ \hline
+registered\_via & Registration channel (integer code) & members\_v3 \\ \hline
+bd & Subscriber age in years (imputed if invalid) & members\_v3 \\ \hline
+bd\_missing & Flag: 1 if original age was invalid or absent & members\_v3 \\ \hline
+tenure\_days & Days from registration to feature cutoff & members\_v3 \\ \hline
+registration\_year & Year of account registration & members\_v3 \\ \hline
+registration\_month & Month of account registration & members\_v3 \\ \hline
+has\_member\_record & Flag: 1 if a member record exists for the user & Pipeline \\ \hline
+is\_cancel\_change\_flag & 1 if any transaction was a cancellation & transactions \\ \hline
+is\_auto\_renew\_change\_flag & 1 if any transaction had auto-renew enabled & transactions \\ \hline
+transaction\_count & Total number of transactions & transactions \\ \hline
+average\_amount\_paid & Mean amount paid across all transactions & transactions \\ \hline
+average\_amount\_charged & Mean listed price across all transactions & transactions \\ \hline
+average\_plan & Mean plan duration in days & transactions \\ \hline
+n\_payment\_methods & Number of distinct payment methods used & transactions \\ \hline
+n\_plans & Number of distinct plan durations purchased & transactions \\ \hline
+n\_list\_prices & Number of distinct listed prices seen & transactions \\ \hline
+n\_amounts\_paid & Number of distinct amounts actually paid & transactions \\ \hline
+duration & Mean duration (expiry minus transaction date) in days & transactions \\ \hline
+plan\_coverage\_ratio & Mean ratio of duration to plan days & transactions \\ \hline
+sum\_plan\_days & Total plan days purchased & transactions \\ \hline
+sum\_list\_price & Total listed price across all transactions & transactions \\ \hline
+sum\_amount\_paid & Total amount paid across all transactions & transactions \\ \hline
+more\_than\_30 & Count of transactions with duration $>$ 30 days & transactions \\ \hline
+autorenew\_not\_cancel & Min flag: auto-renew on and not cancelled & transactions \\ \hline
+not\_autorenew\_cancel & Min flag: auto-renew off and cancelled & transactions \\ \hline
+max\_plan\_days & Maximum plan duration across all transactions & transactions \\ \hline
+last\_payment\_method\_id & Payment method of the most recent transaction & transactions \\ \hline
+last\_plan\_days & Plan days of the most recent transaction & transactions \\ \hline
+last\_is\_auto\_renew & Auto-renew flag of the most recent transaction & transactions \\ \hline
+last\_is\_cancel & Cancel flag of the most recent transaction & transactions \\ \hline
+last\_discount & Discount (list price minus paid) of the most recent transaction & transactions \\ \hline
+days\_to\_expire & Days from last expiry date to cutoff (negative = already expired) & transactions \\ \hline
+expire\_dayofweek & Day of the week of the last expiry date & transactions \\ \hline
+days\_since\_last\_transaction & Days from last transaction date to cutoff & transactions \\ \hline
+difference & Mean amount paid minus mean amount charged & transactions \\ \hline
+has\_transactions & Flag: 1 if any transaction record exists & Pipeline \\ \hline
+sum\_last\_month\_unq & Sum of unique songs in the last active month & user\_logs \\ \hline
+sum\_last\_month\_total\_secs & Sum of listening seconds in the last active month & user\_logs \\ \hline
+mean\_last\_month\_total\_secs & Mean daily listening seconds in the last active month & user\_logs \\ \hline
+last\_login & Number of active days in the last active month & user\_logs \\ \hline
+last\_sum\_total\_songs & Total songs played in the last active month & user\_logs \\ \hline
+last\_ratio\_100 & Ratio of fully-played songs in the last active month & user\_logs \\ \hline
+last\_ratio\_25 & Ratio of barely-played songs in the last active month & user\_logs \\ \hline
+sum\_last\_second\_month\_total\_secs & Sum of listening seconds in the second-to-last active month & user\_logs \\ \hline
+last\_second\_login & Number of active days in the second-to-last active month & user\_logs \\ \hline
+last\_second\_sum\_total\_songs & Total songs played in the second-to-last active month & user\_logs \\ \hline
+last\_second\_ratio\_100 & Ratio of fully-played songs in the second-to-last active month & user\_logs \\ \hline
+last\_second\_ratio\_25 & Ratio of barely-played songs in the second-to-last active month & user\_logs \\ \hline
+last\_third\_sum\_total\_songs & Total songs played in the third-to-last active month & user\_logs \\ \hline
+last\_third\_ratio\_100 & Ratio of fully-played songs in the third-to-last active month & user\_logs \\ \hline
+last\_third\_ratio\_25 & Ratio of barely-played songs in the third-to-last active month & user\_logs \\ \hline
+login\_difference & Difference in active days between last and second-to-last month & user\_logs \\ \hline
+trend\_songs & Ratio of total songs last month to second-to-last month & user\_logs \\ \hline
+trend\_secs & Ratio of listening seconds last month to second-to-last month & user\_logs \\ \hline
+trend\_ratio100 & Change in fully-played ratio from second-to-last to last month & user\_logs \\ \hline
+trend\_ratio25 & Change in barely-played ratio from second-to-last to last month & user\_logs \\ \hline
+days\_since\_last\_log & Days from the last listening date to the cutoff & user\_logs \\ \hline
+has\_listening\_logs & Flag: 1 if any listening record exists & Pipeline \\ \hline
+\end{longtable}
+
+The two cohort tables are exported to \texttt{workshops/w1/export-tabular-v5/} as \texttt{train\_feb.parquet} (February, 992{,}931 users) and \texttt{test.parquet} (March, 970{,}960 users). Imputation and clipping parameters are persisted in \texttt{preprocess\_params.json} and the complete feature catalogue in \texttt{metadata.json}. Split indices for the development and test partitions are saved to \texttt{workshops/w1/artifacts/sherlock\_w1/split\_indices.npz}.
+
+\begin{thebibliography}{9}
+\bibitem{rizvi2018kkbox}
+Rizvi, A. (2018). \textit{WSDM -- KKBox's Churn Prediction Challenge}. Medium. Retrieved from \url{https://asad-99rizvi.medium.com/wsdm-kkboxs-churn-prediction-challenge-d7c9cfa21cbd}
+\end{thebibliography}
 
 \end{document}
