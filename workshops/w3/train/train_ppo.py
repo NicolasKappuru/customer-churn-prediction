@@ -50,10 +50,28 @@ class ValidationResult:
     action_counts: dict[int, int]
 
 
+@dataclass
+class _EpisodeResult:
+    transitions: list[PPOTransition]
+    episode_return: float
+    episode_length: int
+    accepted_count: int
+    action_cost: float
+    action_frequency_update: Counter
+
+
 def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
     """Suppress preprocessing progress output during agent training."""
     with redirect_stdout(io.StringIO()):
         return function(*args, **kwargs)
+
+
+def _seed_all(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def _create_train_validation_envs(
@@ -120,6 +138,212 @@ def _evaluate_agent(
     )
 
 
+def _run_ppo_episode(
+    agent: PPOAgent,
+    env: KKBoxRetentionEnv,
+    config_seed: int,
+    episode: int,
+) -> _EpisodeResult:
+    state, _ = _quiet_env_call(env.reset, seed=config_seed + episode)
+    transitions: list[PPOTransition] = []
+    episode_return = 0.0
+    episode_length = 0
+    accepted_count = 0
+    action_cost = 0.0
+    action_frequency_update: Counter[int] = Counter()
+    terminated = False
+    truncated = False
+
+    while not (terminated or truncated):
+        if env.customer_data is None:
+            raise RuntimeError("Environment did not initialize a customer.")
+        customer_before = env.customer_data
+        valid_actions = env.action_manager.get_valid_actions(env.customer_data)
+        action, old_log_probability, value = agent.select_action(state, valid_actions)
+        next_state, reward, terminated, truncated, info = _quiet_env_call(
+            env.step, action,
+        )
+        if not env.observation_space.contains(next_state):
+            raise ValueError(
+                f"Episode {episode}: step observation does not match "
+                "the environment observation space."
+            )
+        transitions.append(PPOTransition(
+            state=state, action=action, reward=reward, next_state=next_state,
+            terminated=terminated or truncated, valid_actions=valid_actions,
+            old_log_probability=old_log_probability, value=value,
+        ))
+        action_frequency_update[action] += 1
+        accepted_count += int(env.customer_data is not customer_before)
+        action_cost += float(info["action_cost"])
+        state = next_state
+        episode_return += float(reward)
+        episode_length += 1
+
+    return _EpisodeResult(
+        transitions=transitions,
+        episode_return=episode_return,
+        episode_length=episode_length,
+        accepted_count=accepted_count,
+        action_cost=action_cost,
+        action_frequency_update=action_frequency_update,
+    )
+
+
+def _log_ppo_progress(
+    config_name: str,
+    episode: int,
+    episodes_per_config: int,
+    episode_return: float,
+    recent_returns: list[float],
+    episode_length: int,
+    accepted_actions: int,
+    total_action_cost: float,
+    losses: dict[str, float] | None,
+) -> None:
+    loss_text = (
+        f"policy={losses['policy_loss']:.5f}, "
+        f"value={losses['value_loss']:.5f}, "
+        f"entropy={losses['entropy']:.5f}"
+        if losses is not None
+        else "rollout collecting"
+    )
+    print(
+        f"{config_name} | episode={episode}/{episodes_per_config} | "
+        f"return={episode_return:+.4f} | "
+        f"mean_return_{len(recent_returns)}={np.mean(recent_returns):+.4f} | "
+        f"length={episode_length} | "
+        f"accepted={accepted_actions} | "
+        f"cost={total_action_cost:.2f} | {loss_text}"
+    )
+
+
+def _run_ppo_validation(
+    agent: PPOAgent,
+    validation_env: KKBoxRetentionEnv,
+    config_name: str,
+    episode: int,
+    config_seed: int,
+    validation_episodes: int,
+    best_validation_return: float,
+    checkpoint: Path,
+) -> tuple[float, float]:
+    """Run validation and save checkpoint if improved. Returns (val_return, new_best)."""
+    validation = _evaluate_agent(
+        agent, validation_env, validation_episodes,
+        seed=config_seed + 1_000_000 + episode * validation_episodes,
+    )
+    print(
+        f"Validation | {config_name} | episode={episode} | "
+        f"mean_return={validation.mean_return:+.4f} | "
+        f"std_return={validation.std_return:.4f} | "
+        f"mean_length={validation.mean_episode_length:.2f} | "
+        f"actions={validation.action_counts}"
+    )
+    if validation.mean_return > best_validation_return:
+        best_validation_return = validation.mean_return
+        agent.save_checkpoint(
+            checkpoint,
+            configuration_name=config_name,
+            validation_mean_return=validation.mean_return,
+            validation_episode=episode,
+            training_seed=config_seed,
+        )
+        print(
+            f"Saved new best checkpoint "
+            f"(validation return={best_validation_return:+.4f})."
+        )
+    return validation.mean_return, best_validation_return
+
+
+def _train_ppo_config(
+    config_name: str,
+    config: PPOConfig,
+    training_env: KKBoxRetentionEnv,
+    validation_env: KKBoxRetentionEnv,
+    episodes_per_config: int,
+    validation_interval: int,
+    validation_episodes: int,
+    rollout_episodes: int,
+    config_seed: int,
+    best_validation_return: float,
+    checkpoint: Path,
+) -> tuple[dict[str, float | str], float]:
+    """Train one configuration. Returns (result_dict, updated_best_validation_return)."""
+    agent = PPOAgent(config=config)
+    rollout: list[PPOTransition] = []
+    config_best_return = float("-inf")
+    config_best_episode = 0
+    validation_checks = 0
+    episode_returns: list[float] = []
+    accepted_actions = 0
+    total_action_cost = 0.0
+    losses: dict[str, float] | None = None
+
+    print(f"\nConfiguration {config_name}: {asdict(config)} | device={agent.device}")
+
+    for episode in range(1, episodes_per_config + 1):
+        result = _run_ppo_episode(agent, training_env, config_seed, episode)
+        rollout.extend(result.transitions)
+        accepted_actions += result.accepted_count
+        total_action_cost += result.action_cost
+        episode_returns.append(result.episode_return)
+
+        if len(rollout) >= rollout_episodes:
+            losses = agent.update(rollout)
+            rollout.clear()
+
+        if episode % LOG_INTERVAL == 0 or episode == 1:
+            _log_ppo_progress(
+                config_name, episode, episodes_per_config,
+                result.episode_return, episode_returns[-LOG_INTERVAL:],
+                result.episode_length, accepted_actions, total_action_cost, losses,
+            )
+
+        should_validate = (
+            episode % validation_interval == 0 or episode == episodes_per_config
+        )
+        if should_validate:
+            if rollout:
+                losses = agent.update(rollout)
+                rollout.clear()
+            val_return, best_validation_return = _run_ppo_validation(
+                agent, validation_env, config_name, episode, config_seed,
+                validation_episodes, best_validation_return, checkpoint,
+            )
+            validation_checks += 1
+            if val_return > config_best_return:
+                config_best_return = val_return
+                config_best_episode = episode
+
+    return (
+        {
+            "configuration": config_name,
+            "best_validation_return": config_best_return,
+            "best_validation_episode": float(config_best_episode),
+            "validation_checks": float(validation_checks),
+        },
+        best_validation_return,
+    )
+
+
+def _print_summary(
+    results: list[dict[str, float | str]], checkpoint: Path
+) -> None:
+    print("\nConfiguration comparison (best validation return)")
+    for result in sorted(
+        results,
+        key=lambda item: float(item["best_validation_return"]),
+        reverse=True,
+    ):
+        print(
+            f"  {result['configuration']}: "
+            f"{float(result['best_validation_return']):+.4f} "
+            f"at episode {int(float(result['best_validation_episode']))}"
+        )
+    print(f"Selected checkpoint: {checkpoint}")
+
+
 def train_ppo(
     episodes_per_config: int = EPISODES_PER_CONFIG,
     validation_interval: int = VALIDATION_INTERVAL,
@@ -136,12 +360,7 @@ def train_ppo(
     if rollout_episodes <= 0:
         raise ValueError("rollout_episodes must be greater than zero.")
 
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
+    _seed_all(seed)
     training_env, validation_env = _create_train_validation_envs(seed)
     checkpoint = Path(checkpoint_path)
     results: list[dict[str, float | str]] = []
@@ -158,166 +377,15 @@ def train_ppo(
 
         for config_index, (config_name, config) in enumerate(CONFIGURATIONS):
             config_seed = seed + config_index * 10_000
-            random.seed(config_seed)
-            np.random.seed(config_seed)
-            torch.manual_seed(config_seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(config_seed)
-
-            agent = PPOAgent(config=config)
-            rollout: list[PPOTransition] = []
-            config_best_return = float("-inf")
-            config_best_episode = 0
-            validation_checks = 0
-            episode_returns: list[float] = []
-            action_frequencies: Counter[int] = Counter()
-            accepted_actions = 0
-            total_action_cost = 0.0
-
-            print(
-                f"\nConfiguration {config_name}: {asdict(config)} | "
-                f"device={agent.device}"
+            _seed_all(config_seed)
+            result, best_validation_return = _train_ppo_config(
+                config_name, config, training_env, validation_env,
+                episodes_per_config, validation_interval, validation_episodes,
+                rollout_episodes, config_seed, best_validation_return, checkpoint,
             )
+            results.append(result)
 
-            for episode in range(1, episodes_per_config + 1):
-                state, _ = _quiet_env_call(
-                    training_env.reset,
-                    seed=config_seed + episode,
-                )
-                episode_return = 0.0
-                episode_length = 0
-                terminated = False
-                truncated = False
-
-                while not (terminated or truncated):
-                    if training_env.customer_data is None:
-                        raise RuntimeError("Environment did not initialize a customer.")
-                    customer_before = training_env.customer_data
-                    valid_actions = training_env.action_manager.get_valid_actions(
-                        training_env.customer_data
-                    )
-                    action, old_log_probability, value = agent.select_action(
-                        state, valid_actions,
-                    )
-                    next_state, reward, terminated, truncated, info = _quiet_env_call(
-                        training_env.step, action,
-                    )
-                    if not training_env.observation_space.contains(next_state):
-                        raise ValueError(
-                            f"Episode {episode}: step observation does not match "
-                            "the environment observation space."
-                        )
-
-                    rollout.append(
-                        PPOTransition(
-                            state=state,
-                            action=action,
-                            reward=reward,
-                            next_state=next_state,
-                            terminated=terminated or truncated,
-                            valid_actions=valid_actions,
-                            old_log_probability=old_log_probability,
-                            value=value,
-                        )
-                    )
-                    action_frequencies[action] += 1
-                    accepted_actions += int(
-                        training_env.customer_data is not customer_before
-                    )
-                    total_action_cost += float(info["action_cost"])
-                    state = next_state
-                    episode_return += float(reward)
-                    episode_length += 1
-
-                episode_returns.append(episode_return)
-                if len(rollout) >= rollout_episodes:
-                    losses = agent.update(rollout)
-                    rollout.clear()
-                else:
-                    losses = None
-
-                if episode % LOG_INTERVAL == 0 or episode == 1:
-                    recent_returns = episode_returns[-LOG_INTERVAL:]
-                    loss_text = (
-                        f"policy={losses['policy_loss']:.5f}, "
-                        f"value={losses['value_loss']:.5f}, "
-                        f"entropy={losses['entropy']:.5f}"
-                        if losses is not None
-                        else "rollout collecting"
-                    )
-                    print(
-                        f"{config_name} | episode={episode}/{episodes_per_config} | "
-                        f"return={episode_return:+.4f} | "
-                        f"mean_return_{len(recent_returns)}="
-                        f"{np.mean(recent_returns):+.4f} | "
-                        f"length={episode_length} | "
-                        f"accepted={accepted_actions} | "
-                        f"cost={total_action_cost:.2f} | {loss_text}"
-                    )
-
-                should_validate = (
-                    episode % validation_interval == 0
-                    or episode == episodes_per_config
-                )
-                if should_validate:
-                    if rollout:
-                        losses = agent.update(rollout)
-                        rollout.clear()
-                    validation = _evaluate_agent(
-                        agent, validation_env, validation_episodes,
-                        seed=(
-                            config_seed
-                            + 1_000_000
-                            + episode * validation_episodes
-                        ),
-                    )
-                    validation_checks += 1
-                    print(
-                        f"Validation | {config_name} | episode={episode} | "
-                        f"mean_return={validation.mean_return:+.4f} | "
-                        f"std_return={validation.std_return:.4f} | "
-                        f"mean_length={validation.mean_episode_length:.2f} | "
-                        f"actions={validation.action_counts}"
-                    )
-
-                    if validation.mean_return > config_best_return:
-                        config_best_return = validation.mean_return
-                        config_best_episode = episode
-                    if validation.mean_return > best_validation_return:
-                        best_validation_return = validation.mean_return
-                        agent.save_checkpoint(
-                            checkpoint,
-                            configuration_name=config_name,
-                            validation_mean_return=validation.mean_return,
-                            validation_episode=episode,
-                            training_seed=config_seed,
-                        )
-                        print(
-                            "Saved new best checkpoint "
-                            f"(validation return={best_validation_return:+.4f})."
-                        )
-
-            results.append(
-                {
-                    "configuration": config_name,
-                    "best_validation_return": config_best_return,
-                    "best_validation_episode": float(config_best_episode),
-                    "validation_checks": float(validation_checks),
-                }
-            )
-
-        print("\nConfiguration comparison (best validation return)")
-        for result in sorted(
-            results,
-            key=lambda item: float(item["best_validation_return"]),
-            reverse=True,
-        ):
-            print(
-                f"  {result['configuration']}: "
-                f"{float(result['best_validation_return']):+.4f} "
-                f"at episode {int(float(result['best_validation_episode']))}"
-            )
-        print(f"Selected checkpoint: {checkpoint}")
+        _print_summary(results, checkpoint)
         return results
     finally:
         training_env.close()

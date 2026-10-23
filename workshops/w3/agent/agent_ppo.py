@@ -149,123 +149,20 @@ class PPOAgent:
         if not rollout:
             raise ValueError("Cannot update PPO with an empty rollout.")
 
-        states = torch.as_tensor(
-            np.stack([item.state for item in rollout]),
-            dtype=torch.float32,
-            device=self.device,
+        tensors = self._rollout_to_tensors(rollout)
+        advantages, returns = self._compute_gae(
+            tensors["rewards"], tensors["old_values"],
+            tensors["next_values"], tensors["terminated"],
         )
-        actions = torch.as_tensor(
-            [item.action for item in rollout], dtype=torch.long, device=self.device
+        total_policy_loss, total_value_loss, total_entropy, n = self._run_update_epochs(
+            tensors["states"], tensors["actions"], tensors["old_log_probabilities"],
+            returns, advantages, tensors["action_masks"],
         )
-        old_log_probabilities = torch.as_tensor(
-            [item.old_log_probability for item in rollout],
-            dtype=torch.float32,
-            device=self.device,
-        )
-        rewards = torch.as_tensor(
-            [item.reward for item in rollout], dtype=torch.float32, device=self.device
-        )
-        old_values = torch.as_tensor(
-            [item.value for item in rollout], dtype=torch.float32, device=self.device
-        )
-        next_states = torch.as_tensor(
-            np.stack([item.next_state for item in rollout]),
-            dtype=torch.float32,
-            device=self.device,
-        )
-        terminated = torch.as_tensor(
-            [item.terminated for item in rollout],
-            dtype=torch.bool,
-            device=self.device,
-        )
-        action_masks = torch.zeros(
-            (len(rollout), self.config.action_size),
-            dtype=torch.bool,
-            device=self.device,
-        )
-        for row, item in enumerate(rollout):
-            valid_actions = self._validate_valid_actions(item.valid_actions)
-            action_masks[row, list(valid_actions)] = True
-
-        with torch.no_grad():
-            _, next_values = self.network(next_states)
-            next_values = next_values.masked_fill(terminated, 0.0)
-            deltas = rewards + self.config.gamma * next_values - old_values
-
-            advantages = torch.zeros_like(rewards)
-            last_advantage = 0.0
-            for index in reversed(range(len(rollout))):
-                continuation = 0.0 if terminated[index] else 1.0
-                last_advantage = (
-                    deltas[index]
-                    + self.config.gamma
-                    * self.config.gae_lambda
-                    * continuation
-                    * last_advantage
-                )
-                advantages[index] = last_advantage
-            returns = advantages + old_values
-            if len(rollout) > 1:
-                advantages = (advantages - advantages.mean()) / (
-                    advantages.std(unbiased=False) + 1e-8
-                )
-
-        total_policy_loss = 0.0
-        total_value_loss = 0.0
-        total_entropy = 0.0
-        minibatch_count = 0
-        self.network.train()
-
-        for _ in range(self.config.update_epochs):
-            permutation = torch.randperm(len(rollout), device=self.device)
-            for start in range(0, len(rollout), self.config.minibatch_size):
-                indices = permutation[start : start + self.config.minibatch_size]
-                logits, predicted_values = self.network(states[indices])
-                distribution = self._masked_distribution(
-                    logits, action_masks[indices]
-                )
-                new_log_probabilities = distribution.log_prob(actions[indices])
-                entropy = distribution.entropy().mean()
-
-                probability_ratios = torch.exp(
-                    new_log_probabilities - old_log_probabilities[indices]
-                )
-                unclipped_objective = probability_ratios * advantages[indices]
-                clipped_objective = torch.clamp(
-                    probability_ratios,
-                    1.0 - self.config.clip_epsilon,
-                    1.0 + self.config.clip_epsilon,
-                ) * advantages[indices]
-                policy_loss = -torch.minimum(
-                    unclipped_objective, clipped_objective
-                ).mean()
-                value_loss = torch.nn.functional.mse_loss(
-                    predicted_values, returns[indices]
-                )
-                loss = (
-                    policy_loss
-                    + self.config.value_coefficient * value_loss
-                    - self.config.entropy_coefficient * entropy
-                )
-
-                self.optimizer.zero_grad(set_to_none=True)
-                loss.backward()
-                nn.utils.clip_grad_norm_(
-                    self.network.parameters(),
-                    self.config.gradient_clip_value,
-                )
-                self.optimizer.step()
-
-                total_policy_loss += float(policy_loss.item())
-                total_value_loss += float(value_loss.item())
-                total_entropy += float(entropy.item())
-                minibatch_count += 1
-
         self.training_updates += 1
         return {
-            "policy_loss": total_policy_loss / minibatch_count,
-            "value_loss": total_value_loss / minibatch_count,
-            "entropy": total_entropy / minibatch_count,
+            "policy_loss": total_policy_loss / n,
+            "value_loss": total_value_loss / n,
+            "entropy": total_entropy / n,
         }
 
     def save_checkpoint(
@@ -316,6 +213,142 @@ class PPOAgent:
         if not isinstance(metadata, dict):
             raise ValueError(f"Invalid PPO checkpoint metadata: {path}")
         return agent, metadata
+
+    def _rollout_to_tensors(
+        self, rollout: Sequence[PPOTransition]
+    ) -> dict[str, torch.Tensor]:
+        states = torch.as_tensor(
+            np.stack([item.state for item in rollout]),
+            dtype=torch.float32, device=self.device,
+        )
+        actions = torch.as_tensor(
+            [item.action for item in rollout], dtype=torch.long, device=self.device,
+        )
+        old_log_probabilities = torch.as_tensor(
+            [item.old_log_probability for item in rollout],
+            dtype=torch.float32, device=self.device,
+        )
+        rewards = torch.as_tensor(
+            [item.reward for item in rollout], dtype=torch.float32, device=self.device,
+        )
+        old_values = torch.as_tensor(
+            [item.value for item in rollout], dtype=torch.float32, device=self.device,
+        )
+        next_states = torch.as_tensor(
+            np.stack([item.next_state for item in rollout]),
+            dtype=torch.float32, device=self.device,
+        )
+        terminated = torch.as_tensor(
+            [item.terminated for item in rollout], dtype=torch.bool, device=self.device,
+        )
+        action_masks = torch.zeros(
+            (len(rollout), self.config.action_size), dtype=torch.bool, device=self.device,
+        )
+        for row, item in enumerate(rollout):
+            valid_actions = self._validate_valid_actions(item.valid_actions)
+            action_masks[row, list(valid_actions)] = True
+
+        with torch.no_grad():
+            _, next_values = self.network(next_states)
+            next_values = next_values.masked_fill(terminated, 0.0)
+
+        return {
+            "states": states,
+            "actions": actions,
+            "old_log_probabilities": old_log_probabilities,
+            "rewards": rewards,
+            "old_values": old_values,
+            "next_values": next_values,
+            "terminated": terminated,
+            "action_masks": action_masks,
+        }
+
+    def _compute_gae(
+        self,
+        rewards: torch.Tensor,
+        old_values: torch.Tensor,
+        next_values: torch.Tensor,
+        terminated: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        with torch.no_grad():
+            deltas = rewards + self.config.gamma * next_values - old_values
+            advantages = torch.zeros_like(rewards)
+            last_advantage = 0.0
+            for index in reversed(range(len(rewards))):
+                continuation = 0.0 if terminated[index] else 1.0
+                last_advantage = (
+                    deltas[index]
+                    + self.config.gamma
+                    * self.config.gae_lambda
+                    * continuation
+                    * last_advantage
+                )
+                advantages[index] = last_advantage
+            returns = advantages + old_values
+            if len(rewards) > 1:
+                advantages = (advantages - advantages.mean()) / (
+                    advantages.std(unbiased=False) + 1e-8
+                )
+        return advantages, returns
+
+    def _run_update_epochs(
+        self,
+        states: torch.Tensor,
+        actions: torch.Tensor,
+        old_log_probabilities: torch.Tensor,
+        returns: torch.Tensor,
+        advantages: torch.Tensor,
+        action_masks: torch.Tensor,
+    ) -> tuple[float, float, float, int]:
+        total_policy_loss = 0.0
+        total_value_loss = 0.0
+        total_entropy = 0.0
+        minibatch_count = 0
+        self.network.train()
+
+        for _ in range(self.config.update_epochs):
+            permutation = torch.randperm(len(states), device=self.device)
+            for start in range(0, len(states), self.config.minibatch_size):
+                indices = permutation[start : start + self.config.minibatch_size]
+                logits, predicted_values = self.network(states[indices])
+                distribution = self._masked_distribution(logits, action_masks[indices])
+                new_log_probabilities = distribution.log_prob(actions[indices])
+                entropy = distribution.entropy().mean()
+
+                probability_ratios = torch.exp(
+                    new_log_probabilities - old_log_probabilities[indices]
+                )
+                unclipped_objective = probability_ratios * advantages[indices]
+                clipped_objective = torch.clamp(
+                    probability_ratios,
+                    1.0 - self.config.clip_epsilon,
+                    1.0 + self.config.clip_epsilon,
+                ) * advantages[indices]
+                policy_loss = -torch.minimum(
+                    unclipped_objective, clipped_objective
+                ).mean()
+                value_loss = torch.nn.functional.mse_loss(
+                    predicted_values, returns[indices]
+                )
+                loss = (
+                    policy_loss
+                    + self.config.value_coefficient * value_loss
+                    - self.config.entropy_coefficient * entropy
+                )
+
+                self.optimizer.zero_grad(set_to_none=True)
+                loss.backward()
+                nn.utils.clip_grad_norm_(
+                    self.network.parameters(), self.config.gradient_clip_value,
+                )
+                self.optimizer.step()
+
+                total_policy_loss += float(policy_loss.item())
+                total_value_loss += float(value_loss.item())
+                total_entropy += float(entropy.item())
+                minibatch_count += 1
+
+        return total_policy_loss, total_value_loss, total_entropy, minibatch_count
 
     def _validate_valid_actions(
         self, valid_actions: Sequence[int]
