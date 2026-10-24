@@ -1,0 +1,228 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage[english]{babel}
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{url}
+\usepackage[justification=centering]{caption}
+
+% APA style formatting
+\geometry{a4paper, margin=1in}
+\setstretch{1.5}
+\captionsetup[table]{labelfont=bf, justification=raggedright, singlelinecheck=false}
+\captionsetup[figure]{font=small, labelfont=bf, justification=raggedright, singlelinecheck=false}
+
+\title{ Machine Learning for Customer Churn Prediction}
+\author{Nelson David Posso Suarez \\ Javier Alejandro Penagos Hernandez \\ Nicolas Castro Rivera }
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Summary}
+
+This work formulates the customer churn retention problem as a Markov Decision Process (MDP).
+The objective is to train a Reinforcement Learning (RL) agent to select the best retention strategy
+for a customer with a probability of churn. Although the available dataset does not contain labeled
+data describing the outcome of different retention strategies, it provides sufficient customer and
+service information to establish an environment where the agent can learn which actions can reduce
+the probability of churn.
+
+
+
+\section{MDP Formulation}
+The MDP is composed of a state space containing customer features, an action set representing
+different retention strategies, stochastic transitions based on the customer's acceptance of an
+offer, and a reward function based on the reduction of the predicted churn probability and the
+cost of the selected action. RL agent will learn using DQN or PPO to determine the action with 
+the highest expected reward. 
+
+\subsection{Problem Statement}
+
+The objective of the MDP is to determine the best retention strategy for a customer according to
+their characteristics and current probability of churn. The RL agent receives the customer's state
+and selects an action from a set of possible retention strategies. The selected action can be
+accepted or rejected by the customer, introducing stochasticity into the environment.
+
+The customer's churn probability is obtained using a supervised learning model. This probability
+is used by the RL environment to evaluate whether the selected retention strategy improves the
+customer's situation. The objective of the agent is therefore to reduce the probability of churn
+while considering the cost associated with some retention strategies.
+
+\subsection{State Space}
+
+The state consist in the customer features, the data processed generated in the preprocessing pipeline. 
+Any row can be a state valid for an episode in the environment and plus the probability of churn. 
+\\There are 3 sections: member data of the user like age, city, etc. Transaction data calculated with the historical transactions.
+User logs data calculated with logs in the last 3 months and probability churn. 
+    
+For this reason, each state is represented as a vector of 60 elements:
+
+\begin{center}
+\texttt{State = [Members 8 + transactions 29 +  user logs 22 + churn probability 1 = 60]}
+\end{center}
+
+
+\subsection{Action Set}
+
+The action set are three discrete retention strategies.
+Each action is designed to target a different group of features in the preprocessed state vector,
+so that no single strategy dominates all customer profiles and the agent is encouraged to learn
+context-dependent selection. Actions are validated against the customer's current subscription
+status before being offered, and each is subject to a stochastic acceptance by the customer.
+
+\subsubsection{Renewal Offer}
+
+Customers whose subscription has lapsed and have cancelled their
+most recent transaction or disabled auto-renewal has a big chance of be churn.
+\\This strategy offer to renew and is only valid when the customer's last
+transaction satisfies \texttt{is\_cancel = 1} or \texttt{is\_auto\_renew = 0}.
+\\The acceptance probability is 40\%. This reflects the difficulty of winning back a customer who
+has already taken a deliberate step away from the service. The action has no economic cost for the company.
+
+When accepted, the environment injects a new monthly transaction record into the customer's raw
+data, restoring \texttt{is\_auto\_renew = 1} and \texttt{is\_cancel = 0} while preserving the
+existing plan duration and price. The features most directly affected are
+\texttt{last\_is\_cancel}, \texttt{last\_is\_auto\_renew}, \texttt{days\_to\_expire}, and
+\texttt{days\_since\_last\_transaction}.
+
+
+
+\subsubsection{Annual Plan and Re-engagement}
+
+This strategy targets customers not yet on an annual plan, specifically those whose most recent
+transaction has \texttt{payment\_plan\_days} $< 365$. The offer upgrades the customer to a
+365-day plan at a list price of 1,490 NTD with a built-in 20\% discount, so the effective
+amount paid is 1,192 NTD.
+
+Beyond the new transaction, the action also injects four synthetic listening-session records
+dated in the final days of the feature window. These simulate the re-engagement behaviour that
+typically follows a successful annual plan offer and propagate into the listening trend features
+(\texttt{trend\_songs}, \texttt{trend\_secs}, \texttt{trend\_ratio100}, \texttt{trend\_ratio25})
+and active-day counts.
+
+The acceptance probability is 70\%, is high for the discount but not enough for some customers that 
+not want has the commitment with the company. The action carries a cost of 10\% because the company
+absorbs the 20\% price reduction on the annual plan.
+
+\subsubsection{Discount Offer}
+
+This strategy offers a 5\% discount on the customer's next monthly renewal. It is only valid when
+the customer is not already paying below list price
+(\texttt{actual\_amount\_paid} $\geq$ \texttt{plan\_list\_price}). When accepted, the new
+transaction records \texttt{actual\_amount\_paid} at 95\% of the current
+\texttt{plan\_list\_price}. The features most directly affected are \texttt{last\_discount},
+\texttt{average\_amount\_paid}, and \texttt{difference}.
+
+The acceptance probability is \textbf{dynamic}: 85\% for active subscribers and 20\% for
+lapsed or cancelled customers. A price reduction is compelling for a subscriber still engaged
+with the service, but has little effect on one who has already decided to leave. The action
+carries a cost of 15\%.
+
+\subsection{Transition Dynamics}
+
+The selected action directly affects the customer's state. However, before modifying the state,
+the environment determines whether the customer accepts or rejects the offered strategy. This
+makes the transition stochastic because the same action can produce different outcomes.
+
+The acceptance probabilities are defined according to the type of retention strategy:
+
+\begin{itemize}
+\item Renewal Offer: 40\% acceptance and 60\% rejection.
+\item Annual Plan and Re-engagement: 70\% acceptance and 30\% rejection.
+\item Discount Offer: 85\% or 20\% acceptance and 15\% or 80\% rejection respectively.
+\end{itemize}
+
+The transition function can be represented as:
+
+\begin{equation}
+s_{t+1} = f(s_t, a_t)
+\end{equation}
+
+The acceptance or rejection of an action is stochastic. However, once an action is accepted,
+the modification applied to the customer's state is deterministic. Therefore, the same state
+and the same accepted action produce the same resulting state.
+
+\subsection{Reward Function}
+
+The reward is the reduction in predicted churn probability discounted by the action cost, 
+the agent search maximize the reward, if the reduction difference of probabilities is high the reward will be increase.
+But some strategies can generate cost to company and can penalize the use of this for retain de the customer.  
+
+\begin{equation}
+r_t = \bigl(p_{\text{before}} - p_{\text{after}}\bigr)\,(1 - c_{a_t})
+\end{equation}
+
+where $p_{\text{before}}$ and $p_{\text{after}}$ are the supervised model's churn probability
+estimates before and after the action is applied, and $c_{a_t} \in \{0,\, 0.10,\, 0.15\}$ is
+the cost of the selected action. When an action is rejected the state is unchanged and
+$r_t = 0$.
+
+\subsection{Episode }
+
+An episode starts with a customer from the KKBox dataset. The customer's initial
+state is provided to the supervised learning model, which predicts the probability of churn.
+This information is then provided to the RL agent.
+
+The agent select the retention strategy with the highest expected reward.
+The selected action is then evaluated by the environment, which determines whether the customer
+accepts or rejects the offer according to the corresponding acceptance probability.
+
+If the customer accepts the offer, the action modifies the customer's state. The supervised model
+then predicts the new probability of churn, which is compared with the probability before the action
+to calculate the reward. The episode terminates after this reward is obtained.
+
+If the customer rejects the offer, the customer's state remains unchanged and the reward is zero.
+The episode then terminates.
+
+
+\section{Environment}
+
+\section{Agent algorithm}
+
+\section{Hyperparameter}
+
+\section{Sample trajectory visualizations}
+
+\section{Discussion}
+
+\section{Conclusion}
+
+
+\begin{thebibliography}{9}
+
+\bibitem{ahmad2019}
+Ahmad, A. K., Jafar, A., \& Aljoumaa, K. (2019). Customer churn prediction in telecom using machine learning in big data platform. \textit{Journal of Big Data}, 6, 28.
+
+\bibitem{verbeke2012}
+Verbeke, W., Dejaeger, K., Martens, D., Hur, J., \& Baesens, B. (2012). New insights into churn prediction in the telecommunication sector: A profit driven data mining approach. \textit{European Journal of Operational Research}, 218(1), 211--229.
+
+\bibitem{breiman2001randomforests}
+Breiman, L. (2001). Random forests. \textit{Machine Learning}, 45(1), 5--32.
+
+\bibitem{chen2016xgboost}
+Chen, T., \& Guestrin, C. (2016). XGBoost: A scalable tree boosting system. In \textit{Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 785--794).
+
+\bibitem{akiba2019optuna}
+Akiba, T., Sano, S., Yanase, T., Ohta, T., \& Koyama, M. (2019). Optuna: A next-generation hyperparameter optimization framework. In \textit{Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery \& Data Mining} (pp. 2623--2631).
+
+\bibitem{paszke2019pytorch}
+Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L., Desmaison, A., Kopf, A., Yang, E., DeVito, Z., Raison, M., Tejani, A., Chilamkurthy, S., Steiner, B., Fang, L., Bai, J., \& Chintala, S. (2019). PyTorch: An imperative style, high-performance deep learning library. \textit{Advances in Neural Information Processing Systems}, 32.
+
+\bibitem{chawla2002smote}
+Chawla, N. V., Bowyer, K. W., Hall, L. O., \& Kegelmeyer, W. P. (2002). SMOTE: Synthetic minority over-sampling technique. \textit{Journal of Artificial Intelligence Research}, 16, 321--357.
+
+\bibitem{davis2006precision}
+Davis, J., \& Goadrich, M. (2006). The relationship between precision-recall and ROC curves. In \textit{Proceedings of the 23rd International Conference on Machine Learning} (pp. 233--240).
+
+\end{thebibliography}
+
+\end{document}
