@@ -17,8 +17,6 @@ from constants import (
     FIDELITY_DISCOUNT_NTD,
     FIDELITY_TRANSACTION_DATE,
     REENGAGEMENT_LOG_POOL,
-    REENGAGEMENT_DISCOUNT_NTD,
-    REENGAGEMENT_TRANSACTION_DATE,
     DOWNGRADE_PLAN_PRICE,
     DOWNGRADE_PLAN_DAYS,
     DOWNGRADE_TRANSACTION_DATE,
@@ -64,7 +62,7 @@ class ActionsManager:
             valid.append(0)
 
         # Action 1: loyalty renewal — long-tenure customers with auto-renew active
-        if self._tenure_days(customer) > 365 and last_tx is not None and int(last_tx["is_auto_renew"]) == 1:
+        if self._tenure_days(customer) > 730 and last_tx is not None and int(last_tx["is_auto_renew"]) == 1:
             valid.append(1)
 
         # Action 2: reactivation — only when activity is declining
@@ -139,24 +137,10 @@ class ActionsManager:
         })
 
     def _apply_content_reengagement(self, customer: dict) -> None:
-        """Add 2–8 scaled log entries and a transaction with 50 NTD discount."""
+        """Add 2–8 scaled log entries simulating a content re-engagement campaign."""
         n = random.randint(2, len(REENGAGEMENT_LOG_POOL))
         selected = random.sample(REENGAGEMENT_LOG_POOL, n)
         customer["user_logs"].extend(self._scale_logs(selected, customer))
-
-        last_tx = self._get_last_transaction(customer)
-        price = float(last_tx["plan_list_price"]) if last_tx else DEFAULT_PLAN_PRICE
-        plan_days = int(last_tx["payment_plan_days"]) if last_tx else DEFAULT_PLAN_DAYS
-        customer["transactions"].append({
-            "payment_method_id": int(last_tx["payment_method_id"]) if last_tx else DEFAULT_PAYMENT_METHOD_ID,
-            "payment_plan_days": plan_days,
-            "plan_list_price":   price,
-            "actual_amount_paid": price - REENGAGEMENT_DISCOUNT_NTD,
-            "is_auto_renew": int(last_tx["is_auto_renew"]) if last_tx else 0,
-            "is_cancel":     0,
-            "transaction_date": REENGAGEMENT_TRANSACTION_DATE,
-            "membership_expire_date": self._compute_expire_date(last_tx, plan_days),
-        })
 
     def _apply_downgrade(self, customer: dict) -> None:
         """Add a 30-day transaction at 99 NTD (no discount, last_discount=0)."""

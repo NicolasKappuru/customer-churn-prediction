@@ -123,7 +123,7 @@ class KKBoxRenderer:
         draw_churn_box( self.screen,          10, y + 8, model.churn_probability)
         draw_reward_box(self.screen, HALF_W + 10, y + 8, model.reward)
 
-        if model.action_accepted is not None:
+        if model.action_accepted is not None and model.action_selected != 4:
             icon = self.spr_accept if model.action_accepted else self.spr_reject
             icon_x = sp_x + sp.get_width()  - icon.get_width()  // 2
             icon_y = sp_y + 10

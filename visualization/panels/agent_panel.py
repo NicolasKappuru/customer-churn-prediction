@@ -15,17 +15,21 @@ _TEXT_NAME   = (200, 200, 220)
 # Per-action selection theme: (row_bg, border, badge_bg, text)
 _SEL_THEMES = [
     (( 52,  44,  80), (110,  80, 180), ( 88,  65, 140), (220, 200, 255)),  # purple
-    (( 55,  50,  18), (200, 175,  50), (120, 100,  22), (255, 235, 120)),  # yellow
     (( 18,  44,  62), ( 60, 150, 210), ( 22,  85, 140), (140, 210, 255)),  # light blue
+    (( 55,  50,  18), (200, 175,  50), (120, 100,  22), (255, 235, 120)),  # yellow
+    (( 22,  48,  22), ( 70, 180,  70), ( 45, 130,  45), (180, 255, 180)),  # light green
+    (( 48,  48,  58), (160, 160, 180), (100, 100, 118), (220, 220, 235)),  # slate grey
 ]
 _TEXT_COST   = (195, 185, 135)
 _LABEL       = (120, 120, 145)
 
 # ── action definitions ────────────────────────────────────────────────────────
 _ACTIONS = [
-    ("1", "SUBSCRIPTION RENEWAL",  "Cost: 0%"),
-    ("2", "ANNUAL PLAN + RE-ENG",  "Cost: 10%"),
-    ("3", "5% DISCOUNT",           "Cost: 15%"),
+    ("0", "AUTO-RENEWAL REMINDER",   "Cost: 1%"),
+    ("1", "LOYALTY RENEWAL",         "Cost: 15%"),
+    ("2", "CONTENT RE-ENGAGEMENT",   "Cost: 5%"),
+    ("3", "DOWNGRADE TO 99 NTD",     "Cost: 20%"),
+    ("4", "DO NOTHING",              "Cost: 0%"),
 ]
 
 # ── font cache ────────────────────────────────────────────────────────────────
@@ -57,7 +61,7 @@ def draw_agent_panel(surface: pygame.Surface, rect: pygame.Rect,
     surface.blit(h_cost, (rect.right - h_cost.get_width() - 18, rect.y + 8))
 
     # rows
-    row_h = (rect.height - 32) // 3
+    row_h = (rect.height - 32) // 5
     for i, (num, label, cost) in enumerate(_ACTIONS):
         ry  = rect.y + 32 + i * row_h
         row = pygame.Rect(rect.x, ry, rect.width, row_h)
@@ -89,6 +93,6 @@ def draw_agent_panel(surface: pygame.Surface, rect: pygame.Rect,
                             ry + row_h // 2 - c_s.get_height() // 2))
 
         # divider
-        if i < 2:
+        if i < 4:
             pygame.draw.line(surface, _BORDER,
                              (row.x, row.bottom), (row.right, row.bottom), 1)
