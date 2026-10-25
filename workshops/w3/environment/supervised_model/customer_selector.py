@@ -12,6 +12,37 @@ DEFAULT_DATA_DIR = PROJECT_ROOT / "workshops" / "data" / "parquet"
 DEFAULT_POOL_DIR = PROJECT_ROOT / "workshops" / "data" / "pool_users"
 _CUTOFF_INT = 20170131
 
+_LOG_DATE_MIN: int = 20161101  # start of the 3-month window used by the preprocessor
+_LOG_DATE_MAX: int = 20170131
+_LOG_FIELDS: tuple[str, ...] = (
+    "msno", "date", "num_25", "num_50", "num_75", "num_985", "num_100", "num_unq", "total_secs"
+)
+
+
+def build_log_map(data_dir: Path, msnos: set) -> dict:
+    """Return {msno: [log_dict, ...]} for the 3-month window before cutoff.
+
+    Reads user_logs.parquet (and user_logs_v2.parquet if present), keeps only
+    rows within the eligible date window and for the requested msnos.
+    """
+    files = [data_dir / "user_logs.parquet"]
+    if (data_dir / "user_logs_v2.parquet").exists():
+        files.append(data_dir / "user_logs_v2.parquet")
+
+    frames = []
+    for path in files:
+        df = pd.read_parquet(path, columns=list(_LOG_FIELDS))
+        frames.append(
+            df[df["msno"].isin(msnos) & (df["date"] >= _LOG_DATE_MIN) & (df["date"] <= _LOG_DATE_MAX)]
+        )
+
+    combined = pd.concat(frames, ignore_index=True)
+    return (
+        combined.groupby("msno")
+        .apply(lambda g: g.to_dict("records"), include_groups=False)
+        .to_dict()
+    )
+
 
 class CustomerSelector:
     """Pick a random churned KKBox user and return their raw source records.
@@ -70,11 +101,15 @@ class CustomerSelector:
             lambda g: g.to_dict("records"), include_groups=False
         ).to_dict()
 
+        print("Loading user logs (one-time, may take a few minutes)...")
+        log_map = build_log_map(data_dir, set(sample))
+        print(f"  Listening logs loaded for {len(log_map)} / {len(sample)} customers")
+
         self._pool = []
         for msno in sample:
             row = dict(member_map[msno])
             row["transactions"] = txn_map.get(msno, [])
-            row["user_logs"] = []
+            row["user_logs"] = log_map.get(msno, [])
             self._pool.append(row)
 
         with open(cache_path, "wb") as f:

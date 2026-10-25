@@ -61,9 +61,11 @@ def evaluate_dqn(
     episode_returns: list[float] = []
     episode_lengths: list[int] = []
     action_counts: Counter[int] = Counter()
+    favorable_counts: dict[int, Counter] = {i: Counter() for i in range(len(ACTION_DEFINITIONS))}
     accepted_actions = 0
     total_action_cost = 0.0
     probability_reductions: list[float] = []
+    valid_action_sizes: Counter[int] = Counter()
 
     try:
         print(
@@ -71,6 +73,10 @@ def evaluate_dqn(
             f"checkpoint={Path(checkpoint_path)} | device={agent.device}"
         )
         print(f"Checkpoint metadata: {checkpoint_metadata}")
+
+        print("Building observation cache (first run with real logs may take a few minutes)...")
+        env.reset(seed=seed)
+        print("Cache ready. Starting evaluation...")
 
         for episode in range(1, episodes + 1):
             state, _ = _quiet_env_call(env.reset, seed=seed + episode - 1)
@@ -87,7 +93,10 @@ def evaluate_dqn(
                     )
                 customer_before = env.customer_data
                 valid_actions = env.action_manager.get_valid_actions(env.customer_data)
+                valid_action_sizes[len(valid_actions)] += 1
                 action = agent.select_action(state, valid_actions, epsilon=0.0)
+                scenario = "favorable" if env.action_manager.is_favorable(action, env.customer_data) else "unfavorable"
+                favorable_counts[action][scenario] += 1
                 state, reward, terminated, truncated, info = _quiet_env_call(
                     env.step, action
                 )
@@ -146,6 +155,14 @@ def evaluate_dqn(
             "Mean churn-probability reduction: "
             f"{np.mean(probability_reductions):+.4f}"
         )
+        print("Action scenario breakdown (favorable / unfavorable):")
+        for index, definition in enumerate(ACTION_DEFINITIONS):
+            fav   = favorable_counts[index]["favorable"]
+            unfav = favorable_counts[index]["unfavorable"]
+            print(f"  {index}: {definition.name}: {fav} favorable / {unfav} unfavorable")
+        print("Valid-action count distribution:")
+        for size in sorted(valid_action_sizes):
+            print(f"  {valid_action_sizes[size]}/{episodes} episodes with {size} action(s) available")
 
         return {
             "mean_episode_return": float(np.mean(episode_returns)),

@@ -6,18 +6,17 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class RetentionAction:
     name: str
-    acceptance_probability: float
+    acceptance_probability: float                        # base / fallback
+    acceptance_probability_high: float | None = None    # conditional high (see ActionsManager)
     cost: float = 0.0
-    acceptance_probability_lapsed: float | None = None  # if set, used when customer is cancelled/lapsed
 
 
-# Actions defined with name, acceptance probability, cost, and optional lapsed acceptance.
-# Each action targets a distinct feature group to prevent the agent from
-# learning to spam a single dominant strategy.
 ACTION_DEFINITIONS = (
-    RetentionAction("Offer subscription renewal", 0.40),              # targets last_is_cancel / last_is_auto_renew
-    RetentionAction("Offer annual plan + re-engagement", 0.70, 0.10), # targets last_plan_days + engagement logs
-    RetentionAction("Offer 5% discount on renewal", 0.85, 0.15, 0.20), # active: 0.85 | lapsed: 0.20
+    RetentionAction("Send auto-renewal reminder",           0.10, 0.60, 0.01),
+    RetentionAction("Offer loyalty renewal with discount",  0.15, 0.90, 0.15),
+    RetentionAction("Send content re-engagement",           0.10, 0.80, 0.34),
+    RetentionAction("Offer downgrade to 99 NTD plan",       0.15, 0.90, 0.20),
+    RetentionAction("Do nothing",                           1.00, None, 0.00),
 )
 
 # Raw customer data structure keys
@@ -59,27 +58,36 @@ DEFAULT_PAYMENT_METHOD_ID: int = 38
 DEFAULT_PLAN_DAYS: int = 30
 DEFAULT_PLAN_PRICE: float = 149.0
 
-# Action 0 — renewal_offer: restores auto-renew with the same monthly plan
-RENEWAL_TRANSACTION_DATE: int = 20170128
-RENEWAL_EXPIRE_DATE: int = 20170227      # +30 days from transaction date
+# Action 1 — loyalty renewal: 30-day plan at 149 NTD with 20 NTD fixed discount + auto-renew
+# Valid for tenure_days > 365 with auto-renew on; last_discount=20 stays in the low-churn zone
+FIDELITY_PLAN_DAYS: int = 30
+FIDELITY_PLAN_PRICE: float = 149.0
+FIDELITY_DISCOUNT_NTD: float = 20.0         # fixed NTD discount → customer pays 129
+FIDELITY_TRANSACTION_DATE: int = 20170131   # cutoff date
 
-# Action 1 — plan_upgrade: annual plan at 20% off list price
-UPGRADE_PLAN_DAYS: int = 365
-UPGRADE_PLAN_PRICE: float = 1490.0       # list price (~10x monthly)
-UPGRADE_DISCOUNT_RATIO: float = 0.20     # 20% off → customer pays 1192
-UPGRADE_TRANSACTION_DATE: int = 20170128
-UPGRADE_EXPIRE_DATE: int = 20180127      # +365 days from transaction date
+# Action 2 — content re-engagement: adds 2–8 scaled log entries + transaction with 50 NTD discount.
+# Valid when Jan activity < Dec activity; logs scaled to customer's Dec daily average.
+REENGAGEMENT_DISCOUNT_NTD: float = 50.0
+REENGAGEMENT_TRANSACTION_DATE: int = 20170131   # cutoff date
 
-# Action 2 — discount_offer: 5% off current monthly plan
-DISCOUNT_RATIO: float = 0.05
-DISCOUNT_TRANSACTION_DATE: int = 20170128
-DISCOUNT_EXPIRE_DATE: int = 20170227     # +30 days from transaction date
-
-# Action 1 — engagement logs: 4 sessions in January 2017 simulating re-engagement
-# after accepting the annual plan offer
-ENGAGEMENT_LOGS: tuple[dict, ...] = (
-    {"date": 20170126, "num_25": 8,  "num_50": 5, "num_75": 3, "num_985": 2, "num_100": 20, "num_unq": 30, "total_secs": 5400.0},
-    {"date": 20170128, "num_25": 5,  "num_50": 3, "num_75": 2, "num_985": 1, "num_100": 35, "num_unq": 40, "total_secs": 9000.0},
-    {"date": 20170129, "num_25": 10, "num_50": 6, "num_75": 4, "num_985": 2, "num_100": 25, "num_unq": 35, "total_secs": 7200.0},
-    {"date": 20170131, "num_25": 3,  "num_50": 2, "num_75": 1, "num_985": 0, "num_100": 15, "num_unq": 20, "total_secs": 3600.0},
+# Pool of 8 log entries spread across January 2017.
+# ActionsManager randomly selects 2–8 of these to simulate re-engagement activity.
+REENGAGEMENT_LOG_POOL: tuple[dict, ...] = (
+    {"date": 20170102, "num_25": 3, "num_50": 2, "num_75": 1, "num_985": 1, "num_100": 8,  "num_unq": 12, "total_secs": 2400.0},
+    {"date": 20170105, "num_25": 4, "num_50": 2, "num_75": 2, "num_985": 1, "num_100": 10, "num_unq": 15, "total_secs": 2800.0},
+    {"date": 20170109, "num_25": 5, "num_50": 3, "num_75": 1, "num_985": 0, "num_100": 12, "num_unq": 18, "total_secs": 3200.0},
+    {"date": 20170112, "num_25": 2, "num_50": 1, "num_75": 1, "num_985": 0, "num_100": 6,  "num_unq": 8,  "total_secs": 1800.0},
+    {"date": 20170115, "num_25": 6, "num_50": 3, "num_75": 2, "num_985": 1, "num_100": 14, "num_unq": 20, "total_secs": 3600.0},
+    {"date": 20170119, "num_25": 3, "num_50": 2, "num_75": 1, "num_985": 0, "num_100": 9,  "num_unq": 13, "total_secs": 2200.0},
+    {"date": 20170123, "num_25": 5, "num_50": 3, "num_75": 2, "num_985": 1, "num_100": 11, "num_unq": 16, "total_secs": 3000.0},
+    {"date": 20170127, "num_25": 4, "num_50": 2, "num_75": 1, "num_985": 0, "num_100": 8,  "num_unq": 11, "total_secs": 2600.0},
 )
+
+# Action 3 — downgrade: switch to 99 NTD plan (no discount, last_discount=0)
+# Valid when current plan_list_price > 99; targets customers near expiry considering cancellation
+DOWNGRADE_PLAN_PRICE: float = 99.0
+DOWNGRADE_PLAN_DAYS: int = 30
+DOWNGRADE_TRANSACTION_DATE: int = 20170131   # cutoff date
+
+# Action 4 — do nothing: no state change, no cost, always valid
+# acceptance and cost are unused — apply_action short-circuits for this action

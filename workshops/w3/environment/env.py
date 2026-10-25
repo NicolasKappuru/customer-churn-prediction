@@ -109,12 +109,18 @@ class KKBoxRetentionEnv(gym.Env):
         self._obs_cache = cache
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
+        customer_before = self.customer_data
         self.customer_data, action_cost = self.action_manager.apply_action(
             self.customer_data, action
         )
 
         customer_features = self.preprocessor_customer_data.preprocess_customer(self.customer_data)
-        self.probability_churn_after = self.supervised_model.predict_probability(customer_features)
+        self.probability_churn_after = float(self.supervised_model.predict_probability(customer_features))
+
+        # If rejected, the dict object is unchanged — force exact equality to prevent
+        # floating-point drift between the cached probability and the fresh computation.
+        if self.customer_data is customer_before:
+            self.probability_churn_after = self.probability_churn_before
 
         observation_df = customer_features.copy()
         observation_df["churn_probability"] = self.probability_churn_after
@@ -133,7 +139,7 @@ class KKBoxRetentionEnv(gym.Env):
         }
 
         if self._bridge is not None:
-            accepted = float(self.probability_churn_after) < float(self.probability_churn_before)
+            accepted = self.customer_data is not customer_before
             self._bridge.on_step(
                 new_features=dict(customer_features.iloc[0]),
                 new_churn=float(self.probability_churn_after),
