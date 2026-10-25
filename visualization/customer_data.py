@@ -42,9 +42,11 @@ ALL_FEATURES: list[str] = MEMBER_FEATURES + TRANSACTION_FEATURES + LOG_FEATURES
 COL_DEFAULT = (208, 208, 208)
 
 ACTION_COLORS = [
-    (192, 160, 255),   # 0 — purple     (subscription renewal)
-    (255, 220,  80),   # 1 — yellow     (annual plan + re-eng)
-    (100, 200, 255),   # 2 — light blue (5% discount)
+    (192, 160, 255),   # 0 — purple     (auto-renewal reminder)
+    (100, 200, 255),   # 1 — light blue (loyalty renewal)
+    (255, 220,  80),   # 2 — yellow     (content re-engagement)
+    (144, 238, 144),   # 3 — light green (downgrade to 99 NTD)
+    (200, 200, 215),   # 4 — slate grey  (do nothing)
 ]
 
 
