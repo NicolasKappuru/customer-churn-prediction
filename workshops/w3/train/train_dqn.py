@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import io
 import random
 import sys
@@ -11,7 +12,11 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -28,17 +33,20 @@ EPISODES_PER_CONFIG = 3_000
 VALIDATION_INTERVAL = 250
 VALIDATION_EPISODES = 100
 EPSILON_START = 1.0
-EPSILON_MIN = 0.05
-EPSILON_DECAY = 0.995
-LOG_INTERVAL = 100
+EPSILON_MIN   = 0.05
+LOG_INTERVAL  = 100
 TRAINING_CUSTOMER_FRACTION = 0.80
 CHECKPOINT_PATH = W3_ROOT / "checkpoints" / "agent_dqn.pt"
+RUNS_DIR        = W3_ROOT / "runs"
 
 BASE_CONFIG = DQNConfig()
 CONFIGURATIONS = (
-    ("lr_1e-3", replace(BASE_CONFIG, learning_rate=1e-3)),
-    ("lr_5e-4", replace(BASE_CONFIG, learning_rate=5e-4)),
-    ("lr_1e-4", replace(BASE_CONFIG, learning_rate=1e-4)),
+    # lr=1e-3 | epsilon_decay=0.999 | weight_decay=0.0  → learns fast, stays exploratory long
+    ("exploratory",  replace(BASE_CONFIG, learning_rate=1e-3,  epsilon_decay=0.999, weight_decay=0.0)),
+    # lr=5e-4 | epsilon_decay=0.995 | weight_decay=1e-5 → default speed + light regularization
+    ("balanced",     replace(BASE_CONFIG, learning_rate=5e-4,  epsilon_decay=0.995, weight_decay=1e-5)),
+    # lr=1e-4 | epsilon_decay=0.990 | weight_decay=1e-4 → precise updates, greedy sooner, strong reg
+    ("conservative", replace(BASE_CONFIG, learning_rate=1e-4,  epsilon_decay=0.990, weight_decay=1e-4)),
 )
 
 
@@ -164,7 +172,7 @@ def _run_dqn_episode(
         state = next_state
         episode_return += float(reward)
         episode_length += 1
-        epsilon = max(EPSILON_MIN, epsilon * EPSILON_DECAY)
+        epsilon = max(EPSILON_MIN, epsilon * agent.config.epsilon_decay)
 
     return _EpisodeResult(episode_return, episode_length, epsilon), last_loss
 
@@ -246,31 +254,45 @@ def _train_dqn_config(
     config_best_episode = 0
     validation_episodes_completed = 0
 
-    print(f"\nConfiguration {config_name}: {asdict(config)} | device={agent.device}")
+    print(f"\nConfiguration {config_name} | device={agent.device}")
+    print(f"  lr={config.learning_rate} | epsilon_decay={config.epsilon_decay} | weight_decay={config.weight_decay}")
 
-    for episode in range(1, episodes_per_config + 1):
-        result, last_loss = _run_dqn_episode(
-            agent, training_env, config_seed, episode, epsilon,
-        )
-        epsilon = result.epsilon
-        rolling_returns.append(result.episode_return)
+    RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = RUNS_DIR / f"dqn_{config_name}.csv"
+    with open(csv_path, "w", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["episode", "return", "mean_return_100", "epsilon", "validation_return"])
 
-        if episode % LOG_INTERVAL == 0 or episode == 1:
-            _log_dqn_progress(
-                config_name, episode, episodes_per_config,
-                result.episode_return, rolling_returns[-LOG_INTERVAL:],
-                result.episode_length, epsilon, last_loss,
+        for episode in range(1, episodes_per_config + 1):
+            result, last_loss = _run_dqn_episode(
+                agent, training_env, config_seed, episode, epsilon,
             )
+            epsilon = result.epsilon
+            rolling_returns.append(result.episode_return)
+            mean_100 = float(np.mean(rolling_returns[-100:]))
 
-        if episode % validation_interval == 0 or episode == episodes_per_config:
-            val_return, best_validation_return = _run_dqn_validation(
-                agent, validation_env, config_name, episode, config_seed,
-                validation_episodes, best_validation_return, checkpoint,
-            )
-            validation_episodes_completed += validation_episodes
-            if val_return > config_best_return:
-                config_best_return = val_return
-                config_best_episode = episode
+            if episode % LOG_INTERVAL == 0 or episode == 1:
+                _log_dqn_progress(
+                    config_name, episode, episodes_per_config,
+                    result.episode_return, rolling_returns[-LOG_INTERVAL:],
+                    result.episode_length, epsilon, last_loss,
+                )
+
+            val_return_csv = ""
+            if episode % validation_interval == 0 or episode == episodes_per_config:
+                val_return, best_validation_return = _run_dqn_validation(
+                    agent, validation_env, config_name, episode, config_seed,
+                    validation_episodes, best_validation_return, checkpoint,
+                )
+                validation_episodes_completed += validation_episodes
+                val_return_csv = f"{val_return:.6f}"
+                if val_return > config_best_return:
+                    config_best_return = val_return
+                    config_best_episode = episode
+
+            writer.writerow([episode, f"{result.episode_return:.6f}",
+                             f"{mean_100:.6f}", f"{epsilon:.6f}", val_return_csv])
+            csv_file.flush()
 
     return (
         {
@@ -281,6 +303,29 @@ def _train_dqn_config(
         },
         best_validation_return,
     )
+
+
+def _plot_best_config(best_config_name: str) -> None:
+    csv_path = RUNS_DIR / f"dqn_{best_config_name}.csv"
+    if not csv_path.exists():
+        return
+    df = pd.read_csv(csv_path)
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(df["episode"], df["mean_return_100"], color="steelblue",
+            linewidth=1.5, label="Mean return (100 ep)")
+    val = df.dropna(subset=["validation_return"])
+    ax.scatter(val["episode"], val["validation_return"], color="orange",
+               zorder=5, s=30, label="Validation return")
+    ax.set_xlabel("Episode")
+    ax.set_ylabel("Return")
+    ax.set_title(f"DQN — Best configuration: {best_config_name}")
+    ax.legend()
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    out = RUNS_DIR / "dqn_best.png"
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    print(f"Learning curve saved: {out}")
 
 
 def _print_summary(
@@ -328,6 +373,7 @@ def train_dqn(
         )
         print(f"Best checkpoint: {checkpoint}")
 
+        best_config_name = CONFIGURATIONS[0][0]
         for config_index, (config_name, config) in enumerate(CONFIGURATIONS):
             config_seed = seed + config_index * 10_000
             _seed_all(config_seed)
@@ -336,9 +382,12 @@ def train_dqn(
                 episodes_per_config, validation_interval, validation_episodes,
                 config_seed, best_validation_return, checkpoint,
             )
+            if float(result["best_validation_return"]) >= best_validation_return:
+                best_config_name = config_name
             summary.append(result)
 
         _print_summary(summary, checkpoint)
+        _plot_best_config(best_config_name)
         return summary
     finally:
         training_env.close()

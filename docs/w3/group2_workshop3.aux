@@ -5,26 +5,50 @@
 \@writefile{toc}{\contentsline {section}{\numberline {1}Summary}{1}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {2}MDP Formulation}{1}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Problem Statement}{1}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}State Space}{1}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Overview of the retention agent system.}}{2}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:retention_system}{{1}{2}{}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}State Space}{2}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Action Set}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.1}Renewal Offer}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.2}Annual Plan and Re-engagement}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.3}Discount Offer}{3}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Transition Dynamics}{3}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Reward Function}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.1}Send Auto-Renewal Reminder}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.2}Offer Loyalty Renewal with Discount}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.3}Send Content Re-Engagement}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.4}Offer Downgrade to 99 NTD Plan}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.5}Do Nothing}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Transition Dynamics}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Reward Function}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.6}Episode }{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Environment}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Environment Setup}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Episode Initialization --- \texttt  {reset()}}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Transition, Reward, and Termination --- \texttt  {step(action)}}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Random Policy Baseline}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Random policy diagnostics over 100 episodes.}}{7}{}\protected@file@percent }
+\newlabel{tab:random_baseline}{{1}{7}{}{table.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Agent Algorithm}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Deep Q-Network (DQN)}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.1}Configuration}{8}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces DQN fixed hyperparameters (\texttt  {DQNConfig}).}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.1.2}Components}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Proximal Policy Optimization (PPO)}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.2.1}Configuration}{9}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces PPO fixed hyperparameters (\texttt  {PPOConfig}).}}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.2.2}Components}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Training Protocol}{9}{}\protected@file@percent }
 \bibcite{ahmad2019}{1}
 \bibcite{verbeke2012}{2}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Hyperparameter Search}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}DQN Configurations}{10}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces DQN hyperparameter configurations evaluated.}}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}PPO Configurations}{10}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces PPO hyperparameter configurations evaluated.}}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Sample trajectory visualizations}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{10}{}\protected@file@percent }
 \bibcite{breiman2001randomforests}{3}
 \bibcite{chen2016xgboost}{4}
 \bibcite{akiba2019optuna}{5}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.6}Episode }{4}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {3}Environment}{4}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Agent algorithm}{4}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Hyperparameter}{4}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Sample trajectory visualizations}{4}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{4}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{4}{}\protected@file@percent }
 \bibcite{paszke2019pytorch}{6}
 \bibcite{chawla2002smote}{7}
 \bibcite{davis2006precision}{8}
-\gdef \@abspage@last{5}
+\gdef \@abspage@last{11}

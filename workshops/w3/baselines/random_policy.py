@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import random
 import sys
 from collections import Counter
 from pathlib import Path
@@ -25,6 +26,8 @@ def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, Any
     if episodes <= 0:
         raise ValueError("episodes must be greater than zero.")
 
+    random.seed(seed)
+    np.random.seed(seed)
     action_rng = np.random.default_rng(seed)
     env = KKBoxRetentionEnv()
     results: list[dict[str, Any]] = []
