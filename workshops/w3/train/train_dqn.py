@@ -38,6 +38,7 @@ LOG_INTERVAL  = 100
 TRAINING_CUSTOMER_FRACTION = 0.80
 CHECKPOINT_PATH = W3_ROOT / "checkpoints" / "agent_dqn.pt"
 RUNS_DIR        = W3_ROOT / "runs"
+CSV_DIR         = RUNS_DIR / "csv"
 
 BASE_CONFIG = DQNConfig()
 CONFIGURATIONS = (
@@ -257,8 +258,8 @@ def _train_dqn_config(
     print(f"\nConfiguration {config_name} | device={agent.device}")
     print(f"  lr={config.learning_rate} | epsilon_decay={config.epsilon_decay} | weight_decay={config.weight_decay}")
 
-    RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    csv_path = RUNS_DIR / f"dqn_{config_name}.csv"
+    CSV_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = CSV_DIR / f"dqn_{config_name}.csv"
     with open(csv_path, "w", newline="") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["episode", "return", "mean_return_100", "epsilon", "validation_return"])
@@ -306,7 +307,7 @@ def _train_dqn_config(
 
 
 def _plot_best_config(best_config_name: str) -> None:
-    csv_path = RUNS_DIR / f"dqn_{best_config_name}.csv"
+    csv_path = CSV_DIR / f"dqn_{best_config_name}.csv"
     if not csv_path.exists():
         return
     df = pd.read_csv(csv_path)

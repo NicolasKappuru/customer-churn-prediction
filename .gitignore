@@ -240,3 +240,6 @@ notebooks/*
 context_dataset.txt
 
 context.txt
+
+# Training run CSVs (large, reproducible from training scripts)
+workshops/w3/runs/csv/
