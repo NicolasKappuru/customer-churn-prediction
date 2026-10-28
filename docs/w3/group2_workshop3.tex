@@ -502,56 +502,117 @@ bonus (coefficient 0.01).
 
 \end{itemize}
 
+
+\subsection{Hyperparameter Search}
+
+Three named configurations were evaluated for each algorithm, varying learning rate,
+exploration or regularisation strength to cover fast, balanced, and conservative update
+regimes. All other hyperparameters were held fixed. Learning rate was chosen as the primary axis because it is the
+most sensitive hyperparameter in both value-based and policy gradient methods. For DQN,
+$\varepsilon$ decay and weight decay were co-varied to keep exploration duration and
+regularisation consistent with each update speed. 
+
+\subsubsection{DQN Configurations}
+
+\begin{table}[H]
+\centering
+\caption{DQN hyperparameter configurations and search results.}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Configuration} & \textbf{Learning Rate} & \textbf{$\varepsilon$ decay} & \textbf{Weight Decay} & \textbf{Best Val.\ Return} & \textbf{Best Episode} \\
+\midrule
+\texttt{exploratory}  & $1\times10^{-3}$ & 0.999 & $0$         & $+0.1060$ & 1250 \\
+\texttt{balanced}     & $5\times10^{-4}$ & 0.995 & $10^{-5}$   & $+0.0771$ & 1000 \\
+\texttt{conservative} & $1\times10^{-4}$ & 0.990 & $10^{-4}$   & $+0.0628$ & 1250 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{PPO Configurations}
+
+\begin{table}[H]
+\centering
+\caption{PPO hyperparameter configurations and search results.}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Learning Rate} & \textbf{Weight Decay} & \textbf{Best Val.\ Return} & \textbf{Best Episode} \\
+\midrule
+\texttt{exploratory}  & $1\times10^{-3}$ & $0$         & $+0.1041$ & 750  \\
+\texttt{balanced}     & $3\times10^{-4}$ & $10^{-5}$   & $+0.1126$ & 2000 \\
+\texttt{conservative} & $1\times10^{-4}$ & $10^{-4}$   & $+0.1056$ & 1750 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Training Protocol}
 
-Both algorithms share the same training infrastructure. A pool of 1{,}500 churned KKBox
-customers is split 80/20 into training (1{,}200) and validation (300) sets. Each configuration
-trains for 3{,}000 episodes. Validation is run every 250 episodes over 100 held-out episodes
-without exploration. The checkpoint with the highest mean validation return is saved as
-the best model.
+Training is implemented in \texttt{workshops/w3/train/train\_dqn.py} and
+\texttt{workshops/w3/train/train\_ppo.py}. Both scripts share the same
+infrastructure: a pool of 1{,}500 churned customers is split 80/20 into training
+(1{,}200) and validation (300) sets. Each configuration trains for 3{,}000 episodes.
+Validation runs every 250 episodes over 100 held-out customers without exploration,
+and the checkpoint with the highest mean validation return is saved.
 
+\textbf{Environment--agent interaction.}
+Each episode begins with \texttt{env.reset()}, which samples one customer from the
+training pool and returns the 60-dimensional observation. The agent receives this
+state, queries \texttt{ActionsManager} for the list of valid actions, and selects
+one. The selected action is passed to \texttt{env.step()}, which executes the
+acceptance check, updates the customer's raw data if accepted, re-featurizes via
+the preprocessor, re-scores via the supervised model, and returns the next
+observation and reward. The episode terminates immediately after this single step.
+The agent uses the (state, action, reward, next\_state) tuple to update its
+parameters.
 
-\section{Hyperparameter Search}
+\textbf{DQN training loop.}
+At each step the agent selects an action using $\varepsilon$-greedy exploration over
+the valid actions, storing the transition in the replay buffer. Once the buffer
+holds enough transitions, a random minibatch of 64 is sampled and the online network
+is updated by minimising the Smooth L1 loss against the Double DQN target. Epsilon
+decays from 1.0 to 0.05 across episodes, shifting the agent from exploration to
+exploitation. Figure~\ref{fig:dqn_best} shows the return curve for the best
+configuration (\texttt{lr\_1e-3}): after an exploratory phase with high variance up
+to episode 1{,}250, the mean return stabilises around 0.10--0.11 and validation
+scores confirm the improvement.
 
-Both algorithms were evaluated across three learning rate configurations, with all other
-hyperparameters held at the values shown above. Learning rate was selected as the primary
-axis of variation, as it is generally the most sensitive hyperparameter in value-based
-and policy gradient methods.
-
-\subsection{DQN Configurations}
-
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\caption{DQN hyperparameter configurations evaluated.}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Configuration} & \textbf{Learning Rate} & \textbf{Best Validation Return} & \textbf{Best Episode} \\
-\midrule
-\texttt{lr\_1e-3} & $1 \times 10^{-3}$ & $+0.1143$ & 1500 \\
-\texttt{lr\_5e-4} & $5 \times 10^{-4}$ & $+0.0731$ & 250  \\
-\texttt{lr\_1e-4} & $1 \times 10^{-4}$ & $+0.0734$ & 750  \\
-\bottomrule
-\end{tabular}
-\end{table}
+\includegraphics[width=\textwidth]{figures/dqn_best.png}
+\caption{DQN best configuration (\texttt{lr\_1e-3}): rolling mean return (100 episodes)
+and validation return over 3{,}000 training episodes.}
+\label{fig:dqn_best}
+\end{figure}
 
-\subsection{PPO Configurations}
+\textbf{PPO training loop.}
+The agent collects transitions across 128 episodes into an on-policy rollout buffer.
+For each transition the actor samples an action from the masked Categorical
+distribution and the critic estimates the state value. Once the rollout is complete,
+one-step advantages ($A = r - V(s)$) are computed and the agent runs 4 epochs of
+minibatch updates using the PPO clipped surrogate objective plus a value loss and
+entropy bonus. Figure~\ref{fig:ppo_return} shows the return curve for the best
+configuration (\texttt{lr\_3e-4}): similarly to DQN, returns stabilise around
+0.10--0.13 after initial variance. Figure~\ref{fig:ppo_losses} shows the
+corresponding losses: policy loss remains near zero (clipping is active), value loss
+oscillates at low magnitude, and entropy starts high and gradually decreases as the
+policy concentrates on preferred actions.
 
-\begin{table}[H]
+\begin{figure}[H]
 \centering
-\caption{PPO hyperparameter configurations evaluated.}
-\begin{tabular}{lccc}
-\toprule
-\textbf{Configuration} & \textbf{Learning Rate} & \textbf{Best Validation Return} & \textbf{Best Episode} \\
-\midrule
-\texttt{lr\_3e-4} & $3 \times 10^{-4}$ & $+0.1370$ & 3000 \\
-\texttt{lr\_1e-4} & $1 \times 10^{-4}$ & $+0.1228$ & 2750 \\
-\texttt{lr\_1e-3} & $1 \times 10^{-3}$ & $+0.1154$ & 1750 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\includegraphics[width=\textwidth]{figures/ppo_best_return.png}
+\caption{PPO best configuration (\texttt{lr\_3e-4}): rolling mean return (100 episodes)
+and validation return over 3{,}000 training episodes.}
+\label{fig:ppo_return}
+\end{figure}
 
-The best-performing configuration across both algorithms was selected as the final checkpoint
-for test-set evaluation. Results to be completed after training runs.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/ppo_best_losses.png}
+\caption{PPO best configuration (\texttt{lr\_3e-4}): policy loss, value loss, and
+entropy over 3{,}000 training episodes.}
+\label{fig:ppo_losses}
+\end{figure}
+
+
 
 \section{Sample trajectory visualizations}
 
