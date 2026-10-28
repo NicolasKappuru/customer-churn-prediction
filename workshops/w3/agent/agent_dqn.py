@@ -32,6 +32,8 @@ class DQNConfig:
     hidden_size: int = 128
     learning_rate: float = 5e-4
     gamma: float = 0.95
+    epsilon_decay: float = 0.995
+    weight_decay: float = 0.0
     batch_size: int = 64
     replay_capacity: int = 50_000
     target_update_interval: int = 100
@@ -129,6 +131,7 @@ class DQNAgent:
         self.optimizer = Adam(
             self.online_network.parameters(),
             lr=self.config.learning_rate,
+            weight_decay=self.config.weight_decay,
         )
         self.loss_function = nn.SmoothL1Loss()
         self.replay_buffer = ReplayBuffer(self.config.replay_capacity)

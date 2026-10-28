@@ -9,7 +9,7 @@ Controls
 --------
 Q / W / E       Switch panel tabs  (Profile / Transactions / Logs)
 ↑ / ↓           Scroll current tab
-1 / 2 / 3       Simulate an action  (accept/reject randomised)
+1 / 2 / 3 / 4 / 5   Simulate an action  (accept/reject randomised)
 R               Reset episode       (new random sprite, churn = 0.72)
 ESC             Quit
 """
@@ -20,11 +20,16 @@ import random
 import sys
 from pathlib import Path
 
+_ROOT = Path(__file__).resolve().parents[1]
+_ENV_PATH = str(_ROOT / "workshops" / "w3" / "environment")
 sys.path.insert(0, str(Path(__file__).parent))
+if _ENV_PATH not in sys.path:
+    sys.path.insert(0, _ENV_PATH)
 
 import pygame
 from renderer      import KKBoxRenderer
 from customer_data import CustomerDataModel, ALL_FEATURES
+from constants     import ACTION_DEFINITIONS
 
 # ── synthetic 59-feature baseline ────────────────────────────────────────────
 
@@ -93,8 +98,13 @@ _BASE_FEATURES: dict = {
     "has_listening_logs":         1,
 }
 
-_ACTION_COSTS    = [0.0, 0.10, 0.15]
-_ACTION_ACCEPT_P = [0.40, 0.70, 0.85]
+# Derived from constants.py — costs auto-update; accept_p uses high probability when available
+_ACTION_COSTS    = [a.cost for a in ACTION_DEFINITIONS]
+_ACTION_ACCEPT_P = [
+    a.acceptance_probability_high if a.acceptance_probability_high is not None
+    else a.acceptance_probability
+    for a in ACTION_DEFINITIONS
+]
 
 
 def _new_model() -> CustomerDataModel:
@@ -105,29 +115,48 @@ def _new_model() -> CustomerDataModel:
 
 
 def _simulate_action(model: CustomerDataModel, action: int) -> None:
-    accepted  = random.random() < _ACTION_ACCEPT_P[action]
-    reduction = random.uniform(0.15, 0.30) if accepted else 0.0
+    # Action 4 (do nothing) always "accepted" but no state change and reward = 0
+    if action == 4:
+        model.apply_action_result(
+            new_features = dict(model.features),
+            new_churn    = model.churn_probability,
+            reward       = 0.0,
+            action       = 4,
+            accepted     = True,
+        )
+        return
 
-    new_feat = copy.copy(_BASE_FEATURES)
+    accepted  = random.random() < _ACTION_ACCEPT_P[action]
+    reduction = random.uniform(0.10, 0.25) if accepted else 0.0
+    new_feat  = copy.copy(_BASE_FEATURES)
 
     if accepted:
-        # Simulate feature deltas depending on action
-        if action == 0:   # renewal
-            new_feat["last_is_auto_renew"]         = 1
-            new_feat["last_is_cancel"]             = 0
-            new_feat["transaction_count"]         += 1
+        if action == 0:   # auto-renewal reminder
+            new_feat["last_is_auto_renew"]          = 1
+            new_feat["last_is_cancel"]              = 0
             new_feat["days_since_last_transaction"] = 0
-        elif action == 1:  # annual plan
-            new_feat["last_plan_days"]             = 365
-            new_feat["more_than_30"]               = 1
-            new_feat["last_is_auto_renew"]         = 1
-            new_feat["last_is_cancel"]             = 0
-            new_feat["transaction_count"]         += 1
-            new_feat["sum_last_month_total_secs"] += 2200.0
-        elif action == 2:  # discount
-            new_feat["last_discount"]              = 0.05
-            new_feat["transaction_count"]         += 1
-            new_feat["average_amount_paid"]       *= 0.95
+        elif action == 1:  # loyalty renewal with discount
+            new_feat["last_plan_days"]              = 30
+            new_feat["last_is_auto_renew"]          = 1
+            new_feat["last_is_cancel"]              = 0
+            new_feat["last_discount"]               = 20.0
+            new_feat["transaction_count"]          += 1
+            new_feat["days_since_last_transaction"] = 0
+            new_feat["days_to_expire"]              = 30
+        elif action == 2:  # content re-engagement (logs only)
+            new_feat["last_login"]                 += 4
+            new_feat["sum_last_month_total_secs"]  += 3200.0
+            new_feat["last_sum_total_songs"]       += 8
+            new_feat["trend_songs"]                 = max(new_feat["trend_songs"] + 1.5, 0.0)
+            new_feat["days_since_last_log"]         = 0
+        elif action == 3:  # downgrade to 99 NTD
+            new_feat["last_plan_days"]              = 30
+            new_feat["last_is_cancel"]              = 0
+            new_feat["last_discount"]               = 0.0
+            new_feat["average_amount_paid"]         = 99.0
+            new_feat["transaction_count"]          += 1
+            new_feat["days_since_last_transaction"] = 0
+            new_feat["days_to_expire"]              = 30
 
     new_churn = max(0.0, model.churn_probability - reduction)
     reward    = reduction * (1.0 - _ACTION_COSTS[action]) if accepted else 0.0
@@ -163,6 +192,10 @@ def run() -> None:
                     _simulate_action(model, 1)
                 elif event.key == pygame.K_3:
                     _simulate_action(model, 2)
+                elif event.key == pygame.K_4:
+                    _simulate_action(model, 3)
+                elif event.key == pygame.K_5:
+                    _simulate_action(model, 4)
                 elif event.key == pygame.K_r:
                     model = _new_model()
                     renderer.set_sprite(random.randint(0, 23))

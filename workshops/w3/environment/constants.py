@@ -1,7 +1,7 @@
 """Constantes que definen el estado y las acciones del MDP KKBox."""
 
+import datetime
 from dataclasses import dataclass
-
 
 @dataclass(frozen=True)
 class RetentionAction:
@@ -91,3 +91,30 @@ DOWNGRADE_TRANSACTION_DATE: int = 20170131   # cutoff date
 
 # Action 4 — do nothing: no state change, no cost, always valid
 # acceptance and cost are unused — apply_action short-circuits for this action
+
+
+
+# ── Cohort / cutoff configuration ─────────────────────────────────────────────
+# To retarget to a different evaluation window, update these six values together.
+
+CUTOFF_DATE: datetime.date = datetime.date(2017, 1, 31)
+# All features are computed up to this date; reference point for days_to_expire,
+# tenure_days, days_since_last_log, and new-transaction dates.
+
+CUTOFF_INT: int = 20170131
+# CUTOFF_DATE as YYYYMMDD int; used to filter raw transactions in the data pipeline.
+
+CUTOFF_MONTH: str = "201701"
+# YYYYMM prefix of the cutoff month; identifies "last month" log entries for
+# last_month_logins (Action 1 favorable) and the declining-activity check (Action 2).
+
+PREV_MONTH: str = "201612"
+# YYYYMM prefix of the month immediately before the cutoff; used as the comparison
+# baseline in the declining-activity check and as the reference for log scaling.
+
+LOG_WINDOW_START: int = 20161101
+# Earliest date (YYYYMMDD int) of the 3-month log window loaded for each customer.
+# Must equal the first day of the month that is 2 months before CUTOFF_MONTH.
+
+LOG_WINDOW_END: int = 20170131
+# Latest date (YYYYMMDD int) of the 3-month log window; should equal CUTOFF_INT.

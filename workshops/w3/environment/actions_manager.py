@@ -9,6 +9,11 @@ from numbers import Integral
 
 from constants import (
     ACTION_DEFINITIONS,
+    CUTOFF_DATE,
+    CUTOFF_MONTH,
+    PREV_MONTH,
+    LOG_WINDOW_START,
+    LOG_WINDOW_END,
     DEFAULT_PAYMENT_METHOD_ID,
     DEFAULT_PLAN_DAYS,
     DEFAULT_PLAN_PRICE,
@@ -22,7 +27,7 @@ from constants import (
     DOWNGRADE_TRANSACTION_DATE,
 )
 
-_CUTOFF_DATE = datetime.date(2017, 1, 31)
+_CUTOFF_DATE = CUTOFF_DATE
 
 
 def _date_from_int(d: int) -> datetime.date:
@@ -194,11 +199,11 @@ class ActionsManager:
 
     def _last_month_logins(self, customer: dict) -> int:
         logs = customer.get("user_logs") or []
-        return sum(1 for log in logs if str(int(log["date"]))[:6] == "201701")
+        return sum(1 for log in logs if str(int(log["date"]))[:6] == CUTOFF_MONTH)
 
     def _is_declining_active(self, customer: dict) -> bool:
         logs = customer.get("user_logs") or []
-        if not any(20161101 <= int(log["date"]) <= 20170131 for log in logs):
+        if not any(LOG_WINDOW_START <= int(log["date"]) <= LOG_WINDOW_END for log in logs):
             return False
 
         def _songs(prefix: str) -> int:
@@ -208,7 +213,7 @@ class ActionsManager:
                 for log in logs if str(int(log["date"]))[:6] == prefix
             )
 
-        return (_songs("201701") / (_songs("201612") + 1)) < 1.0
+        return (_songs(CUTOFF_MONTH) / (_songs(PREV_MONTH) + 1)) < 1.0
 
     def _avg_difference(self, customer: dict) -> float:
         """Return avg_actual_amount_paid - avg_plan_list_price across all transactions."""
@@ -243,7 +248,7 @@ class ActionsManager:
     def _scale_logs(self, entries: list[dict], customer: dict) -> list[dict]:
         """Scale log song counts to match the customer's December 2016 daily average."""
         logs = customer.get("user_logs") or []
-        dec_logs = [log for log in logs if str(int(log["date"]))[:6] == "201612"]
+        dec_logs = [log for log in logs if str(int(log["date"]))[:6] == PREV_MONTH]
         if not dec_logs:
             return list(entries)
         dec_songs = sum(sum(int(log.get(k, 0)) for k in self._SONG_KEYS) for log in dec_logs)

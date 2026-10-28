@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import io
 import random
 import sys
@@ -12,7 +13,11 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -33,12 +38,16 @@ ROLLOUT_EPISODES = 128
 LOG_INTERVAL = 100
 TRAINING_CUSTOMER_FRACTION = 0.80
 CHECKPOINT_PATH = W3_ROOT / "checkpoints" / "agent_ppo.pt"
+RUNS_DIR        = W3_ROOT / "runs"
 
 BASE_CONFIG = PPOConfig()
 CONFIGURATIONS = (
-    ("lr_1e-3", replace(BASE_CONFIG, learning_rate=1e-3)),
-    ("lr_3e-4", replace(BASE_CONFIG, learning_rate=3e-4)),
-    ("lr_1e-4", replace(BASE_CONFIG, learning_rate=1e-4)),
+    # lr=1e-3 | weight_decay=0.0  → fast policy updates, no regularization
+    ("exploratory",  replace(BASE_CONFIG, learning_rate=1e-3,  weight_decay=0.0)),
+    # lr=3e-4 | weight_decay=1e-5 → default speed + light regularization
+    ("balanced",     replace(BASE_CONFIG, learning_rate=3e-4,  weight_decay=1e-5)),
+    # lr=1e-4 | weight_decay=1e-4 → conservative updates + strong regularization
+    ("conservative", replace(BASE_CONFIG, learning_rate=1e-4,  weight_decay=1e-4)),
 )
 
 
@@ -280,41 +289,59 @@ def _train_ppo_config(
     total_action_cost = 0.0
     losses: dict[str, float] | None = None
 
-    print(f"\nConfiguration {config_name}: {asdict(config)} | device={agent.device}")
+    print(f"\nConfiguration {config_name} | device={agent.device}")
+    print(f"  lr={config.learning_rate} | weight_decay={config.weight_decay}")
 
-    for episode in range(1, episodes_per_config + 1):
-        result = _run_ppo_episode(agent, training_env, config_seed, episode)
-        rollout.extend(result.transitions)
-        accepted_actions += result.accepted_count
-        total_action_cost += result.action_cost
-        episode_returns.append(result.episode_return)
+    RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = RUNS_DIR / f"ppo_{config_name}.csv"
+    with open(csv_path, "w", newline="") as csv_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["episode", "return", "mean_return_100",
+                         "policy_loss", "value_loss", "entropy", "validation_return"])
 
-        if len(rollout) >= rollout_episodes:
-            losses = agent.update(rollout)
-            rollout.clear()
+        for episode in range(1, episodes_per_config + 1):
+            result = _run_ppo_episode(agent, training_env, config_seed, episode)
+            rollout.extend(result.transitions)
+            accepted_actions += result.accepted_count
+            total_action_cost += result.action_cost
+            episode_returns.append(result.episode_return)
+            mean_100 = float(np.mean(episode_returns[-100:]))
 
-        if episode % LOG_INTERVAL == 0 or episode == 1:
-            _log_ppo_progress(
-                config_name, episode, episodes_per_config,
-                result.episode_return, episode_returns[-LOG_INTERVAL:],
-                result.episode_length, accepted_actions, total_action_cost, losses,
-            )
-
-        should_validate = (
-            episode % validation_interval == 0 or episode == episodes_per_config
-        )
-        if should_validate:
-            if rollout:
+            if len(rollout) >= rollout_episodes:
                 losses = agent.update(rollout)
                 rollout.clear()
-            val_return, best_validation_return = _run_ppo_validation(
-                agent, validation_env, config_name, episode, config_seed,
-                validation_episodes, best_validation_return, checkpoint,
+
+            if episode % LOG_INTERVAL == 0 or episode == 1:
+                _log_ppo_progress(
+                    config_name, episode, episodes_per_config,
+                    result.episode_return, episode_returns[-LOG_INTERVAL:],
+                    result.episode_length, accepted_actions, total_action_cost, losses,
+                )
+
+            val_return_csv = ""
+            should_validate = (
+                episode % validation_interval == 0 or episode == episodes_per_config
             )
-            validation_checks += 1
-            if val_return > config_best_return:
-                config_best_return = val_return
-                config_best_episode = episode
+            if should_validate:
+                if rollout:
+                    losses = agent.update(rollout)
+                    rollout.clear()
+                val_return, best_validation_return = _run_ppo_validation(
+                    agent, validation_env, config_name, episode, config_seed,
+                    validation_episodes, best_validation_return, checkpoint,
+                )
+                validation_checks += 1
+                val_return_csv = f"{val_return:.6f}"
+                if val_return > config_best_return:
+                    config_best_return = val_return
+                    config_best_episode = episode
+
+            policy_csv  = f"{losses['policy_loss']:.6f}"  if losses else ""
+            value_csv   = f"{losses['value_loss']:.6f}"   if losses else ""
+            entropy_csv = f"{losses['entropy']:.6f}"      if losses else ""
+            writer.writerow([episode, f"{result.episode_return:.6f}", f"{mean_100:.6f}",
+                             policy_csv, value_csv, entropy_csv, val_return_csv])
+            csv_file.flush()
 
     return (
         {
@@ -325,6 +352,53 @@ def _train_ppo_config(
         },
         best_validation_return,
     )
+
+
+def _plot_best_config(best_config_name: str) -> None:
+    csv_path = RUNS_DIR / f"ppo_{best_config_name}.csv"
+    if not csv_path.exists():
+        return
+    df = pd.read_csv(csv_path)
+
+    # ── Image 1: learning curve ───────────────────────────────────────────────
+    fig1, ax1 = plt.subplots(figsize=(10, 4))
+    ax1.plot(df["episode"], df["mean_return_100"], color="steelblue",
+             linewidth=1.5, label="Mean return (100 ep)")
+    val = df.dropna(subset=["validation_return"])
+    ax1.scatter(val["episode"], val["validation_return"], color="orange",
+                zorder=5, s=30, label="Validation return")
+    ax1.set_xlabel("Episode")
+    ax1.set_ylabel("Return")
+    ax1.set_title(f"PPO — Learning curve: {best_config_name}")
+    ax1.legend()
+    ax1.grid(alpha=0.3)
+    fig1.tight_layout()
+    out1 = RUNS_DIR / "ppo_best_return.png"
+    fig1.savefig(out1, dpi=150)
+    plt.close(fig1)
+    print(f"Learning curve saved: {out1}")
+
+    # ── Image 2: policy losses ────────────────────────────────────────────────
+    losses = df.dropna(subset=["policy_loss"])
+    if losses.empty:
+        return
+    fig2, ax2 = plt.subplots(figsize=(10, 4))
+    ax2.plot(losses["episode"], losses["policy_loss"], color="tomato",
+             linewidth=1.2, label="Policy loss")
+    ax2.plot(losses["episode"], losses["value_loss"], color="mediumseagreen",
+             linewidth=1.2, label="Value loss")
+    ax2.plot(losses["episode"], losses["entropy"], color="mediumpurple",
+             linewidth=1.2, label="Entropy", linestyle="--")
+    ax2.set_xlabel("Episode")
+    ax2.set_ylabel("Loss / Entropy")
+    ax2.set_title(f"PPO — Policy losses: {best_config_name}")
+    ax2.legend()
+    ax2.grid(alpha=0.3)
+    fig2.tight_layout()
+    out2 = RUNS_DIR / "ppo_best_losses.png"
+    fig2.savefig(out2, dpi=150)
+    plt.close(fig2)
+    print(f"Policy losses saved: {out2}")
 
 
 def _print_summary(
@@ -375,6 +449,7 @@ def train_ppo(
         )
         print(f"Best checkpoint: {checkpoint}")
 
+        best_config_name = CONFIGURATIONS[0][0]
         for config_index, (config_name, config) in enumerate(CONFIGURATIONS):
             config_seed = seed + config_index * 10_000
             _seed_all(config_seed)
@@ -383,9 +458,12 @@ def train_ppo(
                 episodes_per_config, validation_interval, validation_episodes,
                 rollout_episodes, config_seed, best_validation_return, checkpoint,
             )
+            if float(result["best_validation_return"]) >= best_validation_return:
+                best_config_name = config_name
             results.append(result)
 
         _print_summary(results, checkpoint)
+        _plot_best_config(best_config_name)
         return results
     finally:
         training_env.close()

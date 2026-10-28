@@ -216,6 +216,82 @@ def _print_agent_summary(agent_name: str, results: list[dict[str, Any]]) -> None
           f"mean_churn_reduction={np.mean(reductions):+.4f}")
 
 
+def _print_comparison(dqn_results: list[dict[str, Any]], ppo_results: list[dict[str, Any]]) -> None:
+    n_actions = len(ACTION_DEFINITIONS)
+
+    def _agg(results: list[dict]) -> dict:
+        returns     = [r["mean_episode_return"] for r in results]
+        reductions  = [r["mean_churn_probability_reduction"] for r in results]
+        accepted    = sum(r["accepted_actions"] for r in results)
+        total_eps   = sum(r["total_episode"] for r in results)
+        total_cost  = sum(r["total_action_cost"] for r in results)
+        freq: Counter[int] = Counter()
+        for r in results:
+            for i, c in r["action_frequencies"].items():
+                freq[i] += c
+        return {
+            "mean_return":    float(np.mean(returns)),
+            "std_return":     float(np.std(returns)),
+            "mean_reduction": float(np.mean(reductions)),
+            "accepted":       accepted,
+            "total_eps":      total_eps,
+            "total_cost":     total_cost,
+            "freq":           freq,
+        }
+
+    dqn = _agg(dqn_results)
+    ppo = _agg(ppo_results)
+
+    W = 58
+    print(f"\n{'='*W}")
+    print("FINAL COMPARISON — DQN vs PPO")
+    print(f"{'='*W}")
+
+    def _row(label: str, dv: str, pv: str, winner: str | None = None) -> None:
+        mark = ""
+        if winner == "DQN":
+            mark = "  ◀ DQN"
+        elif winner == "PPO":
+            mark = "  ◀ PPO"
+        print(f"  {label:<28} DQN: {dv:>10}   PPO: {pv:>10}{mark}")
+
+    def _win(d: float, p: float, higher_is_better: bool = True) -> str | None:
+        if abs(d - p) < 1e-6:
+            return None
+        return "DQN" if (d > p) == higher_is_better else "PPO"
+
+    _row("Mean return (across pools)",
+         f"{dqn['mean_return']:+.4f}", f"{ppo['mean_return']:+.4f}",
+         _win(dqn["mean_return"], ppo["mean_return"]))
+    _row("Std return (across pools)",
+         f"{dqn['std_return']:.4f}", f"{ppo['std_return']:.4f}",
+         _win(dqn["std_return"], ppo["std_return"], higher_is_better=False))
+    _row("Mean churn reduction",
+         f"{dqn['mean_reduction']:+.4f}", f"{ppo['mean_reduction']:+.4f}",
+         _win(dqn["mean_reduction"], ppo["mean_reduction"]))
+    _row("Accepted actions",
+         f"{dqn['accepted']}/{dqn['total_eps']}", f"{ppo['accepted']}/{ppo['total_eps']}",
+         _win(dqn["accepted"], ppo["accepted"]))
+    _row("Total action cost",
+         f"{dqn['total_cost']:.2f}", f"{ppo['total_cost']:.2f}",
+         _win(dqn["total_cost"], ppo["total_cost"], higher_is_better=False))
+
+    print(f"\n  {'Action':<30} {'DQN':>8} {'PPO':>8}")
+    print(f"  {'-'*48}")
+    for i, action in enumerate(ACTION_DEFINITIONS):
+        print(f"  {i}: {action.name:<26} {dqn['freq'][i]:>8} {ppo['freq'][i]:>8}")
+
+    print(f"\n  Pool-by-pool return:")
+    print(f"  {'Pool':<6} {'DQN':>10} {'PPO':>10}  {'Winner'}")
+    print(f"  {'-'*38}")
+    for i, (dr, pr) in enumerate(zip(dqn_results, ppo_results)):
+        d_r = dr["mean_episode_return"]
+        p_r = pr["mean_episode_return"]
+        w = "DQN" if d_r > p_r else ("PPO" if p_r > d_r else "TIE")
+        print(f"  {i:<6} {d_r:>+10.4f} {p_r:>+10.4f}  {w}")
+    print(f"{'='*W}")
+
+
 def compare_agents(
     n_pools: int = N_POOLS,
     n_churn: int = N_CHURN_PER_POOL,
@@ -259,6 +335,7 @@ def compare_agents(
         ppo_results.append(result)
     _print_agent_summary("PPO", ppo_results)
 
+    _print_comparison(dqn_results, ppo_results)
     env.close()
 
 

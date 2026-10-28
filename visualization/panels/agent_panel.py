@@ -1,7 +1,14 @@
 """Agent strategies panel — right bottom panel."""
 
 from __future__ import annotations
+import sys
+from pathlib import Path
 import pygame
+
+_ENV_PATH = str(Path(__file__).resolve().parents[2] / "workshops" / "w3" / "environment")
+if _ENV_PATH not in sys.path:
+    sys.path.insert(0, _ENV_PATH)
+from constants import ACTION_DEFINITIONS
 
 # ── palette ───────────────────────────────────────────────────────────────────
 _BG          = ( 28,  28,  36)
@@ -23,13 +30,18 @@ _SEL_THEMES = [
 _TEXT_COST   = (195, 185, 135)
 _LABEL       = (120, 120, 145)
 
-# ── action definitions ────────────────────────────────────────────────────────
+# ── action definitions — display names are presentation-specific; costs come from constants ──
+_ACTION_DISPLAY_NAMES = [
+    "AUTO-RENEWAL REMINDER",
+    "LOYALTY RENEWAL",
+    "CONTENT RE-ENGAGEMENT",
+    "DOWNGRADE TO 99 NTD",
+    "DO NOTHING",
+]
+
 _ACTIONS = [
-    ("0", "AUTO-RENEWAL REMINDER",   "Cost: 1%"),
-    ("1", "LOYALTY RENEWAL",         "Cost: 15%"),
-    ("2", "CONTENT RE-ENGAGEMENT",   "Cost: 5%"),
-    ("3", "DOWNGRADE TO 99 NTD",     "Cost: 20%"),
-    ("4", "DO NOTHING",              "Cost: 0%"),
+    (str(i), name, f"Cost: {int(ACTION_DEFINITIONS[i].cost * 100)}%")
+    for i, name in enumerate(_ACTION_DISPLAY_NAMES)
 ]
 
 # ── font cache ────────────────────────────────────────────────────────────────

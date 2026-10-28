@@ -31,6 +31,7 @@ class PPOConfig:
     hidden_size: int = 128
     learning_rate: float = 3e-4
     gamma: float = 0.95
+    weight_decay: float = 0.0
     gae_lambda: float = 0.95
     clip_epsilon: float = 0.2
     entropy_coefficient: float = 0.01
@@ -103,6 +104,7 @@ class PPOAgent:
         self.optimizer = Adam(
             self.network.parameters(),
             lr=self.config.learning_rate,
+            weight_decay=self.config.weight_decay,
         )
         self.training_updates = 0
 
