@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1793149085.52559 "c:/Users/Usuario/Desktop/Materias/ML/Final Project/docs/w3/group2_workshop3.tex" "group2_workshop3.pdf" "group2_workshop3" 1793149086.26772 0
+["pdflatex"] 1793153016.21606 "c:/Users/Usuario/Desktop/Materias/ML/Final Project/docs/w3/group2_workshop3.tex" "group2_workshop3.pdf" "group2_workshop3" 1793153017.18736 0
   "C:/Users/Usuario/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map" 1790891208 80909 eab91d9745dd2edfd62a31d53cd5fe15 ""
   "C:/Users/Usuario/AppData/Local/MiKTeX/fonts/pk/ljfour/jknappen/ec/dpi600/tcrm1000.pk" 1789336023 11548 be37a85909f8465a1af00204d19ff6fc ""
   "C:/Users/Usuario/AppData/Local/MiKTeX/miktex/data/le/pdftex/pdflatex.fmt" 1789335966 13334455 24c2f1bd397616b37562d46a72e1c1b5 ""
@@ -30,6 +30,7 @@
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/tfm/public/cm/cmti10.tfm" 1136765053 1480 aa8e34af0eb6a2941b776984cf1dfdc4 ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/tfm/public/cm/cmtt10.tfm" 1136765053 768 1321e9409b4137d6fb428ac9dc956269 ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/tfm/public/cm/cmtt12.tfm" 1136765053 772 9a936b7f5e2ff0557fce0f62822f0bbf ""
+  "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/tfm/public/cm/cmtt9.tfm" 1136765053 764 c98a2af25c99b73a368cf7336e255190 ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmbx10.pfb" 1247596666 34811 78b52f49e893bcba91bd7581cdc144c0 ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmbx12.pfb" 1247596666 32080 340ef9bf63678554ee606688e7b5339d ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmbx9.pfb" 1247596667 32298 c6d25bb16d1eac01ebdc6d7084126a1e ""
@@ -47,6 +48,7 @@
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmti10.pfb" 1247596667 37944 359e864bd06cde3b1cf57bb20757fb06 ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt10.pfb" 1247596667 31099 342ef5a582aacbd3346f3cf4579679fa ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt12.pfb" 1247596666 24252 1e4e051947e12dfb50fee0b7f4e26e3a ""
+  "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt9.pfb" 1247596667 29078 718ea4567ceff944262b0f5b0800e1d9 ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/tex/context/base/mkii/supp-pdf.mkii" 1580390158 71627 94eb9990bed73c364d7f53f960cc8c5b ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/tex/generic/babel/babel.sty" 1765441417 146654 eaac99efd6386094bb8a3980e34ec87b ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/tex/generic/babel/locale/en/babel-en.ini" 1765441420 3936 fef897bbcfe8e9d18c93a3d2d53cf9d8 ""
@@ -87,10 +89,13 @@
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/tex/latex/tools/array.sty" 1761901070 15651 9d7c62df82cb29a555c00550babfe364 ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/tex/latex/tools/tabularx.sty" 1761901070 7243 a2c17f18e2c9b702b84fad03d5f9c78b ""
   "C:/Users/Usuario/AppData/Local/Programs/MiKTeX/tex/latex/url/url.sty" 1388490452 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
-  "c:/Users/Usuario/Desktop/Materias/ML/Final Project/docs/w3/group2_workshop3.tex" 1793149083 28602 07f048d029daa87fb75302217cef7972 ""
+  "c:/Users/Usuario/Desktop/Materias/ML/Final Project/docs/w3/group2_workshop3.tex" 1793153015 32096 04003fec3e2d4146616ead2c83365df7 ""
   "figures/diagram_systen_retention_agent.png" 1793105344 172388 925d764c14c478a35575302ca5df4754 ""
-  "group2_workshop3.aux" 1793149086 4621 ce5628f30de2076ca32784f1c832e15e "pdflatex"
-  "group2_workshop3.tex" 1793149083 28602 07f048d029daa87fb75302217cef7972 ""
+  "figures/dqn_best.png" 1793150762 95500 e1dc70c9aa2e82f4920285f5882e8a06 ""
+  "figures/ppo_best_losses.png" 1793150788 184043 874ff8fe72227ff7d644817526e82dea ""
+  "figures/ppo_best_return.png" 1793150788 76189 95c64d7aa13c17ccbbe6a9c0332953a4 ""
+  "group2_workshop3.aux" 1793153017 5493 165d6c500289ccca50b87450924d3b44 "pdflatex"
+  "group2_workshop3.tex" 1793153015 32096 04003fec3e2d4146616ead2c83365df7 ""
   (generated)
   "group2_workshop3.aux"
   "group2_workshop3.log"
