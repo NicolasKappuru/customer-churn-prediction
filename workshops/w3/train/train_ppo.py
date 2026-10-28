@@ -34,8 +34,9 @@ from environment.env import KKBoxRetentionEnv
 EPISODES_PER_CONFIG = 3_000
 VALIDATION_INTERVAL = 250
 VALIDATION_EPISODES = 100
-ROLLOUT_EPISODES = 128
+ROLLOUT_EPISODES = 8
 LOG_INTERVAL = 100
+VALIDATION_SEED = 0
 TRAINING_CUSTOMER_FRACTION = 0.80
 CHECKPOINT_PATH = W3_ROOT / "checkpoints" / "agent_ppo.pt"
 RUNS_DIR        = W3_ROOT / "runs"
@@ -114,6 +115,7 @@ def _evaluate_agent(
     episodes: int,
     seed: int,
 ) -> ValidationResult:
+    random.seed(seed)
     np.random.seed(seed)
     returns: list[float] = []
     lengths: list[int] = []
@@ -241,7 +243,7 @@ def _run_ppo_validation(
     """Run validation and save checkpoint if improved. Returns (val_return, new_best)."""
     validation = _evaluate_agent(
         agent, validation_env, validation_episodes,
-        seed=config_seed + 1_000_000 + episode * validation_episodes,
+        seed=VALIDATION_SEED,
     )
     print(
         f"Validation | {config_name} | episode={episode} | "
@@ -442,11 +444,13 @@ def train_ppo(
     best_validation_return = float("-inf")
 
     try:
+        _grad_steps = (episodes_per_config // rollout_episodes) * BASE_CONFIG.update_epochs * (rollout_episodes // BASE_CONFIG.minibatch_size)
         print(
             "PPO training | "
             f"train customers={len(training_env.customer_selector._pool)} | "
             f"validation customers={len(validation_env.customer_selector._pool)} | "
-            f"episodes/config={episodes_per_config} | seed={seed}"
+            f"episodes/config={episodes_per_config} | rollout={rollout_episodes} | "
+            f"grad_steps/config≈{_grad_steps} | validation_seed={VALIDATION_SEED} | seed={seed}"
         )
         print(f"Best checkpoint: {checkpoint}")
 

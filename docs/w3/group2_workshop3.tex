@@ -401,82 +401,106 @@ with explicit action masking could exploit the probabilistic structure of accept
 
 \subsection{Deep Q-Network (DQN)}
 
-\subsubsection{Configuration}
+DQN is a value-based algorithm that approximates the action-value function $Q(s, a)$
+using a neural network. For each customer state the network outputs one Q-value per
+action, representing the expected cumulative reward. The agent selects the action with
+the highest Q-value, directly learning which retention strategy yields the greatest
+expected return from the current customer state.
+
+Implemented in \texttt{workshops/w3/agent/agent\_dqn.py}.
 
 \begin{table}[H]
 \centering
-\caption{DQN fixed hyperparameters (\texttt{DQNConfig}).}
+\caption{DQN active hyperparameters (\texttt{DQNConfig}).}
 \begin{tabular}{lp{7.5cm}r}
 \toprule
 \textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
 \midrule
-Hidden size & Units in each hidden layer of the Q-network & 128 \\
-Discount factor $\gamma$ & Weight applied to future rewards when computing Q-values & 0.95 \\
-Batch size & Transitions sampled from the replay buffer per training step & 64 \\
-Replay buffer capacity & Maximum transitions stored for experience replay & 50{,}000 \\
-Target network update & Steps between target network weight synchronisations & 100 \\
-Gradient clip & Maximum gradient norm to prevent training instability & 10.0 \\
+Hidden size               & Units in each hidden layer of the Q-network & 128 \\
+Batch size                & Transitions sampled from the replay buffer per training step & 64 \\
+Replay buffer capacity    & Maximum transitions stored for experience replay & 50{,}000 \\
+Gradient clip             & Maximum gradient norm to prevent training instability & 10.0 \\
 $\varepsilon$ start / min / decay & Exploration schedule: initial value, floor, and per-step multiplier & 1.0 / 0.05 / 0.995 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection{Components}
+The discount factor $\gamma$ and the target network update interval are excluded because
+every episode terminates after one step (\texttt{terminated = True}), so the Bellman target
+reduces to $y = r$ and the target network's Q-values are multiplied by zero and never used.
 
-\textbf{QNetwork.} A fully-connected network with two hidden layers of 128 units and ReLU
-activations mapping the 60-dimensional state to 5 Q-values, one per action.
+\begin{itemize}
 
-\textbf{ReplayBuffer.} A fixed-capacity FIFO buffer (50{,}000 transitions) storing tuples
-of (state, action, reward, next\_state, terminated, next\_valid\_actions). Transitions are
-sampled uniformly at random for each training step.
+\item \texttt{QNetwork} (\texttt{agent\_dqn.py}):
+fully-connected network with two hidden layers of 128 units and ReLU activations,
+mapping the 60-dimensional state to 5 Q-values, one per action.
 
-\textbf{DQNAgent.select\_action.} At inference time, the agent applies an action mask
-restricting selection to valid actions for the current customer. During training,
-$\varepsilon$-greedy exploration is applied only over valid actions.
+\item \texttt{ReplayBuffer} (\texttt{agent\_dqn.py}):
+fixed-capacity FIFO buffer (50{,}000 transitions) storing
+(state, action, reward, next\_state, terminated, next\_valid\_actions) tuples,
+sampled uniformly at random each training step.
 
-\textbf{DQNAgent.train\_step.} Implements Double DQN: the online network selects the
-best next action; the target network evaluates its Q-value. Loss is Smooth L1.
-The target network is synchronized every 100 gradient steps.
+\item \texttt{DQNAgent.select\_action} (\texttt{agent\_dqn.py}):
+applies an action mask over the valid actions for the current customer.
+During training, $\varepsilon$-greedy exploration is restricted to those valid actions.
+
+\item \texttt{DQNAgent.train\_step} (\texttt{agent\_dqn.py}):
+implements Double DQN — the online network selects the best next action and the target
+network evaluates its Q-value. Loss is Smooth L1.
+
+\end{itemize}
 
 \subsection{Proximal Policy Optimization (PPO)}
 
-\subsubsection{Configuration}
+PPO is a policy gradient algorithm that directly optimizes the policy $\pi(a \mid s)$
+— the probability distribution over actions given the current state. Rather than
+estimating Q-values explicitly, PPO updates the policy to increase the probability of
+actions that yielded above-average returns, while clipping large updates to keep
+training stable. An actor network outputs action probabilities and a critic network
+estimates the state value to compute the advantage.
+
+Implemented in \texttt{workshops/w3/agent/agent\_ppo.py}.
 
 \begin{table}[H]
 \centering
-\caption{PPO fixed hyperparameters (\texttt{PPOConfig}).}
+\caption{PPO active hyperparameters (\texttt{PPOConfig}).}
 \begin{tabular}{lp{7.5cm}r}
 \toprule
 \textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
 \midrule
-Hidden size & Units in each hidden layer of the actor-critic network & 128 \\
-Discount factor $\gamma$ & Weight applied to future rewards in return computation & 0.95 \\
-GAE $\lambda$ & Bias-variance trade-off parameter for Generalized Advantage Estimation & 0.95 \\
-Clip $\varepsilon$ & Clipping threshold for the PPO surrogate objective ratio & 0.2 \\
-Entropy coefficient & Weight of the entropy bonus to encourage exploration & 0.01 \\
-Value coefficient & Weight of the value loss relative to the policy loss & 0.5 \\
-Update epochs & Gradient passes over each collected rollout batch & 4 \\
-Minibatch size & Transitions per gradient update within each epoch & 64 \\
-Gradient clip & Maximum gradient norm to prevent training instability & 0.5 \\
-Rollout size & On-policy episodes collected before each PPO update & 128 \\
+Hidden size          & Units in each hidden layer of the actor-critic network & 128 \\
+Clip $\varepsilon$   & Clipping threshold for the PPO surrogate objective ratio & 0.2 \\
+Entropy coefficient  & Weight of the entropy bonus to encourage exploration & 0.01 \\
+Value coefficient    & Weight of the value loss relative to the policy loss & 0.5 \\
+Update epochs        & Gradient passes over each collected rollout batch & 4 \\
+Minibatch size       & Transitions per gradient update within each epoch & 64 \\
+Gradient clip        & Maximum gradient norm to prevent training instability & 0.5 \\
+Rollout size         & On-policy episodes collected before each PPO update & 128 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection{Components}
+The discount factor $\gamma$ and GAE $\lambda$ are excluded because in single-step episodes
+the return equals $r$ directly and the advantage reduces to $A = r - V(s)$ regardless of
+$\lambda$, so neither parameter has any effect on training.
 
-\textbf{ActorCriticNetwork.} A shared MLP trunk (60$\rightarrow$128$\rightarrow$128, Tanh)
-bifurcating into two heads: a policy head (128$\rightarrow$5 logits) and a value head
-(128$\rightarrow$1 scalar).
+\begin{itemize}
 
-\textbf{PPOAgent.select\_action.} Invalid actions are masked by setting their logits to
-$-\infty$ before constructing the Categorical distribution, ensuring zero probability for
-actions unavailable to the current customer. In evaluation mode, the action with the
-highest masked logit is selected deterministically.
+\item \texttt{ActorCriticNetwork} (\texttt{agent\_ppo.py}):
+shared MLP trunk (60$\rightarrow$128$\rightarrow$128, Tanh) branching into a policy head
+(128$\rightarrow$5 logits) and a value head (128$\rightarrow$1 scalar).
 
-\textbf{PPOAgent.update.} Receives a completed rollout batch, computes Generalized
-Advantage Estimation (GAE), and runs 4 epochs of minibatch updates using the PPO clipped
-objective. An entropy bonus (coefficient 0.01) encourages continued exploration.
+\item \texttt{PPOAgent.select\_action} (\texttt{agent\_ppo.py}):
+invalid actions are masked by setting their logits to $-\infty$ before constructing the
+Categorical distribution. In evaluation mode the action with the highest masked logit
+is selected deterministically.
+
+\item \texttt{PPOAgent.update} (\texttt{agent\_ppo.py}):
+receives a completed rollout batch, computes one-step advantages ($A = r - V(s)$),
+and runs 4 epochs of minibatch updates using the PPO clipped objective plus an entropy
+bonus (coefficient 0.01).
+
+\end{itemize}
 
 \subsection{Training Protocol}
 

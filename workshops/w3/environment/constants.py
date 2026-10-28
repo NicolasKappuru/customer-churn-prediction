@@ -15,7 +15,7 @@ ACTION_DEFINITIONS = (
     RetentionAction("Send auto-renewal reminder",           0.10, 0.60, 0.01),
     RetentionAction("Offer loyalty renewal with discount",  0.15, 0.90, 0.15),
     RetentionAction("Send content re-engagement",           0.10, 0.80, 0.05),
-    RetentionAction("Offer downgrade to 99 NTD plan",       0.15, 0.90, 0.20),
+    RetentionAction("Offer downgrade to 99 NTD plan",       0.15, 0.90, 0.10),
     RetentionAction("Do nothing",                           1.00, None, 0.00),
 )
 

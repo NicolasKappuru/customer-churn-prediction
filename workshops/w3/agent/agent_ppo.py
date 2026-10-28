@@ -37,7 +37,7 @@ class PPOConfig:
     entropy_coefficient: float = 0.01
     value_coefficient: float = 0.5
     update_epochs: int = 4
-    minibatch_size: int = 64
+    minibatch_size: int = 4
     gradient_clip_value: float = 0.5
 
 
