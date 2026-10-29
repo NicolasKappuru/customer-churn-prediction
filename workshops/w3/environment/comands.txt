@@ -1,6 +1,7 @@
 python workshops/w3/baselines/random_policy.py
 python workshops/w3/baselines/random_policy.py --episodes 200 --seed 42
 
+python workshops/w3/baselines/heuristic_policy.py
 
 python workshops/w3/train/train_dqn.py
 python workshops/w3/train/train_dqn.py --episodes 3000 --eval-every 250 --eval-episodes 100 --seed 42

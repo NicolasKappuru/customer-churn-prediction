@@ -243,3 +243,6 @@ context.txt
 
 # Training run CSVs (large, reproducible from training scripts)
 workshops/w3/runs/csv/
+
+# Evaluation results (reproducible by re-running dqn_vs_ppo.py)
+workshops/w3/evaluations/results/
