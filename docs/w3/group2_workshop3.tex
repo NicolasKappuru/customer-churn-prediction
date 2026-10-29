@@ -355,6 +355,7 @@ action index, and the cost for logging and evaluation.
 \end{enumerate}
 
 \subsection{Random Policy Baseline}
+\label{sec:random}
 
 Before training any agent, a random policy verifies that the environment behaves
 correctly under unconstrained exploration. The policy selects uniformly at random
@@ -613,39 +614,171 @@ entropy over 3{,}000 training episodes.}
 \end{figure}
 
 
+\section{Evaluation and Comparison}
 
-\section{Sample trajectory visualizations}
+\subsection{Evaluation Setup}
+
+Evaluation uses five held-out customer pools, each composed of 90 churned and 10
+non-churned customers (100 episodes per pool, 500 total). All pools are excluded from
+the training and validation splits to avoid overestimation of performance.
+Pool construction is seeded with \texttt{base\_seed = 0}; episode rollouts use
+\texttt{eval\_seed = 2025}.
+
+\subsection{Baselines}
+
+\textbf{Random policy.} At each episode a valid action is sampled uniformly at random
+from the set of admissible actions for the current customer (described in
+Section~\ref{sec:random}).
+
+\textbf{Heuristic policy.} A deterministic greedy rule selects the valid action that
+maximises $P(\text{accept}) \times (1 - \text{cost})$, where $P(\text{accept})$ is the
+high acceptance probability when the customer is in a favorable state for that action,
+and the base probability otherwise. Action~4 (Do nothing) is excluded unless it is the
+only available action.
+
+\subsection{Agent Comparison}
+
+Each policy was evaluated on the same five pools.
+Table~\ref{tab:comparison} reports metrics averaged across all 500 episodes.
+
+\begin{table}[H]
+\centering
+\caption{Evaluation results averaged across 5 pools (500 episodes each).}
+\label{tab:comparison}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Agent} & \textbf{Mean Return} & \textbf{Success Rate} & \textbf{Acceptance Rate} & \textbf{Mean Churn Reduction} \\
+\midrule
+PPO            & $+0.1119$ & 44.6\% & 62.9\% & 0.1181 \\
+DQN            & $+0.1057$ & 46.8\% & 58.0\% & 0.1120 \\
+Heuristic      & $+0.0913$ & 49.8\% & 64.6\% & 0.0975 \\
+Random         & $+0.0428$ & 24.2\% & 49.9\% & 0.0454 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The heuristic achieves the highest acceptance rate (64.6\%) by greedily targeting the
+action most likely to be accepted, yet it does not translate this into the best return
+or churn reduction. PPO and DQN surpass it on both metrics because they learn to
+prioritise actions that maximise expected reward — trading some acceptance probability
+for larger reductions in churn probability when the customer profile justifies it. The
+random baseline is considerably worse across all dimensions: without any notion of
+reward or acceptance likelihood, it disperses actions uniformly and achieves less than
+half the mean churn reduction of the learned agents.
+
+\subsection{Trajectory Visualizations}
+
+Five representative DQN episodes (pool 0) illustrating the range of interaction outcomes.
+
+\begin{table}[H]
+\centering
+\caption{Sample DQN episodes — state transitions, actions, and rewards.}
+\label{tab:trajectories}
+\begin{tabular}{clcccc}
+\toprule
+\textbf{Ep.} & \textbf{Action} & \textbf{Accepted} & \textbf{$p_{\text{before}}$} & \textbf{$p_{\text{after}}$} & \textbf{Reward} \\
+\midrule
+2  & Send auto-renewal reminder   & Yes & 0.933 & 0.320 & $+0.606$ \\
+11 & Offer loyalty renewal        & Yes & 0.750 & 0.321 & $+0.365$ \\
+1  & Send content re-engagement   & Yes & 0.965 & 0.938 & $+0.025$ \\
+28 & Offer downgrade to 99 NTD    & Yes & 0.954 & 0.974 & $-0.018$ \\
+7  & Do nothing                   & --- & 0.999 & 0.999 & $\phantom{+}0.000$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Episodes 2 and 11 show high-impact accepted actions with large churn reductions.
+Episode 1 shows an accepted action with minimal effect on churn probability.
+Episode 28 shows an accepted downgrade that unexpectedly increased the predicted
+churn probability, yielding a negative reward. Episode 7 is a forced inaction — only
+Do nothing was valid — illustrating a case with no intervention effect.
+
+\subsection{Sample Efficiency Analysis}
+
+Figure~\ref{fig:learning_curves} shows the validation return over training episodes
+for the best DQN and PPO configurations, together with the fixed reference lines for
+the random and heuristic baselines.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/learning_curves.png}
+\caption{Validation return over training episodes for DQN (\texttt{exploratory}) and
+PPO (\texttt{balanced}), with random and heuristic baseline references.}
+\label{fig:learning_curves}
+\end{figure}
+
+DQN starts with low validation return during the first $\sim$500 episodes while
+$\varepsilon$ remains high and the replay buffer fills with largely random
+transitions; once exploration decreases the curve stabilises around episode 750--1000
+and converges near 0.10--0.11. PPO reaches competitive returns faster — its on-policy
+updates begin shaping the policy from the very first rollout — but the curve fluctuates
+more persistently because each new rollout replaces the previous one, preventing the
+agent from averaging over a large transition history. The random baseline stays flat
+below $+0.05$, reflecting uniformly low performance with no learning. The heuristic
+baseline sits near $+0.09$, providing a stronger reference that both agents
+consistently exceed after their respective warm-up phases.
 
 \section{Discussion}
 
+\textbf{Simulation design challenges.}
+Designing the environment and the action set from scratch was one of the main
+difficulties of this work. The KKBox dataset contains no labeled records of how
+customers responded to retention interventions, so the entire transition dynamics —
+acceptance probabilities, action effects, and costs — had to be simulated from
+business assumptions under optimistic scenarios. Additionally, the environment relies
+on an XGBoost supervised model to estimate churn probability, and the reward signal is
+therefore only as informative as that model. Given that the supervised model shows
+moderate discriminative performance, any bias in its predictions propagates directly
+into the reward the agent receives. Improving the churn model would be the most
+impactful way to improve the quality of the simulation.
+
+\textbf{Hyperparameter search.}
+Exhaustively exploring the hyperparameter space of two algorithms simultaneously is
+computationally expensive. The search conducted here was restricted to three learning
+rate configurations per algorithm, leaving many combinations — such as varying network
+depth, batch size, or PPO clipping threshold — unexplored. A more systematic search
+could yield further performance gains for both agents.
+
+\textbf{Exploration versus exploitation.}
+Relying purely on exploration produces poor results, as the agent cannot distinguish
+high-reward actions from low-reward ones. Conversely, committing fully to the most
+accepted action — as the heuristic does — achieves decent returns but misses
+opportunities: actions 2 (re-engagement) and 3 (downgrade) can increase churn
+probability in certain customer profiles, a pattern the heuristic ignores by design.
+DQN spends most of its training under high $\varepsilon$, gradually shifting toward
+exploitation as the decay progresses, which explains its late convergence but stable
+final performance. PPO, on the other hand, continuously updates its stochastic policy
+from each new rollout, maintaining exploration throughout training and producing the
+visible fluctuations in its validation curve.
+
 \section{Conclusion}
 
+This work demonstrated that reinforcement learning agents can learn retention policies
+that outperform both a random baseline and a hand-crafted greedy heuristic in a
+simulated KKBox churn environment. PPO achieved the highest mean return ($+0.1119$),
+surpassing the random baseline by approximately 2.5$\times$ and the heuristic by
+around 23\%; DQN followed closely with a 16\% improvement over the heuristic. Both
+agents learned to identify customer profiles where costly interventions translate into
+meaningful churn reductions, a distinction the heuristic cannot make. However, the
+performance gap between PPO and DQN is small and not conclusive given the variance
+across evaluation pools. More importantly, all results are tightly coupled to the
+quality of the XGBoost model, the representativeness of the KKBox dataset, and the
+acceptance probabilities and costs assumed in the simulation. Improvements in any of
+these components would directly strengthen the reliability of the conclusions.
 
 \begin{thebibliography}{9}
 
-\bibitem{ahmad2019}
-Ahmad, A. K., Jafar, A., \& Aljoumaa, K. (2019). Customer churn prediction in telecom using machine learning in big data platform. \textit{Journal of Big Data}, 6, 28.
+\bibitem{sutton2018}
+Sutton, R. S., \& Barto, A. G. (2018). \textit{Reinforcement Learning: An Introduction} (2nd ed.). MIT Press.
 
-\bibitem{verbeke2012}
-Verbeke, W., Dejaeger, K., Martens, D., Hur, J., \& Baesens, B. (2012). New insights into churn prediction in the telecommunication sector: A profit driven data mining approach. \textit{European Journal of Operational Research}, 218(1), 211--229.
+\bibitem{watkins1992}
+Watkins, C. J. C. H., \& Dayan, P. (1992). Q-learning. \textit{Machine Learning}, 8(3--4), 279--292. https://doi.org/10.1007/BF00992698
 
-\bibitem{breiman2001randomforests}
-Breiman, L. (2001). Random forests. \textit{Machine Learning}, 45(1), 5--32.
+\bibitem{ascarza2018}
+Ascarza, E. (2018). Retention futility: Targeting high-risk customers might be ineffective. \textit{Journal of Marketing Research}, 55(1), 80--98. https://doi.org/10.1509/jmr.16.0163
 
-\bibitem{chen2016xgboost}
-Chen, T., \& Guestrin, C. (2016). XGBoost: A scalable tree boosting system. In \textit{Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 785--794).
-
-\bibitem{akiba2019optuna}
-Akiba, T., Sano, S., Yanase, T., Ohta, T., \& Koyama, M. (2019). Optuna: A next-generation hyperparameter optimization framework. In \textit{Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery \& Data Mining} (pp. 2623--2631).
-
-\bibitem{paszke2019pytorch}
-Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L., Desmaison, A., Kopf, A., Yang, E., DeVito, Z., Raison, M., Tejani, A., Chilamkurthy, S., Steiner, B., Fang, L., Bai, J., \& Chintala, S. (2019). PyTorch: An imperative style, high-performance deep learning library. \textit{Advances in Neural Information Processing Systems}, 32.
-
-\bibitem{chawla2002smote}
-Chawla, N. V., Bowyer, K. W., Hall, L. O., \& Kegelmeyer, W. P. (2002). SMOTE: Synthetic minority over-sampling technique. \textit{Journal of Artificial Intelligence Research}, 16, 321--357.
-
-\bibitem{davis2006precision}
-Davis, J., \& Goadrich, M. (2006). The relationship between precision-recall and ROC curves. In \textit{Proceedings of the 23rd International Conference on Machine Learning} (pp. 233--240).
+\bibitem{pednault2002}
+Pednault, E., Abe, N., \& Zadrozny, B. (2002). Sequential cost-sensitive decision making with reinforcement learning. In \textit{Proceedings of the 8th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 259--268). ACM. https://doi.org/10.1145/775047.775086
 
 \end{thebibliography}
 
