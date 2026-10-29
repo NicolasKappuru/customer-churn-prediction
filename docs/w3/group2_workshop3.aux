@@ -23,6 +23,7 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Episode Initialization --- \texttt  {reset()}}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Transition, Reward, and Termination --- \texttt  {step(action)}}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Random Policy Baseline}{7}{}\protected@file@percent }
+\newlabel{sec:random}{{3.4}{7}{}{subsection.3.4}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Random policy diagnostics over 100 episodes.}}{7}{}\protected@file@percent }
 \newlabel{tab:random_baseline}{{1}{7}{}{table.1}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Agent Algorithm}{8}{}\protected@file@percent }
@@ -38,19 +39,26 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Training Protocol}{10}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces DQN best configuration (\texttt  {lr\_1e-3}): rolling mean return (100 episodes) and validation return over 3{,}000 training episodes.}}{11}{}\protected@file@percent }
 \newlabel{fig:dqn_best}{{2}{11}{}{figure.2}{}}
-\bibcite{ahmad2019}{1}
-\bibcite{verbeke2012}{2}
-\bibcite{breiman2001randomforests}{3}
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces PPO best configuration (\texttt  {lr\_3e-4}): rolling mean return (100 episodes) and validation return over 3{,}000 training episodes.}}{12}{}\protected@file@percent }
 \newlabel{fig:ppo_return}{{3}{12}{}{figure.3}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces PPO best configuration (\texttt  {lr\_3e-4}): policy loss, value loss, and entropy over 3{,}000 training episodes.}}{12}{}\protected@file@percent }
 \newlabel{fig:ppo_losses}{{4}{12}{}{figure.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Sample trajectory visualizations}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{12}{}\protected@file@percent }
-\bibcite{chen2016xgboost}{4}
-\bibcite{akiba2019optuna}{5}
-\bibcite{paszke2019pytorch}{6}
-\bibcite{chawla2002smote}{7}
-\bibcite{davis2006precision}{8}
-\gdef \@abspage@last{13}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Evaluation and Comparison}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Evaluation Setup}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Baselines}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Agent Comparison}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Evaluation results averaged across 5 pools (500 episodes each).}}{13}{}\protected@file@percent }
+\newlabel{tab:comparison}{{6}{13}{}{table.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Trajectory Visualizations}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Sample DQN episodes — state transitions, actions, and rewards.}}{13}{}\protected@file@percent }
+\newlabel{tab:trajectories}{{7}{13}{}{table.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Sample Efficiency Analysis}{14}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Validation return over training episodes for DQN (\texttt  {exploratory}) and PPO (\texttt  {balanced}), with random and heuristic baseline references.}}{14}{}\protected@file@percent }
+\newlabel{fig:learning_curves}{{5}{14}{}{figure.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{14}{}\protected@file@percent }
+\bibcite{sutton2018}{1}
+\bibcite{watkins1992}{2}
+\bibcite{ascarza2018}{3}
+\bibcite{pednault2002}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{15}{}\protected@file@percent }
+\gdef \@abspage@last{15}
