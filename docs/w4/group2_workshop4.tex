@@ -1,0 +1,107 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage[english]{babel}
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage[justification=centering]{caption}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true,
+    columns=fullflexible
+}
+
+% APA style formatting
+\geometry{a4paper, margin=1in}
+\setstretch{1.5}
+\captionsetup[table]{labelfont=bf, justification=centering, singlelinecheck=false}
+\captionsetup[longtable]{labelfont=bf, justification=centering, singlelinecheck=false}
+\captionsetup[figure]{font=small, labelfont=bf, justification=centering, singlelinecheck=false}
+
+\title{ Machine Learning for Customer Churn Prediction}
+\author{Nelson David Posso Suarez \\ Javier Alejandro Penagos Hernandez \\ Nicolas Castro Rivera }
+\date{}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Executive Summary}
+Unsupervised learning provides techiniques useful for different problems that complement the projects. The re-creation of
+existing data, the anomaly detection or generate new data similar to existing data. Can be help in the domain of Churn Prediction,
+in special for working with a dataset like the KKBox selected for this project. 
+
+\section{Motivation}
+The contribution of this workshop to the project, is implement unsupervised learning for strategy parts in the Customer Churn
+Prediction system. There is a problem with the unbalanced dataset, then the experiment will consist in explore the AE and VAE
+for show how good reply existing customers and then implement for generate customer churns. 
+\\Purpose of this new customers generated with real customer churns, is generate more data and get a better performace, that 
+the models of w1 got. The experiment will conclude if this whether or not this is feisible depends on the results. 
+
+
+
+\section{AE and VAE}
+Autoencoder and variational autoencoder are unsupervised neural network arquitectures
+
+\subsection{Data and preprocessing}
+
+The autoencoders reuse the tabular export built in Workshop~1 (version~5), where the
+\textit{members}, \textit{transactions} and \textit{user\_logs} tables are condensed into a
+single record of 59 features per customer (56 numerical and 3 categorical). The February
+cohort (992{,}931 customers, 6.39\% churn) is used for development and the March cohort
+(970{,}960 customers, 8.99\% churn) as the held-out test set; 881{,}701 customers appear in
+both months.
+
+The Workshop~1 split (stratified and hash-based on \texttt{msno}) is reused so that the
+same customers are used across workshops. The churn label is never fed to the networks; it
+is only used to select the training population. The AE and the VAE are trained on the
+697{,}095 non-churn customers of the \textit{fit} partition and validated on the 116{,}183
+non-churn customers of the \textit{stop} partition, while the full March cohort, including
+churners, is used for testing.
+
+A preprocessor is fitted on the training population only. Numerical features are imputed
+with the median, skewed features are transformed with a signed $\log(1+|x|)$, clipped to the
+0.1\% and 99.9\% quantiles and standardized; one constant column was removed, leaving 55
+numerical inputs. The categorical features (\texttt{city}, \texttt{registered\_via},
+\texttt{last\_payment\_method\_id}) are mapped to vocabularies of 22, 6 and 34 levels and
+one-hot encoded inside the network, giving an input dimension of 117. An inverse transform
+maps reconstructions back to the original 59 columns. The AE and the VAE share the same
+fitted preprocessor.
+
+\subsection{AE Architecture}
+
+\subsection{AE Train}
+
+\subsection{VAE Architecture}
+
+\subsection{VAE Train}
+
+\section{Reconstruction quality}
+
+\section{Anomaly detection}
+
+\section{Latent space visualization}
+
+\section{Generate synthetic data}
+
+\section{Analysis}
+
+\begin{thebibliography}{9}
+\bibitem{rizvi2018kkbox}
+Rizvi, A. (2018). \textit{WSDM -- KKBox's Churn Prediction Challenge}. Medium. Retrieved from \url{https://asad-99rizvi.medium.com/wsdm-kkboxs-churn-prediction-challenge-d7c9cfa21cbd}
+\end{thebibliography}
+
+\end{document}
