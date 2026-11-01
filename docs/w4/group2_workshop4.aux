@@ -6,14 +6,23 @@
 \@writefile{toc}{\contentsline {section}{\numberline {2}Motivation}{1}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {3}AE and VAE}{1}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Data and preprocessing}{1}{}\protected@file@percent }
-\bibcite{rizvi2018kkbox}{1}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.2}AE Architecture}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}AE Train}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}VAE Architecture}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}VAE Train}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Reconstruction quality}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Anomaly detection}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Latent space visualization}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Generate synthetic data}{2}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8}Analysis}{2}{}\protected@file@percent }
-\gdef \@abspage@last{2}
+\citation{kingma2014adam}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Standard Autoencoder architecture. The encoder compresses the 117-dimensional input to a $z$-dimensional code; the decoder reconstructs numerical features via a linear head and categorical features via per-class logit heads.}}{3}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:ae_arch}{{1}{3}{}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}AE Train}{3}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces AE training results by latent dimension (epoch 50).}}{3}{}\protected@file@percent }
+\newlabel{tab:ae_train}{{1}{3}{}{table.1}{}}
+\bibcite{kingma2014adam}{1}
+\bibcite{rizvi2018kkbox}{2}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Training and validation reconstruction loss per epoch for $z \in \{8, 16, 32\}$. All curves converge smoothly without overfitting, and larger bottlenecks achieve consistently lower loss.}}{4}{}\protected@file@percent }
+\newlabel{fig:ae_curves}{{2}{4}{}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}VAE Architecture}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}VAE Train}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Reconstruction quality}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Anomaly detection}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Latent space visualization}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Generate synthetic data}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Analysis}{4}{}\protected@file@percent }
+\gdef \@abspage@last{4}
