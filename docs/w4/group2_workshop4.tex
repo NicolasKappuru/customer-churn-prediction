@@ -83,7 +83,95 @@ fitted preprocessor.
 
 \subsection{AE Architecture}
 
+The autoencoder receives tabular input of dimension $d_\text{in} = 117$: 55 standardised
+numerical features concatenated with the one-hot encodings of the three categorical columns
+(\texttt{city}: 22, \texttt{registered\_via}: 6, \texttt{last\_payment\_method\_id}: 34).
+
+\textbf{Encoder.} Two fully-connected layers with decreasing hidden units compress the input
+to the bottleneck:
+\[
+\mathbb{R}^{117} \xrightarrow{W_1,\,\text{ReLU}} \mathbb{R}^{64}
+                 \xrightarrow{W_2,\,\text{ReLU}} \mathbb{R}^{32}
+                 \xrightarrow{W_z}                \mathbb{R}^{z}.
+\]
+
+\textbf{Bottleneck.} Three latent dimensions were evaluated: $z \in \{8, 16, 32\}$.
+A linear projection (no activation) maps the last hidden representation to the code vector
+$\mathbf{z}$, which is the only information passed to the decoder.
+
+\textbf{Decoder.} The decoder mirrors the encoder with reversed hidden widths $[32, 64]$
+and then branches into two output heads:
+\begin{itemize}
+    \item \textit{Numeric head}: a linear layer (no activation) reconstructing the 55
+          standardised numerical features.
+    \item \textit{Categorical heads}: one independent linear layer per categorical feature,
+          producing un-normalised class logits (22, 6, and 34 dimensions respectively).
+\end{itemize}
+
+\textbf{Loss function.} The reconstruction loss combines mean squared error for the
+numerical part with the mean cross-entropy over all categorical heads, controlled by a
+scalar weight $\lambda = 1.0$:
+\[
+\mathcal{L} = \underbrace{\text{MSE}(\hat{\mathbf{x}}_\text{num},\,\mathbf{x}_\text{num})}_{\text{numeric}}
+            + \lambda\,\underbrace{\frac{1}{C}\sum_{c=1}^{C}\text{CE}(\hat{\mathbf{x}}_c,\,x_c)}_{\text{categorical}}.
+\]
+
+Figure~\ref{fig:ae_arch} illustrates the full encoder–bottleneck–decoder pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/autoencoder_standard_architecture.png}
+    \caption{Standard Autoencoder architecture. The encoder compresses the 117-dimensional
+             input to a $z$-dimensional code; the decoder reconstructs numerical features
+             via a linear head and categorical features via per-class logit heads.}
+    \label{fig:ae_arch}
+\end{figure}
+
 \subsection{AE Train}
+
+All three latent configurations share the same training protocol. The Adam
+optimiser~\cite{kingma2014adam} is used with learning rate $10^{-3}$, no weight
+decay, and a batch size of 512. Training runs for up to 50 epochs with early
+stopping (patience~5) monitoring the validation reconstruction loss. The model
+state corresponding to the lowest validation loss is restored at the end of
+training.
+
+The training set consists of 697{,}095 non-churn customers from the February
+fit partition; the 116{,}183 non-churn customers of the stop partition are used
+as the validation set. The churn label is never seen during training.
+
+Table~\ref{tab:ae_train} summarises the final train and validation losses for
+each bottleneck size. None of the three runs triggered early stopping; all
+completed the full 50 epochs.
+
+\begin{table}[H]
+    \centering
+    \caption{AE training results by latent dimension (epoch 50).}
+    \label{tab:ae_train}
+    \begin{tabular}{ccccc}
+        \toprule
+        $z$ & Train loss & Val loss & Train MSE & Val MSE \\
+        \midrule
+        8  & 0.1274 & 0.1274 & 0.1250 & 0.1256 \\
+        16 & 0.0443 & 0.0427 & 0.0433 & 0.0421 \\
+        32 & 0.0161 & 0.0157 & 0.0156 & 0.0152 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Reconstruction error drops sharply as $z$ grows: $z{=}32$ achieves a validation
+loss roughly $8\times$ lower than $z{=}8$, confirming that larger bottlenecks
+retain more customer-level information. Figure~\ref{fig:ae_curves} shows the
+training and validation loss curves for all three runs.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/ae_training_curves.png}
+    \caption{Training and validation reconstruction loss per epoch for
+             $z \in \{8, 16, 32\}$. All curves converge smoothly without
+             overfitting, and larger bottlenecks achieve consistently lower loss.}
+    \label{fig:ae_curves}
+\end{figure}
 
 \subsection{VAE Architecture}
 
@@ -100,6 +188,10 @@ fitted preprocessor.
 \section{Analysis}
 
 \begin{thebibliography}{9}
+\bibitem{kingma2014adam}
+Kingma, D.~P., \& Ba, J. (2015). Adam: A method for stochastic optimization.
+\textit{International Conference on Learning Representations (ICLR)}.
+
 \bibitem{rizvi2018kkbox}
 Rizvi, A. (2018). \textit{WSDM -- KKBox's Churn Prediction Challenge}. Medium. Retrieved from \url{https://asad-99rizvi.medium.com/wsdm-kkboxs-churn-prediction-challenge-d7c9cfa21cbd}
 \end{thebibliography}
