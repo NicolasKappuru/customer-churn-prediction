@@ -54,7 +54,62 @@ the models of w1 got. The experiment will conclude if this whether or not this i
 
 
 \section{AE and VAE}
-Autoencoder and variational autoencoder are unsupervised neural network arquitectures
+Autoencoder and variational autoencoder are unsupervised neural network architectures
+that learn compressed representations of data without using labels. Both were designed
+first at the architectural level — defining inputs, hidden layers, bottleneck, and loss
+function — and then implemented in PyTorch (\texttt{torch.nn.Module}).
+
+\textbf{Standard Autoencoder (AE).} The AE was designed as a deterministic
+encoder–decoder for tabular data: the encoder compresses the input to a fixed-size
+code vector and the decoder reconstructs the original features from it. Once the
+design was settled, it was implemented across two modules:
+
+\begin{itemize}
+
+\item \texttt{autoencoder\_ae.py} (\texttt{workshops/w4/src/autoencoder/}):
+defines \texttt{AEConfig} (frozen dataclass with all hyperparameters),
+\texttt{Encoder} (stacked linear layers with ReLU ending in a linear projection
+to $z$), \texttt{Decoder} (mirrored layers branching into a numeric linear head
+and per-category logit heads), \texttt{Autoencoder} (combines both modules with
+\texttt{encode} / \texttt{decode} / \texttt{forward} methods), and
+\texttt{ReconstructionLoss} (MSE for numeric features plus mean cross-entropy
+for categorical features).
+
+\item \texttt{train\_ae.py} (\texttt{workshops/w4/src/train/}):
+defines \texttt{AETrainer} (training loop with Adam optimiser, per-epoch logging,
+and best-state tracking), \texttt{EarlyStopping} (patience-based stopping on
+validation loss), \texttt{build\_loader} (wraps tensors in a \texttt{DataLoader}),
+and checkpoint utilities \texttt{save\_checkpoint} / \texttt{load\_checkpoint}
+that persist the model, config, preprocessor, and training history.
+
+\end{itemize}
+
+\textbf{Variational Autoencoder (VAE).} The VAE extends the AE with a
+probabilistic bottleneck: the encoder outputs a mean $\boldsymbol{\mu}$ and a
+log-variance $\log\boldsymbol{\sigma}^2$ instead of a deterministic code, and a
+sample $\mathbf{z}$ is drawn via the reparameterization trick during training.
+The decoder is shared with the AE. A KL divergence term is added to the loss,
+weighted by $\beta$ and linearly annealed during the first epochs to avoid
+posterior collapse. The implementation is split into two modules:
+
+\begin{itemize}
+
+\item \texttt{autoencoder\_vae.py} (\texttt{workshops/w4/src/autoencoder/}):
+defines \texttt{VAEConfig} (extends \texttt{AEConfig} with \texttt{beta},
+\texttt{kl\_anneal\_epochs}, and \texttt{logvar\_clamp}), \texttt{VAEEncoder}
+(shared trunk ending in parallel \texttt{mu\_head} and \texttt{logvar\_head}),
+\texttt{VAE} (reparameterization, \texttt{sample} method for generation, reuses
+\texttt{Decoder} from the AE module), and \texttt{ELBOLoss}
+(reconstruction summed over feature dimensions plus $\beta$-weighted KL divergence).
+
+\item \texttt{train\_vae.py} (\texttt{workshops/w4/src/train/}):
+defines \texttt{VAETrainer} (training loop that advances the KL annealer each
+epoch and tracks active latent units to detect posterior collapse) and
+\texttt{KLAnnealer} (linear warm-up schedule for $\beta$). Reuses
+\texttt{EarlyStopping} and \texttt{build\_loader} from \texttt{train\_ae.py};
+early stopping is delayed until after the KL warm-up phase.
+
+\end{itemize}
 
 \subsection{Data and preprocessing}
 
@@ -116,6 +171,30 @@ scalar weight $\lambda = 1.0$:
             + \lambda\,\underbrace{\frac{1}{C}\sum_{c=1}^{C}\text{CE}(\hat{\mathbf{x}}_c,\,x_c)}_{\text{categorical}}.
 \]
 
+Table~\ref{tab:ae_hparams} lists the hyperparameters used and the rationale behind each choice.
+
+\begin{table}[H]
+    \centering
+    \caption{AE hyperparameters and selection rationale.}
+    \label{tab:ae_hparams}
+    \begin{tabularx}{\linewidth}{llX}
+        \toprule
+        \textbf{Hyperparameter} & \textbf{Value} & \textbf{Rationale} \\
+        \midrule
+        \texttt{hidden\_dims}    & (64, 32)  & Funnel shape: halves width at each layer from 117 to 64, 32, then $z$. Two layers suffice for tabular inputs of this size; a common heuristic. \\
+        \texttt{z\_dim}          & 16        & Chosen by experiment (sweep over 8 / 16 / 32): balances reconstruction quality and compression. \\
+        \texttt{learning\_rate}  & $10^{-3}$ & Default recommended for Adam \cite{kingma2014adam}. Loss curves decrease smoothly without oscillation, confirming it is adequate. \\
+        \texttt{batch\_size}     & 512       & Gives $\approx$1{,}362 updates per epoch (697{,}095 / 512); consistent with the batch size used in Workshop~2. \\
+        \texttt{max\_epochs}     & 50        & Upper bound set by the workshop guidelines (30--50 epochs). \\
+        \texttt{patience}        & 5         & Early stopping: training halts if validation loss does not improve for 5 consecutive epochs. \\
+        \texttt{dropout}         & 0.0       & No dropout needed; train and validation curves track closely, indicating no overfitting. \\
+        \texttt{weight\_decay}   & 0.0       & Same reasoning as dropout; regularisation is not required given the data volume. \\
+        \texttt{cat\_loss\_weight} & 1.0     & Numerical and categorical components contribute equally to the total loss. \\
+        \texttt{seed}            & 110       & Same seed used in Workshops~1 and~2 for reproducibility across experiments. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
 Figure~\ref{fig:ae_arch} illustrates the full encoder–bottleneck–decoder pipeline.
 
 \begin{figure}[H]
@@ -175,7 +254,127 @@ training and validation loss curves for all three runs.
 
 \subsection{VAE Architecture}
 
+The VAE shares the same input representation as the AE (117 dimensions: 55 numerical
+and 62 one-hot). The key difference lies in the encoder and the loss function.
+
+\textbf{Encoder.} A shared trunk identical to the AE encoder processes the input through
+two hidden layers:
+\[
+\mathbb{R}^{117} \xrightarrow{W_1,\,\text{ReLU}} \mathbb{R}^{64}
+                 \xrightarrow{W_2,\,\text{ReLU}} \mathbb{R}^{32}.
+\]
+Two parallel linear heads then project the trunk output to the parameters of the posterior
+distribution:
+\[
+\boldsymbol{\mu} = W_\mu\,\mathbf{h}, \qquad
+\log\boldsymbol{\sigma}^2 = \text{clamp}(W_\sigma\,\mathbf{h},\,-10,\,10).
+\]
+
+\textbf{Bottleneck.} A sample $\mathbf{z} \in \mathbb{R}^{z}$ is drawn during training
+via the reparameterization trick:
+\[
+\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\varepsilon},
+\quad \boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}).
+\]
+At inference the deterministic mean $\boldsymbol{\mu}$ is used instead. The same three
+latent dimensions as the AE were evaluated: $z \in \{8, 16, 32\}$; $z{=}16$ was selected.
+
+\textbf{Decoder.} The same \texttt{Decoder} module from the AE is reused unchanged:
+mirrored hidden layers $[32, 64]$ with ReLU, a linear numeric head, and per-category
+logit heads.
+
+\textbf{Loss (ELBO).} The training objective is the Evidence Lower Bound, composed of a
+reconstruction term and a KL divergence weighted by $\beta$:
+\[
+\mathcal{L}_\text{ELBO}
+    = \underbrace{\sum_{\text{num}} \text{MSE}_i + \sum_{c=1}^{C} \text{CE}_c}_{\text{reconstruction}}
+    + \beta \underbrace{\left(-\tfrac{1}{2}\sum_{j=1}^{z}
+      \bigl(1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2\bigr)\right)}_{\text{KL divergence}}.
+\]
+$\beta$ is linearly annealed from 0 to its target value over the first 10 epochs to
+prevent posterior collapse. Three values were evaluated: $\beta \in \{0.5, 1.0, 4.0\}$.
+
+Table~\ref{tab:vae_hparams} lists the VAE-specific hyperparameters and their rationale.
+
+\begin{table}[H]
+    \centering
+    \caption{VAE-specific hyperparameters and selection rationale.
+             All other hyperparameters match Table~\ref{tab:ae_hparams}.}
+    \label{tab:vae_hparams}
+    \begin{tabularx}{\linewidth}{llX}
+        \toprule
+        \textbf{Hyperparameter} & \textbf{Value} & \textbf{Rationale} \\
+        \midrule
+        \texttt{beta}             & 1.0  & Chosen by experiment (sweep over 0.5 / 1.0 / 4.0):
+                                           balances reconstruction quality and latent space
+                                           regularity. Standard $\beta$-VAE baseline. \\
+        \texttt{kl\_anneal\_epochs} & 10 & Linear warm-up prevents the KL term from dominating
+                                           in early epochs, which would collapse the posterior
+                                           before the decoder learns to reconstruct. \\
+        \texttt{logvar\_clamp}    & $(-10, 10)$ & Clamps $\log\sigma^2$ to avoid numerical
+                                           overflow in $\exp(\log\sigma^2)$ during the
+                                           reparameterization step. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Figure~\ref{fig:vae_arch} illustrates the full VAE pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/variational_autoencoder_architecture.png}
+    \caption{Variational Autoencoder architecture. The encoder trunk branches into
+             $\boldsymbol{\mu}$ and $\log\boldsymbol{\sigma}^2$ heads; a sample is
+             drawn via the reparameterization trick and passed to the shared decoder.}
+    \label{fig:vae_arch}
+\end{figure}
+
 \subsection{VAE Train}
+
+The VAE follows the same training protocol as the AE (Adam, $\text{lr}=10^{-3}$,
+batch size 512, up to 50 epochs), with two differences: early stopping is delayed
+until after the KL warm-up phase (epoch $> 10$), and the KL annealer advances
+$\beta_t$ linearly each epoch. Three values of $\beta$ were evaluated:
+$\{0.5, 1.0, 4.0\}$.
+
+Unlike the AE runs, all three VAE experiments triggered early stopping before
+reaching epoch 50. The active latent units metric — the number of dimensions with
+$\text{Var}(\boldsymbol{\mu}) > 0.01$ across the validation set — is tracked each
+epoch to monitor posterior collapse.
+
+Table~\ref{tab:vae_train} summarises the results at the best checkpoint for each run.
+
+\begin{table}[H]
+    \centering
+    \caption{VAE training results by $\beta$ at the best validation epoch.}
+    \label{tab:vae_train}
+    \begin{tabular}{ccccccc}
+        \toprule
+        $\beta$ & Stop ep. & Best ep. & Val ELBO & Val recon & Val KL & Active units \\
+        \midrule
+        0.5 & 26 & 21 & 10.575 & 3.603  & 13.943 & 15 \\
+        1.0 & 27 & 22 & 15.304 & 5.997  &  9.308 & 13 \\
+        4.0 & 26 & 21 & 28.958 & 16.355 &  3.151 &  6 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Higher $\beta$ penalises the KL term more strongly, forcing the posterior closer to
+$\mathcal{N}(\mathbf{0}, \mathbf{I})$ at the cost of reconstruction quality:
+$\beta{=}4.0$ achieves the lowest KL (3.15) but the worst reconstruction (16.36)
+and collapses 10 of the 16 latent dimensions. $\beta{=}0.5$ retains 15 active units
+and the best reconstruction (3.60) but with a less regular latent space. $\beta{=}1.0$
+was selected as the best trade-off. Figure~\ref{fig:vae_curves} shows the training
+and validation ELBO curves for all three runs.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/vae_training_curves.png}
+    \caption{Training and validation ELBO per epoch for $\beta \in \{0.5, 1.0, 4.0\}$.
+             The KL warm-up phase (first 10 epochs) is visible as a rising loss before
+             convergence. All runs triggered early stopping before epoch 50.}
+    \label{fig:vae_curves}
+\end{figure}
 
 \section{Reconstruction quality}
 
@@ -183,7 +382,6 @@ training and validation loss curves for all three runs.
 
 \section{Latent space visualization}
 
-\section{Generate synthetic data}
 
 \section{Analysis}
 
