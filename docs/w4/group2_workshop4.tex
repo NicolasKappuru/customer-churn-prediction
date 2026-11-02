@@ -672,8 +672,149 @@ reconstruction error as an anomaly detector.
 
 \section{Latent space visualization}
 
+The latent codes learned by the AE and VAE encoders are analysed to understand how
+the two architectures organise the customer manifold and whether the representations
+separate churners from normal customers without ever seeing labels.
+
+\subsection{Implementation}
+
+The analysis is split across two modules in
+\texttt{workshops/w4/src/analize\_latent/}:
+
+\begin{itemize}
+
+\item \texttt{analyze\_latent.py}: three classes support the full pipeline.
+\texttt{LatentExtractor} encodes the test set in batches of 2{,}048 — using
+\texttt{encode()} for the AE and the deterministic mean $\boldsymbol{\mu}$ (not a
+sampled $\mathbf{z}$) for the VAE. \texttt{LatentProjector} reduces representations
+to 2D via t-SNE (perplexity\,=\,30, PCA init) and UMAP
+(n\_neighbors\,=\,15, min\_dist\,=\,0.1). \texttt{SeparabilityAnalyzer} quantifies
+class separation with the Silhouette score (raw and after StandardScaler) and a
+linear probe — a logistic regression evaluated with 5-fold stratified cross-validation
+whose mean AUC measures how linearly separable the two classes are in the latent space.
+
+\item \texttt{extract\_lstm\_latent.py}: a subprocess script that extracts the hidden
+states from the Workshop~2 LSTM encoder for direct comparison. The W2 sequential
+export was not available in the current environment, so the LSTM comparison is omitted
+from the quantitative results; the analysis covers AE and VAE only.
+
+\end{itemize}
+
+Two samples are used throughout: a 20{,}000-point stratified sample (natural prevalence
+$\approx$9\% churn) for separability metrics, and a balanced 10{,}000-point sample
+(5{,}000 normal + 5{,}000 churn) for 2D projections to avoid the visualisation being
+dominated by the majority class.
+
+\subsection{Latent dimension analysis}
+
+Figure~\ref{fig:latent_dim_stats} shows the standard deviation per latent dimension
+for both models. The AE dimensions have varied and generally large standard deviations
+with no collapsed dimensions. The VAE dimensions cluster near the unit Gaussian prior
+($\sigma\,=\,1$), with 3 of the 16 dimensions below the collapse threshold
+($\text{Var}(\boldsymbol{\mu}) < 0.01$), leaving 13 active dimensions.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/latent_dim_stats.png}
+    \caption{Standard deviation per latent dimension for the AE (left) and VAE (right).
+             Grey bars in the VAE panel indicate collapsed dimensions; the red dashed
+             line marks $\sigma\,=\,1$ (unit Gaussian prior).}
+    \label{fig:latent_dim_stats}
+\end{figure}
+
+\subsection{2D projections}
+
+Figures~\ref{fig:latent_tsne} and~\ref{fig:latent_umap} show t-SNE and UMAP projections
+of the balanced 10{,}000-point sample coloured by ground-truth churn label.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/latent_tsne.png}
+    \caption{t-SNE projections (balanced 10k). Normal customers in blue, churners in red.
+             Both models show partial but incomplete class separation.}
+    \label{fig:latent_tsne}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/latent_umap.png}
+    \caption{UMAP projections (balanced 10k). Churn customers form distinct peripheral
+             clusters outside the main normal-customer manifold in both models.}
+    \label{fig:latent_umap}
+\end{figure}
+
+Figure~\ref{fig:latent_umap_anomaly} overlays the VAE ELBO anomaly score
+(\texttt{VAE\_recon\_kl}) on the VAE UMAP, confirming that high-anomaly regions
+align spatially with the churn cluster.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/latent_umap_vae_anomaly.png}
+    \caption{VAE UMAP coloured by $\log(1 + \texttt{VAE\_recon\_kl})$. High anomaly
+             scores concentrate in the same peripheral regions occupied by churners.}
+    \label{fig:latent_umap_anomaly}
+\end{figure}
+
+\subsection{Class separability}
+
+Table~\ref{tab:separability} reports the Silhouette score (on standardised latent
+vectors) and linear probe AUC for both models.
+
+\begin{table}[H]
+    \centering
+    \caption{Latent space separability on the 20k stratified test sample.}
+    \label{tab:separability}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Model} & \textbf{Dims} & \textbf{Silhouette (std)} & \textbf{Linear probe AUC} \\
+        \midrule
+        AE (all dims)          & 16 & \textbf{0.252} & \textbf{0.848} \\
+        VAE (all dims)         & 16 & 0.156          & 0.847          \\
+        VAE (active dims only) & 13 & 0.152          & 0.846          \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Discussion}
+
+The AE achieves a higher Silhouette score (0.252 vs.\ 0.156), indicating more natural
+geometric separation between churn and normal customers. The VAE's KL regularisation
+pulls all codes toward the prior, reducing inter-class distance and lowering the
+Silhouette score. Despite this geometric difference, both models yield nearly identical
+linear probe AUC ($\approx$0.848), which is competitive with the best supervised model
+from Workshop~1 (Random Forest AUC\,=\,0.863).
+
+This finding reveals an important property of these representations: even though the
+autoencoders were trained entirely without labels, their internal codes carry enough
+churn signal for a linear classifier to approach supervised performance. The
+representations are not organised by class the way a supervised encoder would be,
+but the unsupervised manifold structure still captures the statistical irregularity
+of churner behaviour. Restricting the VAE to its 13 active dimensions produces no
+meaningful improvement in either metric, confirming that the 3 collapsed dimensions
+carry negligible information rather than useful redundancy.
 
 \section{Analysis}
+
+The AE outperforms the VAE on reconstruction quality (MSE $1.8\times$ lower,
+near-perfect categorical accuracy) because its deterministic bottleneck preserves
+input detail without KL pressure. The VAE trades fidelity for a smoother latent
+space, a cost that is visible on heterogeneous tabular data.
+
+For anomaly detection, the VAE ELBO score (\texttt{VAE\_recon\_kl}, AUC\,=\,0.812)
+approaches the supervised baselines (best AUC\,=\,0.863) without any label
+supervision. The remaining $\sim$5-point gap reflects the fundamental difficulty
+of defining the anomaly class by reconstruction error alone rather than by explicit
+labels: precision and recall stay well below the supervised models (F1 0.42 vs.\ 0.58).
+
+The latent space analysis confirms that both representations encode churn signal:
+a linear probe reaches AUC\,$\approx$\,0.848 on the raw codes. However, Silhouette
+scores remain modest (AE 0.25, VAE 0.16), indicating the signal is present but not
+geometrically concentrated — explaining why probe AUC is high while 2D projections
+show only partial class separation.
+
+Overall, autoencoders provide useful unsupervised signal that approaches supervised
+performance in AUC, but do not replace labelled classifiers where precision and
+recall matter.
 
 \begin{thebibliography}{9}
 \bibitem{kingma2014adam}

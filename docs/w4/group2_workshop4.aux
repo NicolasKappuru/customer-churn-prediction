@@ -64,8 +64,23 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Comparison with W1 and W2 baselines}{14}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Cumulative model comparison across Workshops 1, 2, and 4, sorted by AUC-ROC.}}{14}{}\protected@file@percent }
 \newlabel{tab:cumulative}{{8}{14}{}{table.8}{}}
-\bibcite{kingma2014adam}{1}
-\bibcite{rizvi2018kkbox}{2}
 \@writefile{toc}{\contentsline {section}{\numberline {6}Latent space visualization}{15}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Analysis}{15}{}\protected@file@percent }
-\gdef \@abspage@last{15}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Implementation}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Latent dimension analysis}{15}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Standard deviation per latent dimension for the AE (left) and VAE (right). Grey bars in the VAE panel indicate collapsed dimensions; the red dashed line marks $\sigma \,=\,1$ (unit Gaussian prior).}}{16}{}\protected@file@percent }
+\newlabel{fig:latent_dim_stats}{{14}{16}{}{figure.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}2D projections}{16}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces t-SNE projections (balanced 10k). Normal customers in blue, churners in red. Both models show partial but incomplete class separation.}}{16}{}\protected@file@percent }
+\newlabel{fig:latent_tsne}{{15}{16}{}{figure.15}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {16}{\ignorespaces UMAP projections (balanced 10k). Churn customers form distinct peripheral clusters outside the main normal-customer manifold in both models.}}{17}{}\protected@file@percent }
+\newlabel{fig:latent_umap}{{16}{17}{}{figure.16}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {17}{\ignorespaces VAE UMAP coloured by $\log (1 + \texttt  {VAE\_recon\_kl})$. High anomaly scores concentrate in the same peripheral regions occupied by churners.}}{17}{}\protected@file@percent }
+\newlabel{fig:latent_umap_anomaly}{{17}{17}{}{figure.17}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Class separability}{17}{}\protected@file@percent }
+\bibcite{kingma2014adam}{1}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Latent space separability on the 20k stratified test sample.}}{18}{}\protected@file@percent }
+\newlabel{tab:separability}{{9}{18}{}{table.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Discussion}{18}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Analysis}{18}{}\protected@file@percent }
+\bibcite{rizvi2018kkbox}{2}
+\gdef \@abspage@last{19}
