@@ -42,39 +42,42 @@
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces LSTM architecture. $B$ is the batch size and $H$ the hidden dimension. The sigmoid is applied to the logit inside the loss during training and explicitly at prediction time.}}{9}{}\protected@file@percent }
 \newlabel{fig:w2_arch}{{2}{9}{}{figure.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Loss Function and Optimiser}{9}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Hyperparameter Search}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Backpropagation.}{9}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Forward pass (black) and backward pass (red, dashed) for one user. The forward pass turns the 90-day sequence into a probability and a loss; the backward pass sends the error back through every layer and, inside the LSTM, through the 90 days.}}{10}{}\protected@file@percent }
+\newlabel{fig:w2_backprop}{{3}{10}{}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Hyperparameter Search}{10}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Optuna search space for the LSTM.}}{10}{}\protected@file@percent }
 \newlabel{tab:w2_space}{{8}{10}{}{table.8}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Training}{10}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Data Split}{10}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Partitions used for training, tuning and testing.}}{10}{}\protected@file@percent }
-\newlabel{tab:w2_split}{{9}{10}{}{table.9}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Training}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Data Split}{11}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Partitions used for training, tuning and testing.}}{11}{}\protected@file@percent }
+\newlabel{tab:w2_split}{{9}{11}{}{table.9}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Training Procedure}{11}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Optuna Results}{11}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Optuna trials. \emph  {Best ep.} is the epoch restored by early stopping and \emph  {Tune loss} the log-loss on \texttt  {tune}.}}{11}{}\protected@file@percent }
-\newlabel{tab:w2_trials}{{10}{11}{}{table.10}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Optuna history: tune log-loss of each completed trial and best value found.}}{12}{}\protected@file@percent }
-\newlabel{fig:w2_optuna}{{3}{12}{}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Optuna Results}{12}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Optuna trials. \emph  {Best ep.} is the epoch restored by early stopping and \emph  {Tune loss} the log-loss on \texttt  {tune}.}}{12}{}\protected@file@percent }
+\newlabel{tab:w2_trials}{{10}{12}{}{table.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Optuna history: tune log-loss of each completed trial and best value found.}}{12}{}\protected@file@percent }
+\newlabel{fig:w2_optuna}{{4}{12}{}{figure.4}{}}
 \@writefile{toc}{\contentsline {paragraph}{Decision threshold.}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Final model.}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {4}Test}{12}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Metrics}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Final model.}{13}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Test}{13}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Metrics}{13}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces LSTM test metrics on the March cohort.}}{13}{}\protected@file@percent }
 \newlabel{tab:w2_test}{{11}{13}{}{table.11}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Confusion Matrix}{13}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Confusion matrix on the March test cohort at the 0.28 threshold: counts (left) and percentages per true class (right).}}{14}{}\protected@file@percent }
-\newlabel{fig:w2_confusion}{{4}{14}{}{figure.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Confusion Matrix}{14}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Confusion matrix on the March test cohort at the 0.28 threshold: counts (left) and percentages per true class (right).}}{14}{}\protected@file@percent }
+\newlabel{fig:w2_confusion}{{5}{14}{}{figure.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}ROC and Precision-Recall Curves}{14}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces ROC curve (left, AUC = 0.851) and precision-recall curve (right, AP = 0.580) on the March test cohort.}}{14}{}\protected@file@percent }
-\newlabel{fig:w2_rocpr}{{5}{14}{}{figure.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Calibration}{14}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Reliability diagram (left) and histogram of predicted probabilities by true class (right) on the March test cohort.}}{15}{}\protected@file@percent }
-\newlabel{fig:w2_calibration}{{6}{15}{}{figure.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Comparison with Workshop 1}{15}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Test metrics on the March cohort for the Workshop~1 tabular models and the Workshop~2 LSTM. Each model uses the threshold selected on its own tuning partition. Best value per column in bold.}}{15}{}\protected@file@percent }
-\newlabel{tab:w2_vs_w1}{{12}{15}{}{table.12}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces ROC curve (left, AUC = 0.851) and precision-recall curve (right, AP = 0.580) on the March test cohort.}}{15}{}\protected@file@percent }
+\newlabel{fig:w2_rocpr}{{6}{15}{}{figure.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Calibration}{15}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Reliability diagram (left) and histogram of predicted probabilities by true class (right) on the March test cohort.}}{15}{}\protected@file@percent }
+\newlabel{fig:w2_calibration}{{7}{15}{}{figure.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Comparison with Workshop 1}{16}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Test metrics on the March cohort for the Workshop~1 tabular models and the Workshop~2 LSTM. Each model uses the threshold selected on its own tuning partition. Best value per column in bold.}}{16}{}\protected@file@percent }
+\newlabel{tab:w2_vs_w1}{{12}{16}{}{table.12}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {5}Conclusions}{16}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Relation with Workshop 1.}{16}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{How the sequence captures behaviour.}{16}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Why no further experiments are possible.}{16}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Why no further experiments are possible.}{17}{}\protected@file@percent }
 \gdef \@abspage@last{17}
