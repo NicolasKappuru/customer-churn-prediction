@@ -114,6 +114,14 @@ early stopping is delayed until after the KL warm-up phase.
 
 \end{itemize}
 
+Neither dropout nor batch normalisation was applied in either architecture.
+Dropout was omitted because the training curves showed no overfitting — validation
+loss tracked training loss closely across all experiments — making regularisation
+unnecessary. Batch normalisation was excluded because it interacts poorly with the
+VAE's reparameterization trick: normalising activations mid-network shifts the
+distribution of the encoder outputs, destabilising the $\boldsymbol{\mu}$ and
+$\log\boldsymbol{\sigma}^2$ estimates and making the KL term unreliable.
+
 \subsection{Data and preprocessing}
 
 The autoencoders reuse the tabular export built in Workshop~1 (version~5), where the
