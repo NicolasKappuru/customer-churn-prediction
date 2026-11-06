@@ -370,16 +370,23 @@ Since churn is a binary classification problem, we use the binary cross-entropy 
 \end{equation}
 At prediction time, where there is no loss, the probability is obtained explicitly with \path{torch.sigmoid(logits)}.
 
-\paragraph{Backpropagation.} Figure~\ref{fig:w2_backprop} summarises how the network learns. In the \textbf{forward pass} (black), each layer transforms the output of the previous one:
-\begin{itemize}
-    \item \textbf{Input:} the 90 days of the user, each a vector of 20 channels.
-    \item \textbf{LSTM:} reads the days in order and updates its hidden state, which accumulates the customer's history up to day 90.
-    \item \textbf{BatchNorm:} normalises the final hidden state $h_{90}$ so that its scale stays stable during training.
-    \item \textbf{Linear:} combines the normalised hidden state into a single score, the logit $z$.
-    \item \textbf{Sigmoid:} turns the logit into a churn probability $\hat p$ between 0 and 1.
-    \item \textbf{BCE loss:} compares $\hat p$ with the true label $y$ and measures the error.
-\end{itemize}
-In the \textbf{backward pass} (red), the error travels in the opposite direction, from the loss to the input. Each layer receives how much it contributed to the error and passes it on to the layer before. Inside the LSTM, the error also travels back through the 90 days, from the last day to the first. With this information, AdamW adjusts the weights of every layer to reduce the error in the next batch.
+\paragraph{Backpropagation.} Training needs the gradient of the loss with respect to every weight $\theta$ of the network. Backpropagation computes it by applying the chain rule backwards, from the loss to the input, through the same operations used in the forward pass (Figure~\ref{fig:w2_backprop}). Using the derivative of the sigmoid, $\sigma'(z) = \sigma(z)\big(1 - \sigma(z)\big)$, the first two steps for one user are
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \hat p} = -\frac{y}{\hat p} + \frac{1 - y}{1 - \hat p},
+\qquad
+\frac{\partial \mathcal{L}}{\partial z} = \frac{\partial \mathcal{L}}{\partial \hat p} \cdot \sigma'(z) = \frac{\hat p - y}{\hat p (1 - \hat p)} \cdot \hat p (1 - \hat p) = \hat p - y .
+\end{equation}
+The derivative of the sigmoid cancels the denominator of the cross-entropy, so the error signal that enters the network is simply the difference between the predicted probability and the true label. It is large when the prediction is confidently wrong and close to zero when it is correct, and the saturation of the sigmoid cannot make it vanish while the prediction is wrong. This simplification is also what \texttt{BCEWithLogitsLoss} exploits to compute the loss and its gradient in a stable way. From $z$, the gradient continues to the output layer and to the hidden state:
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial w} = (\hat p - y)\, \tilde h_{90}, \qquad
+\frac{\partial \mathcal{L}}{\partial b} = \hat p - y, \qquad
+\frac{\partial \mathcal{L}}{\partial \tilde h_{90}} = (\hat p - y)\, w .
+\end{equation}
+It then passes through the batch normalisation layer to $h_{90}$ and, inside the LSTM, travels back from day 90 to day 1 through the recurrent connections, a procedure called \emph{backpropagation through time}. Since the same LSTM weights are used on every day, their gradient is the sum of the contributions of the 90 days:
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \theta_{\text{LSTM}}} = \sum_{t=1}^{90} \frac{\partial \mathcal{L}}{\partial h_t} \, \frac{\partial h_t}{\partial \theta_{\text{LSTM}}} .
+\end{equation}
+For a batch, these gradients are averaged over the $B$ users. Finally, AdamW uses them to update every weight.
 
 \begin{figure}[H]
 \centering
@@ -388,15 +395,16 @@ In the \textbf{backward pass} (red), the error travels in the opposite direction
     op/.default={gray!10},
     fwd/.style={->, >=stealth, thick},
     bwd/.style={->, >=stealth, thick, red!70!black, dashed},
+    grad/.style={font=\scriptsize, red!70!black},
     node distance=0.55cm
 ]
     % Forward pass
     \node[op] (x) {Input\\$x_1, \dots, x_{90}$};
     \node[op=blue!12, right=of x, minimum width=2.6cm] (lstm) {LSTM\\$h_1 \to \cdots \to h_{90}$};
-    \node[op=orange!15, right=of lstm] (bn) {BatchNorm};
-    \node[op=green!12, right=of bn] (fc) {Linear\\logit $z$};
-    \node[op=violet!12, right=of fc] (sig) {Sigmoid\\$\hat p$};
-    \node[op=red!10, right=of sig] (loss) {BCE loss};
+    \node[op=orange!15, right=of lstm] (bn) {BatchNorm\\$\tilde h_{90}$};
+    \node[op=green!12, right=of bn] (fc) {Linear\\$z = w^\top \tilde h_{90} + b$};
+    \node[op=violet!12, right=of fc] (sig) {Sigmoid\\$\hat p = \sigma(z)$};
+    \node[op=red!10, right=of sig] (loss) {BCE\\$\mathcal{L}(\hat p, y)$};
     \node[above=0.5cm of loss, font=\footnotesize] (y) {label $y$};
 
     \draw[fwd] (x) -- (lstm);
@@ -407,15 +415,15 @@ In the \textbf{backward pass} (red), the error travels in the opposite direction
     \draw[fwd] (y) -- (loss);
     \node[font=\footnotesize, anchor=south] at ($(x.north)!0.5!(sig.north) + (0,0.55)$) {forward pass $\longrightarrow$};
 
-    % Backward pass
-    \draw[bwd] (loss.south) to[bend left=45] (sig.south);
-    \draw[bwd] (sig.south) to[bend left=45] (fc.south);
-    \draw[bwd] (fc.south) to[bend left=45] (bn.south);
-    \draw[bwd] (bn.south) to[bend left=45] ([xshift=0.9cm]lstm.south);
-    \draw[bwd] ([xshift=0.9cm]lstm.south) to[bend left=50] node[font=\scriptsize, red!70!black, below=1pt] {day $90 \to 1$} ([xshift=-0.9cm]lstm.south);
-    \node[font=\footnotesize, red!70!black, anchor=north] at ($(x.south)!0.5!(sig.south) + (0,-1.5)$) {$\longleftarrow$ backward pass (error)};
+    % Backward pass: one arc per step, from right to left, labelled with the gradient it carries
+    \draw[bwd] (loss.south) to[bend left=45] node[grad, below=1pt] {$\partial \mathcal{L} / \partial \hat p$} (sig.south);
+    \draw[bwd] (sig.south) to[bend left=45] node[grad, below=1pt] {$\hat p - y$} (fc.south);
+    \draw[bwd] (fc.south) to[bend left=45] node[grad, below=1pt] {$(\hat p - y)\, w$} (bn.south);
+    \draw[bwd] (bn.south) to[bend left=45] node[grad, below=1pt] {$\partial \mathcal{L} / \partial h_{90}$} ([xshift=0.9cm]lstm.south);
+    \draw[bwd] ([xshift=0.9cm]lstm.south) to[bend left=50] node[grad, below=1pt, align=center] {through time\\day $90 \to 1$} ([xshift=-0.9cm]lstm.south);
+    \node[font=\footnotesize, red!70!black, anchor=north] at ($(x.south)!0.5!(sig.south) + (0,-1.9)$) {$\longleftarrow$ backward pass (chain rule)};
 \end{tikzpicture}
-\caption{Forward pass (black) and backward pass (red, dashed) for one user. The forward pass turns the 90-day sequence into a probability and a loss; the backward pass sends the error back through every layer and, inside the LSTM, through the 90 days.}
+\caption{Forward pass (black) and backward pass (red, dashed) for one user. The forward pass turns the 90-day sequence into a probability and a loss. The backward pass propagates the gradient of the loss from right to left; at the logit it reduces to $\hat p - y$, and inside the LSTM it travels back through the 90 days.}
 \label{fig:w2_backprop}
 \end{figure}
 
