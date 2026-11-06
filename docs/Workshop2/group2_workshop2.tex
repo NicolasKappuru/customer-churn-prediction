@@ -14,7 +14,7 @@
 \usepackage{xcolor}
 \usepackage{longtable}
 \usepackage{tikz}
-\usetikzlibrary{positioning}
+\usetikzlibrary{positioning, calc}
 \usepackage[justification=centering]{caption}
 
 \lstset{
@@ -369,6 +369,55 @@ Since churn is a binary classification problem, we use the binary cross-entropy 
 \mathcal{L} = -\frac{1}{B} \sum_{i=1}^{B} \Big[ y_i \log \sigma(z_i) + (1 - y_i) \log\big(1 - \sigma(z_i)\big) \Big].
 \end{equation}
 At prediction time, where there is no loss, the probability is obtained explicitly with \path{torch.sigmoid(logits)}.
+
+\paragraph{Backpropagation.} Figure~\ref{fig:w2_backprop} summarises how the network learns. In the \textbf{forward pass} (black), each layer transforms the output of the previous one:
+\begin{itemize}
+    \item \textbf{Input:} the 90 days of the user, each a vector of 20 channels.
+    \item \textbf{LSTM:} reads the days in order and updates its hidden state, which accumulates the customer's history up to day 90.
+    \item \textbf{BatchNorm:} normalises the final hidden state $h_{90}$ so that its scale stays stable during training.
+    \item \textbf{Linear:} combines the normalised hidden state into a single score, the logit $z$.
+    \item \textbf{Sigmoid:} turns the logit into a churn probability $\hat p$ between 0 and 1.
+    \item \textbf{BCE loss:} compares $\hat p$ with the true label $y$ and measures the error.
+\end{itemize}
+In the \textbf{backward pass} (red), the error travels in the opposite direction, from the loss to the input. Each layer receives how much it contributed to the error and passes it on to the layer before. Inside the LSTM, the error also travels back through the 90 days, from the last day to the first. With this information, AdamW adjusts the weights of every layer to reduce the error in the next batch.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    op/.style={draw, rounded corners=2pt, minimum height=1.2cm, minimum width=1.6cm, align=center, font=\footnotesize, fill=#1},
+    op/.default={gray!10},
+    fwd/.style={->, >=stealth, thick},
+    bwd/.style={->, >=stealth, thick, red!70!black, dashed},
+    node distance=0.55cm
+]
+    % Forward pass
+    \node[op] (x) {Input\\$x_1, \dots, x_{90}$};
+    \node[op=blue!12, right=of x, minimum width=2.6cm] (lstm) {LSTM\\$h_1 \to \cdots \to h_{90}$};
+    \node[op=orange!15, right=of lstm] (bn) {BatchNorm};
+    \node[op=green!12, right=of bn] (fc) {Linear\\logit $z$};
+    \node[op=violet!12, right=of fc] (sig) {Sigmoid\\$\hat p$};
+    \node[op=red!10, right=of sig] (loss) {BCE loss};
+    \node[above=0.5cm of loss, font=\footnotesize] (y) {label $y$};
+
+    \draw[fwd] (x) -- (lstm);
+    \draw[fwd] (lstm) -- (bn);
+    \draw[fwd] (bn) -- (fc);
+    \draw[fwd] (fc) -- (sig);
+    \draw[fwd] (sig) -- (loss);
+    \draw[fwd] (y) -- (loss);
+    \node[font=\footnotesize, anchor=south] at ($(x.north)!0.5!(sig.north) + (0,0.55)$) {forward pass $\longrightarrow$};
+
+    % Backward pass
+    \draw[bwd] (loss.south) to[bend left=45] (sig.south);
+    \draw[bwd] (sig.south) to[bend left=45] (fc.south);
+    \draw[bwd] (fc.south) to[bend left=45] (bn.south);
+    \draw[bwd] (bn.south) to[bend left=45] ([xshift=0.9cm]lstm.south);
+    \draw[bwd] ([xshift=0.9cm]lstm.south) to[bend left=50] node[font=\scriptsize, red!70!black, below=1pt] {day $90 \to 1$} ([xshift=-0.9cm]lstm.south);
+    \node[font=\footnotesize, red!70!black, anchor=north] at ($(x.south)!0.5!(sig.south) + (0,-1.5)$) {$\longleftarrow$ backward pass (error)};
+\end{tikzpicture}
+\caption{Forward pass (black) and backward pass (red, dashed) for one user. The forward pass turns the 90-day sequence into a probability and a loss; the backward pass sends the error back through every layer and, inside the LSTM, through the 90 days.}
+\label{fig:w2_backprop}
+\end{figure}
 
 The weights are updated with the \textbf{AdamW} optimiser, which computes an adaptive step for each weight from the gradient and applies weight decay separately from that step. It receives two parameters:
 \begin{itemize}
