@@ -28,3 +28,7 @@ STUDY_TAGS = {"M1": "newton_cholesky_v1", "M2": "rf_bounded_v2"}
 TRAIN_VERBOSE = 1
 SMOKE_USERS = 10
 
+XGB_V2_MODEL_ID = "M3v2"
+XGB_V2_TRIALS_FULL = 80
+XGB_V2_TRIALS_SMOKE = 5
+
