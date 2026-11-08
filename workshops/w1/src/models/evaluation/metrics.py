@@ -9,25 +9,37 @@ from sklearn.metrics import (
     f1_score,
     log_loss,
     matthews_corrcoef,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
 )
 
 
-def select_threshold(y_true, proba):
-    """Threshold maximising churn F1; ties prefer the higher threshold (deterministic)."""
+def select_threshold(y_true, proba, criterion="f1"):
+    """Return the threshold maximising the given criterion using precision_recall_curve.
+
+    criterion: "f1" | "f2" | "recall>=0.70"
+    Default "f1" keeps backward compatibility with existing pipeline calls.
+    """
     y_true = np.asarray(y_true)
     proba = np.asarray(proba)
-    grid = np.linspace(0.01, 0.99, 99)
-    best_t, best_f1 = 0.5, -1.0
+    precisions, recalls, thresholds = precision_recall_curve(y_true, proba)
+    p, r = precisions[:-1], recalls[:-1]
 
-    for t in grid:
-        f1 = f1_score(y_true, (proba >= t).astype(int), zero_division=0)
-        if f1 >= best_f1:  # >= so ties keep the higher threshold
-            best_f1, best_t = f1, float(t)
+    if criterion == "f1":
+        with np.errstate(invalid="ignore", divide="ignore"):
+            scores = np.where((p + r) > 0, 2 * p * r / (p + r), 0.0)
+    elif criterion == "f2":
+        with np.errstate(invalid="ignore", divide="ignore"):
+            scores = np.where((4 * p + r) > 0, 5 * p * r / (4 * p + r), 0.0)
+    elif criterion == "recall>=0.70":
+        mask = r >= 0.70
+        scores = np.where(mask, p, -1.0) if mask.any() else r
+    else:
+        raise ValueError(f"Unknown criterion: {criterion!r}")
 
-    return best_t
+    return float(thresholds[np.argmax(scores)])
 
 
 def evaluate(y_true, proba, model_id, threshold):
