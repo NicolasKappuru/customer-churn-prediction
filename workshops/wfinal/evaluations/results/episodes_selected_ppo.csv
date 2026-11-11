@@ -1,0 +1,101 @@
+episode,s1_action,s1_prob,s1_accepted,s2_action,s2_prob,s2_accepted,s3_action,s3_prob,s3_accepted
+1,Send auto-renewal reminder,0.905,Yes,Offer loyalty renewal with discount,0.403,Yes,,,
+2,Send auto-renewal reminder,0.895,Yes,Offer downgrade to 99 NTD plan,0.418,No,Offer downgrade to 99 NTD plan,0.418,Yes
+3,Send auto-renewal reminder,0.954,No,Send auto-renewal reminder,0.954,Yes,Offer downgrade to 99 NTD plan,0.526,Yes
+4,Send auto-renewal reminder,0.876,Yes,Offer loyalty renewal with discount,0.376,Yes,,,
+5,Offer downgrade to 99 NTD plan,0.986,Yes,,,,,,
+6,Offer loyalty renewal with discount,0.75,No,Offer loyalty renewal with discount,0.75,Yes,Do nothing,0.321,No
+7,Send auto-renewal reminder,0.835,Yes,Offer loyalty renewal with discount,0.46,Yes,Send content re-engagement,0.265,Yes
+8,Send auto-renewal reminder,0.986,Yes,Offer downgrade to 99 NTD plan,0.503,Yes,,,
+9,Send auto-renewal reminder,0.884,No,Send auto-renewal reminder,0.884,No,Send auto-renewal reminder,0.884,Yes
+10,Do nothing,0.608,No,,,,,,
+11,Send auto-renewal reminder,0.922,Yes,Offer downgrade to 99 NTD plan,0.333,Yes,,,
+12,Do nothing,0.95,No,,,,,,
+13,Offer loyalty renewal with discount,0.377,Yes,,,,,,
+14,Send auto-renewal reminder,0.926,Yes,Offer loyalty renewal with discount,0.534,No,Offer loyalty renewal with discount,0.534,Yes
+15,Do nothing,0.781,No,,,,,,
+16,Offer loyalty renewal with discount,0.228,Yes,Do nothing,0.151,No,,,
+17,Send auto-renewal reminder,0.889,Yes,Do nothing,0.461,No,,,
+18,Offer downgrade to 99 NTD plan,0.587,Yes,Do nothing,0.347,No,,,
+19,Offer downgrade to 99 NTD plan,0.939,No,Offer downgrade to 99 NTD plan,0.939,Yes,,,
+20,Send auto-renewal reminder,0.922,Yes,Do nothing,0.563,No,,,
+21,Offer loyalty renewal with discount,0.488,No,Offer loyalty renewal with discount,0.488,No,Offer loyalty renewal with discount,0.488,No
+22,Recover cancelled subscription,0.994,Yes,Offer downgrade to 99 NTD plan,0.805,No,Offer downgrade to 99 NTD plan,0.805,No
+23,Offer downgrade to 99 NTD plan,0.971,No,Offer downgrade to 99 NTD plan,0.971,No,Offer downgrade to 99 NTD plan,0.971,No
+24,Send content re-engagement,0.5,Yes,Do nothing,0.358,No,,,
+25,Recover cancelled subscription,0.999,Yes,Offer loyalty renewal with discount,0.988,No,Offer loyalty renewal with discount,0.988,No
+26,Do nothing,0.998,No,,,,,,
+27,Do nothing,0.217,No,,,,,,
+28,Recover cancelled subscription,0.986,No,Recover cancelled subscription,0.986,No,Recover cancelled subscription,0.986,Yes
+29,Offer loyalty renewal with discount,0.39,Yes,,,,,,
+30,Do nothing,0.241,No,,,,,,
+31,Do nothing,0.979,No,,,,,,
+32,Offer loyalty renewal with discount,0.225,Yes,,,,,,
+33,Do nothing,0.87,No,,,,,,
+34,Offer downgrade to 99 NTD plan,0.964,Yes,,,,,,
+35,Send auto-renewal reminder,0.926,Yes,Offer downgrade to 99 NTD plan,0.293,No,Offer downgrade to 99 NTD plan,0.293,No
+36,Offer downgrade to 99 NTD plan,0.932,Yes,,,,,,
+37,Recover cancelled subscription,0.836,No,Recover cancelled subscription,0.836,No,Recover cancelled subscription,0.836,No
+38,Offer loyalty renewal with discount,0.38,Yes,,,,,,
+39,Recover cancelled subscription,0.999,No,Recover cancelled subscription,0.999,Yes,Offer loyalty renewal with discount,0.987,No
+40,Do nothing,0.25,No,,,,,,
+41,Offer downgrade to 99 NTD plan,0.932,No,Offer downgrade to 99 NTD plan,0.932,No,Offer downgrade to 99 NTD plan,0.932,No
+42,Send auto-renewal reminder,0.931,Yes,Do nothing,0.526,No,,,
+43,Offer downgrade to 99 NTD plan,0.938,No,Offer downgrade to 99 NTD plan,0.938,No,Offer downgrade to 99 NTD plan,0.938,Yes
+44,Offer loyalty renewal with discount,0.366,No,Offer loyalty renewal with discount,0.366,No,Offer loyalty renewal with discount,0.366,No
+45,Do nothing,0.224,No,,,,,,
+46,Offer loyalty renewal with discount,0.146,Yes,Do nothing,0.16,No,,,
+47,Offer downgrade to 99 NTD plan,0.971,No,Offer downgrade to 99 NTD plan,0.971,No,Offer downgrade to 99 NTD plan,0.971,No
+48,Do nothing,0.225,No,,,,,,
+49,Offer downgrade to 99 NTD plan,0.971,Yes,,,,,,
+50,Do nothing,0.466,No,,,,,,
+51,Send auto-renewal reminder,0.876,Yes,Offer loyalty renewal with discount,0.376,No,Offer loyalty renewal with discount,0.376,No
+52,Do nothing,0.807,No,,,,,,
+53,Do nothing,0.996,No,,,,,,
+54,Recover cancelled subscription,0.998,No,Recover cancelled subscription,0.998,No,Recover cancelled subscription,0.998,No
+55,Offer loyalty renewal with discount,0.471,No,Offer loyalty renewal with discount,0.471,No,Offer loyalty renewal with discount,0.471,No
+56,Do nothing,0.999,No,,,,,,
+57,Do nothing,0.904,No,,,,,,
+58,Send auto-renewal reminder,0.87,Yes,Offer downgrade to 99 NTD plan,0.318,No,Offer downgrade to 99 NTD plan,0.318,No
+59,Offer loyalty renewal with discount,0.212,No,Offer loyalty renewal with discount,0.212,No,Offer loyalty renewal with discount,0.212,No
+60,Recover cancelled subscription,0.992,No,Recover cancelled subscription,0.992,No,Recover cancelled subscription,0.992,No
+61,Offer loyalty renewal with discount,0.663,Yes,,,,,,
+62,Do nothing,0.314,No,,,,,,
+63,Do nothing,0.322,No,,,,,,
+64,Recover cancelled subscription,0.997,Yes,Offer loyalty renewal with discount,0.67,No,Offer loyalty renewal with discount,0.67,No
+65,Send auto-renewal reminder,0.984,No,Send auto-renewal reminder,0.984,Yes,Offer downgrade to 99 NTD plan,0.572,Yes
+66,Do nothing,0.805,No,,,,,,
+67,Recover cancelled subscription,0.926,No,Recover cancelled subscription,0.926,No,Recover cancelled subscription,0.926,No
+68,Send auto-renewal reminder,0.945,Yes,Do nothing,0.303,No,,,
+69,Offer downgrade to 99 NTD plan,0.972,No,Offer downgrade to 99 NTD plan,0.972,No,Offer downgrade to 99 NTD plan,0.972,No
+70,Do nothing,0.256,No,,,,,,
+71,Do nothing,0.495,No,,,,,,
+72,Recover cancelled subscription,0.967,No,Recover cancelled subscription,0.967,Yes,Offer loyalty renewal with discount,0.234,Yes
+73,Offer downgrade to 99 NTD plan,0.919,Yes,,,,,,
+74,Do nothing,0.761,No,,,,,,
+75,Do nothing,0.993,No,,,,,,
+76,Do nothing,0.995,No,,,,,,
+77,Offer downgrade to 99 NTD plan,0.981,No,Offer downgrade to 99 NTD plan,0.981,No,Offer downgrade to 99 NTD plan,0.981,No
+78,Offer loyalty renewal with discount,0.076,Yes,,,,,,
+79,Send auto-renewal reminder,0.975,No,Send auto-renewal reminder,0.975,Yes,Offer loyalty renewal with discount,0.667,No
+80,Offer loyalty renewal with discount,0.568,No,Offer loyalty renewal with discount,0.568,No,Offer loyalty renewal with discount,0.568,Yes
+81,Offer downgrade to 99 NTD plan,0.964,Yes,,,,,,
+82,Do nothing,0.595,No,,,,,,
+83,Offer loyalty renewal with discount,0.525,Yes,,,,,,
+84,Offer downgrade to 99 NTD plan,0.745,No,Offer downgrade to 99 NTD plan,0.745,No,Offer downgrade to 99 NTD plan,0.745,No
+85,Do nothing,0.998,No,,,,,,
+86,Do nothing,0.907,No,,,,,,
+87,Send content re-engagement,0.335,Yes,,,,,,
+88,Do nothing,0.938,No,,,,,,
+89,Send auto-renewal reminder,0.938,No,Send auto-renewal reminder,0.938,Yes,Offer downgrade to 99 NTD plan,0.387,No
+90,Send auto-renewal reminder,0.93,Yes,Offer downgrade to 99 NTD plan,0.391,Yes,,,
+91,Send auto-renewal reminder,0.679,Yes,Offer loyalty renewal with discount,0.212,Yes,Do nothing,0.218,No
+92,Do nothing,0.948,No,,,,,,
+93,Recover cancelled subscription,0.995,No,Recover cancelled subscription,0.995,No,Recover cancelled subscription,0.995,Yes
+94,Send content re-engagement,0.434,Yes,,,,,,
+95,Offer loyalty renewal with discount,0.358,No,Offer loyalty renewal with discount,0.358,No,Offer loyalty renewal with discount,0.358,No
+96,Do nothing,0.601,No,,,,,,
+97,Recover cancelled subscription,0.999,No,Recover cancelled subscription,0.999,No,Recover cancelled subscription,0.999,No
+98,Send auto-renewal reminder,0.862,Yes,Offer loyalty renewal with discount,0.131,Yes,,,
+99,Send auto-renewal reminder,0.787,No,Send auto-renewal reminder,0.787,No,Send auto-renewal reminder,0.787,Yes
+100,Send content re-engagement,0.812,Yes,,,,,,

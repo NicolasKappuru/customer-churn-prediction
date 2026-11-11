@@ -1,0 +1,64 @@
+\relax 
+\providecommand \babel@aux [2]{\global \let \babel@toc \@gobbletwo }
+\@nameuse{bbl@beforestart}
+\babel@aux{english}{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Summary}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}MDP Formulation}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Problem Statement}{1}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Overview of the retention agent system.}}{2}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:retention_system}{{1}{2}{}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}State Space}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Action Set}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.1}Send Auto-Renewal Reminder}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.2}Offer Loyalty Renewal with Discount}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.3}Send Content Re-Engagement}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.4}Offer Downgrade to 99 NTD Plan}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.5}Do Nothing}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Transition Dynamics}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.5}Reward Function}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.6}Episode }{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Environment}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Environment Setup}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Episode Initialization --- \texttt  {reset()}}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Transition, Reward, and Termination --- \texttt  {step(action)}}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Random Policy Baseline}{7}{}\protected@file@percent }
+\newlabel{sec:random}{{3.4}{7}{}{subsection.3.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Random policy diagnostics over 100 episodes.}}{7}{}\protected@file@percent }
+\newlabel{tab:random_baseline}{{1}{7}{}{table.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Agent Algorithm}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Deep Q-Network (DQN)}{8}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces DQN active hyperparameters (\texttt  {DQNConfig}).}}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Proximal Policy Optimization (PPO)}{9}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces PPO active hyperparameters (\texttt  {PPOConfig}).}}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Hyperparameter Search}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.3.1}DQN Configurations}{10}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces DQN hyperparameter configurations and search results.}}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.3.2}PPO Configurations}{10}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces PPO hyperparameter configurations and search results.}}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Training Protocol}{10}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces DQN best configuration (\texttt  {lr\_1e-3}): rolling mean return (100 episodes) and validation return over 3{,}000 training episodes.}}{11}{}\protected@file@percent }
+\newlabel{fig:dqn_best}{{2}{11}{}{figure.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces PPO best configuration (\texttt  {lr\_3e-4}): rolling mean return (100 episodes) and validation return over 3{,}000 training episodes.}}{12}{}\protected@file@percent }
+\newlabel{fig:ppo_return}{{3}{12}{}{figure.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces PPO best configuration (\texttt  {lr\_3e-4}): policy loss, value loss, and entropy over 3{,}000 training episodes.}}{12}{}\protected@file@percent }
+\newlabel{fig:ppo_losses}{{4}{12}{}{figure.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Evaluation and Comparison}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Evaluation Setup}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Baselines}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Agent Comparison}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Evaluation results averaged across 5 pools (500 episodes each).}}{13}{}\protected@file@percent }
+\newlabel{tab:comparison}{{6}{13}{}{table.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Trajectory Visualizations}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Sample DQN episodes — state transitions, actions, and rewards.}}{13}{}\protected@file@percent }
+\newlabel{tab:trajectories}{{7}{13}{}{table.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Sample Efficiency Analysis}{14}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Validation return over training episodes for DQN (\texttt  {exploratory}) and PPO (\texttt  {balanced}), with random and heuristic baseline references.}}{14}{}\protected@file@percent }
+\newlabel{fig:learning_curves}{{5}{14}{}{figure.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{14}{}\protected@file@percent }
+\bibcite{sutton2018}{1}
+\bibcite{watkins1992}{2}
+\bibcite{ascarza2018}{3}
+\bibcite{pednault2002}{4}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{15}{}\protected@file@percent }
+\gdef \@abspage@last{15}

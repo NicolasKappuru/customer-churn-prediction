@@ -1,0 +1,15 @@
+{
+  "grow_policy": "depthwise",
+  "max_depth": 9,
+  "learning_rate": 0.010246665906852534,
+  "min_child_weight": 1.6532909915313736,
+  "gamma": 0.09406308606663344,
+  "subsample": 0.6934735798606839,
+  "colsample_bytree": 0.7532257659158346,
+  "colsample_bynode": 0.6444997385189897,
+  "reg_alpha": 0.13113299350668028,
+  "reg_lambda": 0.06789204949455295,
+  "max_delta_step": 1.8429970240498958,
+  "scale_pos_weight": 1.899771092929588,
+  "max_bin": 256
+}

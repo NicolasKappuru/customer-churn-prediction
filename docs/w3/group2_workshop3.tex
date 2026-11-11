@@ -1,0 +1,785 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage[english]{babel}
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{url}
+\usepackage[justification=centering]{caption}
+
+% APA style formatting
+\geometry{a4paper, margin=1in}
+\setstretch{1.5}
+\captionsetup[table]{labelfont=bf, justification=raggedright, singlelinecheck=false}
+\captionsetup[figure]{font=small, labelfont=bf, justification=raggedright, singlelinecheck=false}
+
+\title{ Machine Learning for Customer Churn Prediction}
+\author{Nelson David Posso Suarez \\ Javier Alejandro Penagos Hernandez \\ Nicolas Castro Rivera }
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Summary}
+
+This work formulates the customer churn retention problem as a Markov Decision Process (MDP).
+The objective is to train a Reinforcement Learning (RL) agent to select the best retention strategy
+for a customer with a probability of churn. Although the available dataset does not contain labeled
+data describing the outcome of different retention strategies, it provides sufficient customer and
+service information to establish an environment where the agent can learn which actions can reduce
+the probability of churn.
+
+
+
+\section{MDP Formulation}
+The MDP is composed of a state space containing customer features, an action set representing
+different retention strategies, stochastic transitions based on the customer's acceptance of an
+offer, and a reward function based on the reduction of the predicted churn probability and the
+cost of the selected action. RL agent will learn using DQN or PPO to determine the action with 
+the highest expected reward. 
+
+\subsection{Problem Statement}
+
+The objective of the MDP is to determine the best retention strategy for a customer according to
+their characteristics and current probability of churn. The RL agent receives the customer's state
+and selects an action from a set of possible retention strategies. The selected action can be
+accepted or rejected by the customer, introducing stochasticity into the environment.
+
+The customer's churn probability is obtained using a supervised learning model. This probability
+is used by the RL environment to evaluate whether the selected retention strategy improves the
+customer's situation. The objective of the agent is therefore to reduce the probability of churn
+while considering the cost associated with some retention strategies.
+
+The simulation that will represent this MDP, is made based on the KKBox case, for that reason, the states and
+actions were built with these data. Also the supervised model selected for estimate the probability of churn, has 
+some problems observed in the workshop 1, the actions proposal tried to be generic, but can has bias originated of the 
+importance that supervised model gives to some features, is considered a limitation of this MDP. 
+
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/diagram_systen_retention_agent.png}
+\caption{Overview of the retention agent system.}
+\label{fig:retention_system}
+\end{figure}
+
+\subsection{State Space}
+
+The state consist in the customer features, the data processed generated in the preprocessing pipeline. 
+Any row can be a state valid for an episode in the environment and added to the probability of churn. 
+\\There are 3 sections: member data of the user like age, city, etc. Transaction data calculated with the historical transactions.
+User logs data calculated with logs in the last 3 months and probability churn. 
+    
+For this reason, each state is represented as a vector of 60 elements:
+
+\begin{center}
+\texttt{State = [Members 8 + transactions 29 +  user logs 22 + churn probability 1 = 60]}
+\end{center}
+
+
+\subsection{Action Set}
+
+The action set are five discrete retention strategies.
+Each action is designed to target a different groups of customer profiles, the agent is encouraged to learn
+context-dependent selection. Actions are validated against the customer's current subscription
+status before being offered, and each is subject to a stochastic acceptance by the customer.
+
+For this simulation is based in a optimiste scenario, because normally the customer not accept the strategies with the 
+high probability these actions are proposal. 
+
+\subsubsection{Send Auto-Renewal Reminder}
+
+\textbf{Strategy proposal.}
+The customer has disabled auto-renewal and their membership is about to expire (within 15 days).
+The company sends a targeted communication — push notification or email — reminding the customer
+to reactivate auto-renewal before the deadline. The strategy is only applicable when
+\texttt{is\_auto\_renew = 0} and the expiry date is within 15 days of the feature cutoff.
+
+\textbf{Simulation effect.}
+When accepted, the environment directly sets \texttt{is\_auto\_renew = 1} on the customer's
+most recent transaction record. No new transaction is appended. The features most directly
+affected are \texttt{last\_is\_auto\_renew} and \texttt{autorenew\_not\_cancel}.
+
+\textbf{Acceptance probability.}
+The favorable case applies to recently active customers (\texttt{days\_since\_last\_log} $\leq 30$),
+who are still engaged and therefore more receptive: \textbf{60\%} acceptance.
+For inactive customers the probability drops to \textbf{10\%}, as they have likely already
+decided not to renew.
+
+\textbf{Cost.}
+This action carries a cost of \textbf{1\%}, reflecting the minimal operational expense of
+sending a digital communication.
+
+% ------------------------------------------------------------------
+
+\subsubsection{Offer Loyalty Renewal with Discount}
+
+\textbf{Strategy proposal.}
+Long-standing subscribers (account tenure $> 730$ days, i.e.\ 2 years) with auto-renewal still
+active are offered a loyalty reward: a 30-day renewal at the standard list price of 149 NTD
+with a fixed 20 NTD discount, so the customer pays 129 NTD. The offer acknowledges the
+customer's loyalty while creating a positive touchpoint before a potential churn event.
+
+\textbf{Simulation effect.}
+When accepted, a new transaction is appended with \texttt{payment\_plan\_days = 30},
+\texttt{plan\_list\_price = 149}, \texttt{actual\_amount\_paid = 129}, and
+\texttt{is\_auto\_renew = 1}. The features most directly affected are \texttt{last\_discount},
+\texttt{average\_amount\_paid}, and \texttt{difference}.
+
+\textbf{Acceptance probability.}
+The favorable case applies to customers with 15 or more active listening days in the most
+recent month, indicating high engagement: \textbf{90\%} acceptance. Customers with lower
+activity are less motivated by a loyalty offer: \textbf{15\%} acceptance.
+
+\textbf{Cost.}
+This action carries a cost of \textbf{15\%}, representing the 20 NTD discount the company
+absorbs on each loyalty renewal.
+
+% ------------------------------------------------------------------
+
+\subsubsection{Send Content Re-Engagement}
+
+\textbf{Strategy proposal.}
+Customers whose listening activity has declined month-over-month receive a personalised
+content recommendation campaign — curated playlists, new releases, or promoted content —
+aimed at reactivating usage before the subscription lapses. The strategy is only applicable
+when the song play count in January 2017 is lower than in December 2016.
+
+\textbf{Simulation effect.}
+When accepted, between 2 and 8 synthetic listening-session log entries are injected into the
+customer's raw user logs, drawn randomly from a pool of 8 template sessions spread across
+January 2017. Each entry's song counts are scaled to the customer's December 2016 daily
+average to preserve individual listening patterns. The features most directly affected are
+\texttt{trend\_songs}, \texttt{trend\_secs}, \texttt{last\_login}, and
+\texttt{days\_since\_last\_log}.
+
+\textbf{Acceptance probability.}
+The favorable case applies to recently active customers (\texttt{days\_since\_last\_log}
+$\leq 30$), who are still reachable: \textbf{80\%} acceptance. For customers who have been
+inactive for longer, engagement is unlikely: \textbf{10\%} acceptance.
+
+\textbf{Cost.}
+This action carries a cost of \textbf{5\%}, representing the expense of executing a
+personalised content campaign.
+
+% ------------------------------------------------------------------
+
+\subsubsection{Offer Downgrade to 99 NTD Plan}
+
+\textbf{Strategy proposal.}
+Price-sensitive customers are offered a lower-cost 30-day subscription plan at 99 NTD,
+reducing the financial barrier to renewal. The strategy targets customers currently on a more
+expensive plan (\texttt{plan\_list\_price} $> 99$~NTD), prioritising retention over revenue
+per subscriber.
+
+\textbf{Simulation effect.}
+When accepted, a new transaction is appended with \texttt{payment\_plan\_days = 30},
+\texttt{plan\_list\_price = 99}, \texttt{actual\_amount\_paid = 99}, and
+\texttt{last\_discount = 0}. The features most directly affected are \texttt{last\_plan\_days},
+\texttt{average\_amount\_paid}, \texttt{last\_discount}, \texttt{sum\_plan\_days}, and
+\texttt{average\_plan}.
+
+\textbf{Acceptance probability.}
+The favorable case applies to newer customers (account tenure $< 365$ days), who are less
+committed to the current plan and more willing to switch tiers: \textbf{90\%} acceptance.
+For longer-tenure customers, the downgrade is less appealing as they are already accustomed
+to the existing plan: \textbf{15\%} acceptance.
+
+\textbf{Cost.}
+This action carries a cost of \textbf{15\%}, reflecting the permanent reduction in revenue
+per subscriber that results from moving to a cheaper plan.
+
+% ------------------------------------------------------------------
+
+\subsubsection{Do Nothing}
+
+\textbf{Strategy proposal.}
+No retention intervention is applied. The agent may select this action when no other strategy
+is expected to yield a positive outcome, or when budget conservation takes priority.
+
+\textbf{Simulation effect.}
+The customer's state and raw data remain completely unchanged.
+
+\textbf{Acceptance probability.}
+This action is always executed with probability \textbf{100\%}; the stochastic acceptance
+step is skipped entirely.
+
+\textbf{Cost.}
+This action has zero cost.
+
+\subsection{Transition Dynamics}
+
+The selected action directly affects the customer's state. However, before modifying the state,
+the environment determines whether the customer accepts or rejects the offered strategy. This
+makes the transition stochastic because the same action can produce different outcomes.
+
+The acceptance probabilities are defined according to the type of retention strategy:
+
+\begin{itemize}
+\item Send Auto-Renewal Reminder: 60\% (favorable) / 10\% (unfavorable).
+\item Offer Loyalty Renewal with Discount: 90\% (favorable) / 15\% (unfavorable).
+\item Send Content Re-Engagement: 80\% (favorable) / 10\% (unfavorable).
+\item Offer Downgrade to 99 NTD Plan: 90\% (favorable) / 15\% (unfavorable).
+\item Do Nothing: 100\% (always accepted, no state change).
+\end{itemize}
+
+The transition function can be represented as:
+
+\begin{equation}
+s_{t+1} = f(s_t, a_t)
+\end{equation}
+
+The acceptance or rejection of an action is stochastic. However, once an action is accepted,
+the modification applied to the customer's state is deterministic. Therefore, the same state
+and the same accepted action produce the same resulting state.
+
+\subsection{Reward Function}
+
+The reward is the reduction in predicted churn probability discounted by the action cost, 
+the agent search maximize the reward, if the reduction difference of probabilities is high the reward will be increase.
+But some strategies can generate cost to company and can penalize the use of this for retain de the customer.  
+
+\begin{equation}
+r_t = \bigl(p_{\text{before}} - p_{\text{after}}\bigr)\,(1 - c_{a_t})
+\end{equation}
+
+where $p_{\text{before}}$ and $p_{\text{after}}$ are the supervised model's churn probability
+estimates before and after the action is applied, and $c_{a_t} \in \{0,\, 0.10,\, 0.15\}$ is
+the cost of the selected action. When an action is rejected the state is unchanged and
+$r_t = 0$.
+
+\subsection{Episode }
+
+An episode starts with a customer from the KKBox dataset. The customer's initial
+state is provided to the supervised learning model, which predicts the probability of churn.
+This information is then provided to the RL agent.
+
+The agent select the retention strategy with the highest expected reward.
+The selected action is then evaluated by the environment, which determines whether the customer
+accepts or rejects the offer according to the corresponding acceptance probability.
+
+If the customer accepts the offer, the action modifies the customer's state. The supervised model
+then predicts the new probability of churn, which is compared with the probability before the action
+to calculate the reward. The episode terminates after this reward is obtained.
+
+If the customer rejects the offer, the customer's state remains unchanged and the reward is zero.
+The episode then terminates.
+
+
+\section{Environment}
+
+The environment is implemented as a \texttt{gymnasium.Env} subclass in
+\texttt{workshops/w3/environment/env.py} (\texttt{KKBoxRetentionEnv}).
+
+\subsection{Environment Setup}
+
+The action space is \texttt{Discrete(5)}, one index per retention strategy.
+The observation space is a \texttt{Box} of shape $(60,)$ in \texttt{float32},
+composed of the 59 preprocessed customer features followed by the current
+churn probability estimate.
+
+Four auxiliary classes support the environment:
+
+\begin{itemize}
+\item \texttt{CustomerSelector} (\texttt{supervised\_model/customer\_selector.py}):
+builds a pool of up to 1{,}500 churned users sampled from the February cohort.
+It reads member data, transactions, and user logs from the raw Parquet files
+and serialises the pool to disk so subsequent runs skip the expensive I/O.
+
+\item \texttt{PreprocessorCustomerData} (\texttt{supervised\_model/preprocessor\_customer\_data.py}):
+replicates the Workshop 1 pipeline on a single customer dict, computing all 59
+features from raw member, transaction, and log records. It loads the clipping
+parameters and imputation values from the \texttt{development.json} artefact
+produced during training, ensuring identical feature engineering at inference time.
+
+\item \texttt{SupervisedModel} (\texttt{supervised\_model/supervised\_model.py}):
+wraps the M3 XGBoost model saved in \texttt{workshops/w1/artifacts/sherlock\_w1/}.
+It exposes \texttt{predict\_probability()}, which returns the model's churn
+probability for a preprocessed feature row.
+
+\item \texttt{ActionsManager} (\texttt{actions\_manager.py}):
+validates which actions are applicable to the current customer state,
+evaluates the stochastic acceptance check, and applies the accepted action
+to the raw customer dict. Action metadata (name, acceptance probabilities,
+cost) is declared in \texttt{constants.py} as a tuple of \texttt{RetentionAction} objects.
+\end{itemize}
+
+On construction the environment pre-computes an observation cache: every
+customer in the pool is run through the preprocessor and the supervised model
+once and the resulting $(observation, p_{\text{churn}})$ pairs are stored.
+This avoids re-featurizing on every \texttt{reset()} call.
+
+\subsection{Episode Initialization --- \texttt{reset()}}
+
+Each call to \texttt{reset()} selects one customer uniformly at random from the
+pool using the environment's seeded NumPy RNG. The cached observation and initial
+churn probability for that customer are retrieved directly without re-running the
+preprocessor. The customer's raw dict is stored in \texttt{self.customer\_data}
+and \texttt{self.probability\_churn\_before} is set for use in the subsequent
+\texttt{step()} call. The method returns the 60-dimensional observation vector.
+
+\subsection{Transition, Reward, and Termination --- \texttt{step(action)}}
+
+\texttt{step(action)} executes the selected retention strategy and terminates
+the episode immediately (single-step episodes, \texttt{terminated = True}).
+
+\begin{enumerate}
+\item \textbf{Action execution.} \texttt{ActionsManager.apply\_action()} is called
+with the current customer dict and the selected action index. Internally it
+checks validity, draws a Bernoulli sample against the acceptance probability,
+and — if accepted — modifies the raw customer dict deterministically
+(appending a transaction and, for the re-engagement action, log entries).
+It returns the updated dict and the action cost (0.0 if rejected).
+
+\item \textbf{Re-featurization.} The updated dict is passed to
+\texttt{PreprocessorCustomerData.preprocess\_customer()}, which recomputes
+all 59 features from scratch. The supervised model then estimates
+$p_{\text{after}}$ from the new feature row.
+
+\item \textbf{Reward.} Computed as
+$r = (p_{\text{before}} - p_{\text{after}})\,(1 - c_{a})$, where $c_{a}$
+is the action cost. A positive reward results from a reduction in churn
+probability; cost penalises expensive strategies.
+
+\item \textbf{Termination.} The episode ends unconditionally after the single
+step. The \texttt{info} dict returns the before/after probabilities, the
+action index, and the cost for logging and evaluation.
+\end{enumerate}
+
+\subsection{Random Policy Baseline}
+\label{sec:random}
+
+Before training any agent, a random policy verifies that the environment behaves
+correctly under unconstrained exploration. The policy selects uniformly at random
+among the valid actions for each customer and runs for 100 single-step episodes.
+The baseline is implemented in \texttt{workshops/w3/baselines/random\_policy.py}:
+
+\begin{verbatim}
+python workshops/w3/baselines/random_policy.py --episodes 100 --seed 42
+\end{verbatim}
+
+Two runs under different seeds confirm correct behaviour
+(Table~\ref{tab:random_baseline}). Both seeds confirm that all five retention
+strategies were selected at least once, validating that the action masking reaches
+every branch. Acceptance rates around 24--29\% are consistent with the low base
+acceptance probabilities. The mean churn reduction of 2--4 percentage points is
+expected from an unguided policy on a high-churn pool.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Metric} & \textbf{Seed 42} & \textbf{Seed 123} \\
+\midrule
+Accepted actions         & 24 / 100 & 29 / 100 \\
+Mean episode return      & 0.0411   & 0.0238   \\
+Mean initial churn prob  & 0.8461   & 0.8253   \\
+Mean final churn prob    & 0.8021   & 0.8004   \\
+Mean probability change  & 0.0440   & 0.0249   \\
+Total action cost        & 2.41     & 3.30     \\
+All actions occurred     & Yes      & Yes      \\
+Episode length           & 1 step   & 1 step   \\
+\bottomrule
+\end{tabular}
+\caption{Random policy diagnostics over 100 episodes.}
+\label{tab:random_baseline}
+\end{table}
+
+\section{Agent Algorithm}
+
+Both DQN and PPO were implemented and compared. Both algorithms handle the discrete action space
+of 5 retention strategies over a 60-dimensional observation. DQN was selected as the canonical
+method for discrete spaces, while PPO was included to evaluate whether an actor-critic approach
+with explicit action masking could exploit the probabilistic structure of acceptance more effectively.
+
+\subsection{Deep Q-Network (DQN)}
+
+DQN is a value-based algorithm that approximates the action-value function $Q(s, a)$
+using a neural network. For each customer state the network outputs one Q-value per
+action, representing the expected cumulative reward. The agent selects the action with
+the highest Q-value, directly learning which retention strategy yields the greatest
+expected return from the current customer state.
+
+Implemented in \texttt{workshops/w3/agent/agent\_dqn.py}.
+
+\begin{table}[H]
+\centering
+\caption{DQN active hyperparameters (\texttt{DQNConfig}).}
+\begin{tabular}{lp{7.5cm}r}
+\toprule
+\textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
+\midrule
+Hidden size               & Units in each hidden layer of the Q-network & 128 \\
+Batch size                & Transitions sampled from the replay buffer per training step & 64 \\
+Replay buffer capacity    & Maximum transitions stored for experience replay & 50{,}000 \\
+Gradient clip             & Maximum gradient norm to prevent training instability & 10.0 \\
+$\varepsilon$ start / min / decay & Exploration schedule: initial value, floor, and per-step multiplier & 1.0 / 0.05 / 0.995 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The discount factor $\gamma$ and the target network update interval are excluded because
+every episode terminates after one step (\texttt{terminated = True}), so the Bellman target
+reduces to $y = r$ and the target network's Q-values are multiplied by zero and never used.
+
+\begin{itemize}
+
+\item \texttt{QNetwork} (\texttt{agent\_dqn.py}):
+fully-connected network with two hidden layers of 128 units and ReLU activations,
+mapping the 60-dimensional state to 5 Q-values, one per action.
+
+\item \texttt{ReplayBuffer} (\texttt{agent\_dqn.py}):
+fixed-capacity FIFO buffer (50{,}000 transitions) storing
+(state, action, reward, next\_state, terminated, next\_valid\_actions) tuples,
+sampled uniformly at random each training step.
+
+\item \texttt{DQNAgent.select\_action} (\texttt{agent\_dqn.py}):
+applies an action mask over the valid actions for the current customer.
+During training, $\varepsilon$-greedy exploration is restricted to those valid actions.
+
+\item \texttt{DQNAgent.train\_step} (\texttt{agent\_dqn.py}):
+implements Double DQN — the online network selects the best next action and the target
+network evaluates its Q-value. Loss is Smooth L1.
+
+\end{itemize}
+
+\subsection{Proximal Policy Optimization (PPO)}
+
+PPO is a policy gradient algorithm that directly optimizes the policy $\pi(a \mid s)$
+— the probability distribution over actions given the current state. Rather than
+estimating Q-values explicitly, PPO updates the policy to increase the probability of
+actions that yielded above-average returns, while clipping large updates to keep
+training stable. An actor network outputs action probabilities and a critic network
+estimates the state value to compute the advantage.
+
+Implemented in \texttt{workshops/w3/agent/agent\_ppo.py}.
+
+\begin{table}[H]
+\centering
+\caption{PPO active hyperparameters (\texttt{PPOConfig}).}
+\begin{tabular}{lp{7.5cm}r}
+\toprule
+\textbf{Parameter} & \textbf{Description} & \textbf{Value} \\
+\midrule
+Hidden size          & Units in each hidden layer of the actor-critic network & 128 \\
+Clip $\varepsilon$   & Clipping threshold for the PPO surrogate objective ratio & 0.2 \\
+Entropy coefficient  & Weight of the entropy bonus to encourage exploration & 0.01 \\
+Value coefficient    & Weight of the value loss relative to the policy loss & 0.5 \\
+Update epochs        & Gradient passes over each collected rollout batch & 4 \\
+Minibatch size       & Transitions per gradient update within each epoch & 64 \\
+Gradient clip        & Maximum gradient norm to prevent training instability & 0.5 \\
+Rollout size         & On-policy episodes collected before each PPO update & 128 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The discount factor $\gamma$ and GAE $\lambda$ are excluded because in single-step episodes
+the return equals $r$ directly and the advantage reduces to $A = r - V(s)$ regardless of
+$\lambda$, so neither parameter has any effect on training.
+
+\begin{itemize}
+
+\item \texttt{ActorCriticNetwork} (\texttt{agent\_ppo.py}):
+shared MLP trunk (60$\rightarrow$128$\rightarrow$128, Tanh) branching into a policy head
+(128$\rightarrow$5 logits) and a value head (128$\rightarrow$1 scalar).
+
+\item \texttt{PPOAgent.select\_action} (\texttt{agent\_ppo.py}):
+invalid actions are masked by setting their logits to $-\infty$ before constructing the
+Categorical distribution. In evaluation mode the action with the highest masked logit
+is selected deterministically.
+
+\item \texttt{PPOAgent.update} (\texttt{agent\_ppo.py}):
+receives a completed rollout batch, computes one-step advantages ($A = r - V(s)$),
+and runs 4 epochs of minibatch updates using the PPO clipped objective plus an entropy
+bonus (coefficient 0.01).
+
+\end{itemize}
+
+
+\subsection{Hyperparameter Search}
+
+Three named configurations were evaluated for each algorithm, varying learning rate,
+exploration or regularisation strength to cover fast, balanced, and conservative update
+regimes. All other hyperparameters were held fixed. Learning rate was chosen as the primary axis because it is the
+most sensitive hyperparameter in both value-based and policy gradient methods. For DQN,
+$\varepsilon$ decay and weight decay were co-varied to keep exploration duration and
+regularisation consistent with each update speed. 
+
+\subsubsection{DQN Configurations}
+
+\begin{table}[H]
+\centering
+\caption{DQN hyperparameter configurations and search results.}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Configuration} & \textbf{Learning Rate} & \textbf{$\varepsilon$ decay} & \textbf{Weight Decay} & \textbf{Best Val.\ Return} & \textbf{Best Episode} \\
+\midrule
+\texttt{exploratory}  & $1\times10^{-3}$ & 0.999 & $0$         & $+0.1060$ & 1250 \\
+\texttt{balanced}     & $5\times10^{-4}$ & 0.995 & $10^{-5}$   & $+0.0771$ & 1000 \\
+\texttt{conservative} & $1\times10^{-4}$ & 0.990 & $10^{-4}$   & $+0.0628$ & 1250 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{PPO Configurations}
+
+\begin{table}[H]
+\centering
+\caption{PPO hyperparameter configurations and search results.}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Learning Rate} & \textbf{Weight Decay} & \textbf{Best Val.\ Return} & \textbf{Best Episode} \\
+\midrule
+\texttt{exploratory}  & $1\times10^{-3}$ & $0$         & $+0.1041$ & 750  \\
+\texttt{balanced}     & $3\times10^{-4}$ & $10^{-5}$   & $+0.1126$ & 2000 \\
+\texttt{conservative} & $1\times10^{-4}$ & $10^{-4}$   & $+0.1056$ & 1750 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Training Protocol}
+
+Training is implemented in \texttt{workshops/w3/train/train\_dqn.py} and
+\texttt{workshops/w3/train/train\_ppo.py}. Both scripts share the same
+infrastructure: a pool of 1{,}500 churned customers is split 80/20 into training
+(1{,}200) and validation (300) sets. Each configuration trains for 3{,}000 episodes.
+Validation runs every 250 episodes over 100 held-out customers without exploration,
+and the checkpoint with the highest mean validation return is saved.
+
+\textbf{Environment--agent interaction.}
+Each episode begins with \texttt{env.reset()}, which samples one customer from the
+training pool and returns the 60-dimensional observation. The agent receives this
+state, queries \texttt{ActionsManager} for the list of valid actions, and selects
+one. The selected action is passed to \texttt{env.step()}, which executes the
+acceptance check, updates the customer's raw data if accepted, re-featurizes via
+the preprocessor, re-scores via the supervised model, and returns the next
+observation and reward. The episode terminates immediately after this single step.
+The agent uses the (state, action, reward, next\_state) tuple to update its
+parameters.
+
+\textbf{DQN training loop.}
+At each step the agent selects an action using $\varepsilon$-greedy exploration over
+the valid actions, storing the transition in the replay buffer. Once the buffer
+holds enough transitions, a random minibatch of 64 is sampled and the online network
+is updated by minimising the Smooth L1 loss against the Double DQN target. Epsilon
+decays from 1.0 to 0.05 across episodes, shifting the agent from exploration to
+exploitation. Figure~\ref{fig:dqn_best} shows the return curve for the best
+configuration (\texttt{lr\_1e-3}): after an exploratory phase with high variance up
+to episode 1{,}250, the mean return stabilises around 0.10--0.11 and validation
+scores confirm the improvement.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/dqn_best.png}
+\caption{DQN best configuration (\texttt{lr\_1e-3}): rolling mean return (100 episodes)
+and validation return over 3{,}000 training episodes.}
+\label{fig:dqn_best}
+\end{figure}
+
+\textbf{PPO training loop.}
+The agent collects transitions across 128 episodes into an on-policy rollout buffer.
+For each transition the actor samples an action from the masked Categorical
+distribution and the critic estimates the state value. Once the rollout is complete,
+one-step advantages ($A = r - V(s)$) are computed and the agent runs 4 epochs of
+minibatch updates using the PPO clipped surrogate objective plus a value loss and
+entropy bonus. Figure~\ref{fig:ppo_return} shows the return curve for the best
+configuration (\texttt{lr\_3e-4}): similarly to DQN, returns stabilise around
+0.10--0.13 after initial variance. Figure~\ref{fig:ppo_losses} shows the
+corresponding losses: policy loss remains near zero (clipping is active), value loss
+oscillates at low magnitude, and entropy starts high and gradually decreases as the
+policy concentrates on preferred actions.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/ppo_best_return.png}
+\caption{PPO best configuration (\texttt{lr\_3e-4}): rolling mean return (100 episodes)
+and validation return over 3{,}000 training episodes.}
+\label{fig:ppo_return}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/ppo_best_losses.png}
+\caption{PPO best configuration (\texttt{lr\_3e-4}): policy loss, value loss, and
+entropy over 3{,}000 training episodes.}
+\label{fig:ppo_losses}
+\end{figure}
+
+
+\section{Evaluation and Comparison}
+
+\subsection{Evaluation Setup}
+
+Evaluation uses five held-out customer pools, each composed of 90 churned and 10
+non-churned customers (100 episodes per pool, 500 total). All pools are excluded from
+the training and validation splits to avoid overestimation of performance.
+Pool construction is seeded with \texttt{base\_seed = 0}; episode rollouts use
+\texttt{eval\_seed = 2025}.
+
+\subsection{Baselines}
+
+\textbf{Random policy.} At each episode a valid action is sampled uniformly at random
+from the set of admissible actions for the current customer (described in
+Section~\ref{sec:random}).
+
+\textbf{Heuristic policy.} A deterministic greedy rule selects the valid action that
+maximises $P(\text{accept}) \times (1 - \text{cost})$, where $P(\text{accept})$ is the
+high acceptance probability when the customer is in a favorable state for that action,
+and the base probability otherwise. Action~4 (Do nothing) is excluded unless it is the
+only available action.
+
+\subsection{Agent Comparison}
+
+Each policy was evaluated on the same five pools.
+Table~\ref{tab:comparison} reports metrics averaged across all 500 episodes.
+
+\begin{table}[H]
+\centering
+\caption{Evaluation results averaged across 5 pools (500 episodes each).}
+\label{tab:comparison}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Agent} & \textbf{Mean Return} & \textbf{Success Rate} & \textbf{Acceptance Rate} & \textbf{Mean Churn Reduction} \\
+\midrule
+PPO            & $+0.1119$ & 44.6\% & 62.9\% & 0.1181 \\
+DQN            & $+0.1057$ & 46.8\% & 58.0\% & 0.1120 \\
+Heuristic      & $+0.0913$ & 49.8\% & 64.6\% & 0.0975 \\
+Random         & $+0.0428$ & 24.2\% & 49.9\% & 0.0454 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The heuristic achieves the highest acceptance rate (64.6\%) by greedily targeting the
+action most likely to be accepted, yet it does not translate this into the best return
+or churn reduction. PPO and DQN surpass it on both metrics because they learn to
+prioritise actions that maximise expected reward — trading some acceptance probability
+for larger reductions in churn probability when the customer profile justifies it. The
+random baseline is considerably worse across all dimensions: without any notion of
+reward or acceptance likelihood, it disperses actions uniformly and achieves less than
+half the mean churn reduction of the learned agents.
+
+\subsection{Trajectory Visualizations}
+
+Five representative DQN episodes (pool 0) illustrating the range of interaction outcomes.
+
+\begin{table}[H]
+\centering
+\caption{Sample DQN episodes — state transitions, actions, and rewards.}
+\label{tab:trajectories}
+\begin{tabular}{clcccc}
+\toprule
+\textbf{Ep.} & \textbf{Action} & \textbf{Accepted} & \textbf{$p_{\text{before}}$} & \textbf{$p_{\text{after}}$} & \textbf{Reward} \\
+\midrule
+2  & Send auto-renewal reminder   & Yes & 0.933 & 0.320 & $+0.606$ \\
+11 & Offer loyalty renewal        & Yes & 0.750 & 0.321 & $+0.365$ \\
+1  & Send content re-engagement   & Yes & 0.965 & 0.938 & $+0.025$ \\
+28 & Offer downgrade to 99 NTD    & Yes & 0.954 & 0.974 & $-0.018$ \\
+7  & Do nothing                   & --- & 0.999 & 0.999 & $\phantom{+}0.000$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Episodes 2 and 11 show high-impact accepted actions with large churn reductions.
+Episode 1 shows an accepted action with minimal effect on churn probability.
+Episode 28 shows an accepted downgrade that unexpectedly increased the predicted
+churn probability, yielding a negative reward. Episode 7 is a forced inaction — only
+Do nothing was valid — illustrating a case with no intervention effect.
+
+\subsection{Sample Efficiency Analysis}
+
+Figure~\ref{fig:learning_curves} shows the validation return over training episodes
+for the best DQN and PPO configurations, together with the fixed reference lines for
+the random and heuristic baselines.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/learning_curves.png}
+\caption{Validation return over training episodes for DQN (\texttt{exploratory}) and
+PPO (\texttt{balanced}), with random and heuristic baseline references.}
+\label{fig:learning_curves}
+\end{figure}
+
+DQN starts with low validation return during the first $\sim$500 episodes while
+$\varepsilon$ remains high and the replay buffer fills with largely random
+transitions; once exploration decreases the curve stabilises around episode 750--1000
+and converges near 0.10--0.11. PPO reaches competitive returns faster — its on-policy
+updates begin shaping the policy from the very first rollout — but the curve fluctuates
+more persistently because each new rollout replaces the previous one, preventing the
+agent from averaging over a large transition history. The random baseline stays flat
+below $+0.05$, reflecting uniformly low performance with no learning. The heuristic
+baseline sits near $+0.09$, providing a stronger reference that both agents
+consistently exceed after their respective warm-up phases.
+
+\section{Discussion}
+
+\textbf{Simulation design challenges.}
+Designing the environment and the action set from scratch was one of the main
+difficulties of this work. The KKBox dataset contains no labeled records of how
+customers responded to retention interventions, so the entire transition dynamics —
+acceptance probabilities, action effects, and costs — had to be simulated from
+business assumptions under optimistic scenarios. Additionally, the environment relies
+on an XGBoost supervised model to estimate churn probability, and the reward signal is
+therefore only as informative as that model. Given that the supervised model shows
+moderate discriminative performance, any bias in its predictions propagates directly
+into the reward the agent receives. Improving the churn model would be the most
+impactful way to improve the quality of the simulation.
+
+\textbf{Hyperparameter search.}
+Exhaustively exploring the hyperparameter space of two algorithms simultaneously is
+computationally expensive. The search conducted here was restricted to three learning
+rate configurations per algorithm, leaving many combinations — such as varying network
+depth, batch size, or PPO clipping threshold — unexplored. A more systematic search
+could yield further performance gains for both agents.
+
+\textbf{Exploration versus exploitation.}
+Relying purely on exploration produces poor results, as the agent cannot distinguish
+high-reward actions from low-reward ones. Conversely, committing fully to the most
+accepted action — as the heuristic does — achieves decent returns but misses
+opportunities: actions 2 (re-engagement) and 3 (downgrade) can increase churn
+probability in certain customer profiles, a pattern the heuristic ignores by design.
+DQN spends most of its training under high $\varepsilon$, gradually shifting toward
+exploitation as the decay progresses, which explains its late convergence but stable
+final performance. PPO, on the other hand, continuously updates its stochastic policy
+from each new rollout, maintaining exploration throughout training and producing the
+visible fluctuations in its validation curve.
+
+\section{Conclusion}
+
+This work demonstrated that reinforcement learning agents can learn retention policies
+that outperform both a random baseline and a hand-crafted greedy heuristic in a
+simulated KKBox churn environment. PPO achieved the highest mean return ($+0.1119$),
+surpassing the random baseline by approximately 2.5$\times$ and the heuristic by
+around 23\%; DQN followed closely with a 16\% improvement over the heuristic. Both
+agents learned to identify customer profiles where costly interventions translate into
+meaningful churn reductions, a distinction the heuristic cannot make. However, the
+performance gap between PPO and DQN is small and not conclusive given the variance
+across evaluation pools. More importantly, all results are tightly coupled to the
+quality of the XGBoost model, the representativeness of the KKBox dataset, and the
+acceptance probabilities and costs assumed in the simulation. Improvements in any of
+these components would directly strengthen the reliability of the conclusions.
+
+\begin{thebibliography}{9}
+
+\bibitem{sutton2018}
+Sutton, R. S., \& Barto, A. G. (2018). \textit{Reinforcement Learning: An Introduction} (2nd ed.). MIT Press.
+
+\bibitem{watkins1992}
+Watkins, C. J. C. H., \& Dayan, P. (1992). Q-learning. \textit{Machine Learning}, 8(3--4), 279--292. https://doi.org/10.1007/BF00992698
+
+\bibitem{ascarza2018}
+Ascarza, E. (2018). Retention futility: Targeting high-risk customers might be ineffective. \textit{Journal of Marketing Research}, 55(1), 80--98. https://doi.org/10.1509/jmr.16.0163
+
+\bibitem{pednault2002}
+Pednault, E., Abe, N., \& Zadrozny, B. (2002). Sequential cost-sensitive decision making with reinforcement learning. In \textit{Proceedings of the 8th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining} (pp. 259--268). ACM. https://doi.org/10.1145/775047.775086
+
+\end{thebibliography}
+
+\end{document}
