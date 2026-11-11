@@ -1,0 +1,26 @@
+{
+  "model_id": "M3v2",
+  "smoke_test": false,
+  "total_trials": 80,
+  "best_iteration": 1053,
+  "tune_ap": 0.6006062161278203,
+  "thresholds": {
+    "f1": 0.27522939443588257,
+    "f2": 0.11764705926179886,
+    "recall>=0.70": 0.1378830075263977
+  },
+  "env": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1",
+    "optuna": "5.0.0",
+    "xgb_device": "cuda"
+  },
+  "contract_hash": "cbeb5c05d4c8",
+  "counts": {
+    "complete": 80,
+    "pruned": 0,
+    "failed": 0
+  }
+}

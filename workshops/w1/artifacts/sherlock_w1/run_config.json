@@ -1,0 +1,81 @@
+{
+  "config": {
+    "seed": 110,
+    "optuna_max_trials": 50,
+    "trials": {
+      "M1": 3,
+      "M2": 3,
+      "M3": 8
+    },
+    "train_verbose": 1,
+    "tree_log_period": 100,
+    "xgb_balanced_weight": true,
+    "tree_max_rounds": 3000,
+    "tree_early_stop": 100,
+    "smoke_users": null,
+    "rf_n_estimators_max": 150,
+    "rf_max_depth_cap": 24,
+    "rf_min_samples_leaf_min": 5,
+    "rf_min_samples_split_min": 10
+  },
+  "env": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1",
+    "optuna": "5.0.0",
+    "xgb_device": "cuda"
+  },
+  "contract": {
+    "dataset_version": 5,
+    "hash_train_feb": "4d16c16bdde9e221f017bae6cb4982a7c66240e4",
+    "hash_test": "33dd6c70cac949f0cf6cbd720ee995d9830b4ca6",
+    "cutoffs": {
+      "train_feb": "2017-01-31",
+      "test": "2017-02-28"
+    },
+    "split_protocol": "cross_month_feb_to_mar",
+    "split_sizes": {
+      "fit": 744699,
+      "stop": 124117,
+      "tune": 124115,
+      "test": 970960
+    },
+    "smoke": false,
+    "rf_n_estimators_max": 150,
+    "rf_max_depth_cap": 24,
+    "xgb_balanced_weight": true,
+    "libs": {
+      "xgboost": "3.4.1",
+      "optuna": "5.0.0",
+      "sklearn": "1.9.1"
+    }
+  },
+  "selection": {
+    "contract_hash": "555f250276fd",
+    "tune_log_loss": {
+      "M1": 0.155374,
+      "M2": 0.144851,
+      "M3": 0.494016
+    },
+    "thresholds": {
+      "M1": 0.28,
+      "M2": 0.26,
+      "M3": 0.88
+    },
+    "primary_winner": "M2"
+  },
+  "thresholds": {
+    "M1": 0.28,
+    "M2": 0.26,
+    "M3": 0.88
+  },
+  "trained_on": "February 2017",
+  "evaluated_on": "March 2017 (test)",
+  "models": {
+    "M1": "models/development/M1.joblib",
+    "M2": "models/development/M2.joblib",
+    "M3": "models/development/M3.joblib"
+  },
+  "preprocessing": "preprocessing/development.json"
+}

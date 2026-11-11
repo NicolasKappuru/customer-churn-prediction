@@ -1,0 +1,98 @@
+{
+  "config": {
+    "seed": 110,
+    "dataset_version": 5,
+    "dev_cohort": "train_feb",
+    "test_cohort": "test",
+    "expected_cutoffs": {
+      "train_feb": "2017-01-31",
+      "test": "2017-02-28"
+    },
+    "n_days": 90,
+    "split_protocol": "cross_month_feb_to_mar",
+    "split_shares": {
+      "fit": 0.75,
+      "stop": 0.125,
+      "tune": 0.125
+    },
+    "split_hash_salt": "salt110:",
+    "quantile_sample": 2000000,
+    "block_rows": 4096,
+    "phases": [
+      "fit",
+      "development"
+    ],
+    "expected_full_sizes": {
+      "fit": 744699,
+      "stop": 124117,
+      "tune": 124115,
+      "test": 970960
+    }
+  },
+  "environment": {
+    "python": "3.14.7",
+    "numpy": "2.5.2",
+    "pandas": "3.0.6",
+    "torch": "2.13.0+cu130"
+  },
+  "contract": {
+    "dataset_version": 5,
+    "cutoffs": {
+      "train_feb": "2017-01-31",
+      "test": "2017-02-28"
+    },
+    "label_months": {
+      "train_feb": "2017-02",
+      "test": "2017-03"
+    },
+    "channels": [
+      "num_25",
+      "num_50",
+      "num_75",
+      "num_985",
+      "num_100",
+      "num_unq",
+      "total_secs",
+      "active",
+      "tx_count",
+      "tx_paid_sum",
+      "tx_plan_days_sum",
+      "tx_cancel_count",
+      "tx_auto_renew_count",
+      "tx_state_known",
+      "tx_last_is_cancel",
+      "tx_last_is_auto_renew",
+      "tx_days_since_last",
+      "tx_days_to_expire",
+      "tx_expiry_known",
+      "tx_state_ambiguous"
+    ],
+    "hash_train_feb": "4d16c16bdde9e221f017bae6cb4982a7c66240e4",
+    "hash_test": "33dd6c70cac949f0cf6cbd720ee995d9830b4ca6",
+    "split_protocol": "cross_month_feb_to_mar",
+    "split_shares": {
+      "fit": 0.75,
+      "stop": 0.125,
+      "tune": 0.125
+    },
+    "split_sizes": {
+      "fit": 744699,
+      "stop": 124117,
+      "tune": 124115,
+      "test": 970960
+    },
+    "n_days": 90
+  },
+  "contract_hash": "1201c38b8474",
+  "fit_churn_rate": 0.06392381351391636,
+  "phase_rows": {
+    "fit": 744699,
+    "development": 992931
+  },
+  "preprocessing": {
+    "fit": "preprocessing/fit.json",
+    "development": "preprocessing/development.json"
+  },
+  "row_index": "row_index.parquet",
+  "generated_at": "2026-10-17T20:27:04"
+}

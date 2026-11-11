@@ -1,0 +1,40 @@
+# Customer agent (Etapa 1)
+python workshops/w3/train/customer_train_ppo.py
+python workshops/w3/evaluations/customer_evaluate_ppo.py
+
+# Retention baselines (static client)
+python workshops/w3/baselines/retention_random_policy.py
+python workshops/w3/baselines/retention_heuristic_policy.py
+
+# Retention training
+python workshops/w3/train/retention_train_dqn.py
+python workshops/w3/train/retention_train_dqn.py --customer agent
+
+python workshops/w3/train/retention_train_ppo.py
+python workshops/w3/train/retention_train_ppo.py --customer agent
+
+# Retention evaluation
+python workshops/w3/evaluations/retention_evaluate_dqn.py
+python workshops/w3/evaluations/retention_evaluate_ppo.py
+python workshops/w3/evaluations/retention_dqn_vs_ppo.py --customer static
+python workshops/w3/evaluations/retention_dqn_vs_ppo.py --customer agent
+
+# Legacy commands (kept for backward compatibility)
+python workshops/w3/baselines/random_policy.py
+python workshops/w3/baselines/random_policy.py --episodes 200 --seed 42
+
+python workshops/w3/baselines/heuristic_policy.py
+
+python workshops/w3/train/train_dqn.py
+python workshops/w3/train/train_dqn.py --episodes 3000 --eval-every 250 --eval-episodes 100 --seed 42
+
+python workshops/w3/train/train_ppo.py
+python workshops/w3/train/train_ppo.py --episodes 3000 --rollout-episodes 8 --eval-every 250 --seed 42
+
+python workshops/w3/evaluations/evaluate_dqn.py
+python workshops/w3/evaluations/evaluate_dqn.py --episodes 100 --seed 2025
+
+python workshops/w3/evaluations/evaluate_ppo.py
+python workshops/w3/evaluations/evaluate_ppo.py --episodes 100 --seed 2025
+
+python workshops/w3/evaluations/dqn_vs_ppo.py

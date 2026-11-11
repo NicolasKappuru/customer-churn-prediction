@@ -1,0 +1,153 @@
+{
+  "listening": {
+    "channel_slice": [
+      0,
+      8
+    ],
+    "channels": [
+      "num_25",
+      "num_50",
+      "num_75",
+      "num_985",
+      "num_100",
+      "num_unq",
+      "total_secs",
+      "active"
+    ],
+    "numeric_channels": [
+      "num_25",
+      "num_50",
+      "num_75",
+      "num_985",
+      "num_100",
+      "num_unq",
+      "total_secs"
+    ],
+    "active_channel": "active",
+    "encoding": "log1p",
+    "upper": [
+      4.9921875,
+      3.806640625,
+      2.9453125,
+      3.177734375,
+      5.8125,
+      5.4765625,
+      11.2578125
+    ],
+    "mean": [
+      1.3248486993885604,
+      0.610448735951739,
+      0.47893770814430553,
+      0.5067119805338585,
+      2.81781115437026,
+      2.923227331985989,
+      8.32653145111656
+    ],
+    "std": [
+      1.1026222693776382,
+      0.7078638788105592,
+      0.5905689354379656,
+      0.615094807786926,
+      1.1812841519155888,
+      1.047610217755114,
+      1.2952226182910078
+    ],
+    "n_values": 38688641
+  },
+  "transaction": {
+    "channel_slice": [
+      8,
+      20
+    ],
+    "channels": [
+      "tx_count",
+      "tx_paid_sum",
+      "tx_plan_days_sum",
+      "tx_cancel_count",
+      "tx_auto_renew_count",
+      "tx_state_known",
+      "tx_last_is_cancel",
+      "tx_last_is_auto_renew",
+      "tx_days_since_last",
+      "tx_days_to_expire",
+      "tx_expiry_known",
+      "tx_state_ambiguous"
+    ],
+    "parameters": {
+      "tx_count": {
+        "encoding": "log1p",
+        "mask": "tx_count",
+        "lower": 0.0,
+        "upper": 1.0986328125,
+        "mean": 0.6967592185722189,
+        "std": 0.03696359499778083,
+        "n_values": 2716649,
+        "empty_fit": false
+      },
+      "tx_paid_sum": {
+        "encoding": "signed_log1p",
+        "mask": "tx_count",
+        "lower": 0.0,
+        "upper": 6.17578125,
+        "mean": 4.835287915398023,
+        "std": 0.39616714966889416,
+        "n_values": 2716649,
+        "empty_fit": false
+      },
+      "tx_plan_days_sum": {
+        "encoding": "log1p",
+        "mask": "tx_count",
+        "lower": 0.0,
+        "upper": 4.61328125,
+        "mean": 3.4372483971607806,
+        "std": 0.10290222306039379,
+        "n_values": 2716649,
+        "empty_fit": false
+      },
+      "tx_cancel_count": {
+        "encoding": "log1p",
+        "mask": "tx_count",
+        "lower": 0.0,
+        "upper": 0.693359375,
+        "mean": 0.010052330037391654,
+        "std": 0.08287839243638209,
+        "n_values": 2716649,
+        "empty_fit": false
+      },
+      "tx_auto_renew_count": {
+        "encoding": "log1p",
+        "mask": "tx_count",
+        "lower": 0.0,
+        "upper": 1.0986328125,
+        "mean": 0.6423814295347181,
+        "std": 0.18854637515262782,
+        "n_values": 2716649,
+        "empty_fit": false
+      },
+      "tx_days_since_last": {
+        "encoding": "log1p",
+        "mask": "tx_state_known",
+        "lower": 0.0,
+        "upper": 6.29296875,
+        "mean": 2.6252382574487343,
+        "std": 0.9859541631579533,
+        "n_values": 85492597,
+        "empty_fit": false
+      },
+      "tx_days_to_expire": {
+        "encoding": "signed_log1p",
+        "mask": "tx_expiry_known",
+        "lower": -6.1875,
+        "upper": 5.40625,
+        "mean": 2.5336262834181422,
+        "std": 1.366713830815398,
+        "n_values": 85492597,
+        "empty_fit": false
+      }
+    }
+  },
+  "fit_rows": 992931,
+  "quantile_sample": 2000000,
+  "block_rows": 4096,
+  "seed": 110
+}

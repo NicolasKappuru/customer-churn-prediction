@@ -1,0 +1,836 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage[english]{babel}
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{longtable}
+\usepackage[justification=centering]{caption}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true,
+    columns=fullflexible
+}
+
+% APA style formatting
+\geometry{a4paper, margin=1in}
+\setstretch{1.5}
+\captionsetup[table]{labelfont=bf, justification=centering, singlelinecheck=false}
+\captionsetup[longtable]{labelfont=bf, justification=centering, singlelinecheck=false}
+\captionsetup[figure]{font=small, labelfont=bf, justification=centering, singlelinecheck=false}
+
+\title{ Machine Learning for Customer Churn Prediction}
+\author{Nelson David Posso Suarez \\ Javier Alejandro Penagos Hernandez \\ Nicolas Castro Rivera }
+\date{}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Executive Summary}
+This workshop explores unsupervised learning techniques applied to the KKBox churn
+prediction domain. A Standard Autoencoder (AE) and a Variational Autoencoder (VAE)
+are trained on normal customer data and evaluated on their ability to reconstruct
+inputs and detect churners as anomalies. Results are compared against the supervised
+baselines from Workshops~1 and~2.
+
+\section{Motivation}
+Workshops~1 and~2 established supervised baselines for churn prediction. This workshop
+asks whether unsupervised representations can provide complementary signal without
+access to labels. The AE and VAE are evaluated on two tasks: how accurately they
+reconstruct customer features, and how well reconstruction error alone separates
+churners from normal customers. Comparing AUC-ROC across all workshops reveals the
+gap between supervised and unsupervised approaches in this domain.
+
+
+
+\section{AE and VAE}
+Autoencoder and variational autoencoder are unsupervised neural network architectures
+that learn compressed representations of data without using labels. Both were designed
+first at the architectural level — defining inputs, hidden layers, bottleneck, and loss
+function — and then implemented in PyTorch (\texttt{torch.nn.Module}).
+
+\textbf{Standard Autoencoder (AE).} The AE was designed as a deterministic
+encoder–decoder for tabular data: the encoder compresses the input to a fixed-size
+code vector and the decoder reconstructs the original features from it. Once the
+design was settled, it was implemented across two modules:
+
+\begin{itemize}
+
+\item \texttt{autoencoder\_ae.py} (\texttt{workshops/w4/src/autoencoder/}):
+defines \texttt{AEConfig} (frozen dataclass with all hyperparameters),
+\texttt{Encoder} (stacked linear layers with ReLU ending in a linear projection
+to $z$), \texttt{Decoder} (mirrored layers branching into a numeric linear head
+and per-category logit heads), \texttt{Autoencoder} (combines both modules with
+\texttt{encode} / \texttt{decode} / \texttt{forward} methods), and
+\texttt{ReconstructionLoss} (MSE for numeric features plus mean cross-entropy
+for categorical features).
+
+\item \texttt{train\_ae.py} (\texttt{workshops/w4/src/train/}):
+defines \texttt{AETrainer} (training loop with Adam optimiser, per-epoch logging,
+and best-state tracking), \texttt{EarlyStopping} (patience-based stopping on
+validation loss), \texttt{build\_loader} (wraps tensors in a \texttt{DataLoader}),
+and checkpoint utilities \texttt{save\_checkpoint} / \texttt{load\_checkpoint}
+that persist the model, config, preprocessor, and training history.
+
+\end{itemize}
+
+\textbf{Variational Autoencoder (VAE).} The VAE extends the AE with a
+probabilistic bottleneck: the encoder outputs a mean $\boldsymbol{\mu}$ and a
+log-variance $\log\boldsymbol{\sigma}^2$ instead of a deterministic code, and a
+sample $\mathbf{z}$ is drawn via the reparameterization trick during training.
+The decoder is shared with the AE. A KL divergence term is added to the loss,
+weighted by $\beta$ and linearly annealed during the first epochs to avoid
+posterior collapse. The implementation is split into two modules:
+
+\begin{itemize}
+
+\item \texttt{autoencoder\_vae.py} (\texttt{workshops/w4/src/autoencoder/}):
+defines \texttt{VAEConfig} (extends \texttt{AEConfig} with \texttt{beta},
+\texttt{kl\_anneal\_epochs}, and \texttt{logvar\_clamp}), \texttt{VAEEncoder}
+(shared trunk ending in parallel \texttt{mu\_head} and \texttt{logvar\_head}),
+\texttt{VAE} (reparameterization, \texttt{sample} method for generation, reuses
+\texttt{Decoder} from the AE module), and \texttt{ELBOLoss}
+(reconstruction summed over feature dimensions plus $\beta$-weighted KL divergence).
+
+\item \texttt{train\_vae.py} (\texttt{workshops/w4/src/train/}):
+defines \texttt{VAETrainer} (training loop that advances the KL annealer each
+epoch and tracks active latent units to detect posterior collapse) and
+\texttt{KLAnnealer} (linear warm-up schedule for $\beta$). Reuses
+\texttt{EarlyStopping} and \texttt{build\_loader} from \texttt{train\_ae.py};
+early stopping is delayed until after the KL warm-up phase.
+
+\end{itemize}
+
+Neither dropout nor batch normalisation was applied in either architecture.
+Dropout was omitted because the training curves showed no overfitting — validation
+loss tracked training loss closely across all experiments — making regularisation
+unnecessary. Batch normalisation was excluded because it interacts poorly with the
+VAE's reparameterization trick: normalising activations mid-network shifts the
+distribution of the encoder outputs, destabilising the $\boldsymbol{\mu}$ and
+$\log\boldsymbol{\sigma}^2$ estimates and making the KL term unreliable.
+
+\subsection{Data and preprocessing}
+
+The autoencoders reuse the tabular export built in Workshop~1 (version~5), where the
+\textit{members}, \textit{transactions} and \textit{user\_logs} tables are condensed into a
+single record of 59 features per customer (56 numerical and 3 categorical). The February
+cohort (992{,}931 customers, 6.39\% churn) is used for development and the March cohort
+(970{,}960 customers, 8.99\% churn) as the held-out test set; 881{,}701 customers appear in
+both months.
+
+The Workshop~1 split (stratified and hash-based on \texttt{msno}) is reused so that the
+same customers are used across workshops. The churn label is never fed to the networks; it
+is only used to select the training population. The AE and the VAE are trained on the
+697{,}095 non-churn customers of the \textit{fit} partition and validated on the 116{,}183
+non-churn customers of the \textit{stop} partition, while the full March cohort, including
+churners, is used for testing.
+
+A preprocessor is fitted on the training population only. Numerical features are imputed
+with the median, skewed features are transformed with a signed $\log(1+|x|)$, clipped to the
+0.1\% and 99.9\% quantiles and standardized; one constant column was removed, leaving 55
+numerical inputs. The categorical features (\texttt{city}, \texttt{registered\_via},
+\texttt{last\_payment\_method\_id}) are mapped to vocabularies of 22, 6 and 34 levels and
+one-hot encoded inside the network, giving an input dimension of 117. An inverse transform
+maps reconstructions back to the original 59 columns. The AE and the VAE share the same
+fitted preprocessor.
+
+\subsection{AE Architecture}
+
+The autoencoder receives tabular input of dimension $d_\text{in} = 117$: 55 standardised
+numerical features concatenated with the one-hot encodings of the three categorical columns
+(\texttt{city}: 22, \texttt{registered\_via}: 6, \texttt{last\_payment\_method\_id}: 34).
+
+\textbf{Encoder.} Two fully-connected layers with decreasing hidden units compress the input
+to the bottleneck:
+\[
+\mathbb{R}^{117} \xrightarrow{W_1,\,\text{ReLU}} \mathbb{R}^{64}
+                 \xrightarrow{W_2,\,\text{ReLU}} \mathbb{R}^{32}
+                 \xrightarrow{W_z}                \mathbb{R}^{z}.
+\]
+
+\textbf{Bottleneck.} Three latent dimensions were evaluated: $z \in \{8, 16, 32\}$.
+A linear projection (no activation) maps the last hidden representation to the code vector
+$\mathbf{z}$, which is the only information passed to the decoder.
+
+\textbf{Decoder.} The decoder mirrors the encoder with reversed hidden widths $[32, 64]$
+and then branches into two output heads:
+\begin{itemize}
+    \item \textit{Numeric head}: a linear layer (no activation) reconstructing the 55
+          standardised numerical features.
+    \item \textit{Categorical heads}: one independent linear layer per categorical feature,
+          producing un-normalised class logits (22, 6, and 34 dimensions respectively).
+\end{itemize}
+
+\textbf{Loss function.} The reconstruction loss combines mean squared error for the
+numerical part with the mean cross-entropy over all categorical heads, controlled by a
+scalar weight $\lambda = 1.0$:
+\[
+\mathcal{L} = \underbrace{\text{MSE}(\hat{\mathbf{x}}_\text{num},\,\mathbf{x}_\text{num})}_{\text{numeric}}
+            + \lambda\,\underbrace{\frac{1}{C}\sum_{c=1}^{C}\text{CE}(\hat{\mathbf{x}}_c,\,x_c)}_{\text{categorical}}.
+\]
+
+Table~\ref{tab:ae_hparams} lists the hyperparameters used and the rationale behind each choice.
+
+\begin{table}[H]
+    \centering
+    \caption{AE hyperparameters and selection rationale.}
+    \label{tab:ae_hparams}
+    \begin{tabularx}{\linewidth}{llX}
+        \toprule
+        \textbf{Hyperparameter} & \textbf{Value} & \textbf{Rationale} \\
+        \midrule
+        \texttt{hidden\_dims}    & (64, 32)  & Funnel shape: halves width at each layer from 117 to 64, 32, then $z$. Two layers suffice for tabular inputs of this size; a common heuristic. \\
+        \texttt{z\_dim}          & 16        & Chosen by experiment (sweep over 8 / 16 / 32): balances reconstruction quality and compression. \\
+        \texttt{learning\_rate}  & $10^{-3}$ & Default recommended for Adam \cite{kingma2014adam}. Loss curves decrease smoothly without oscillation, confirming it is adequate. \\
+        \texttt{batch\_size}     & 512       & Gives $\approx$1{,}362 updates per epoch (697{,}095 / 512); consistent with the batch size used in Workshop~2. \\
+        \texttt{max\_epochs}     & 50        & Upper bound set by the workshop guidelines (30--50 epochs). \\
+        \texttt{patience}        & 5         & Early stopping: training halts if validation loss does not improve for 5 consecutive epochs. \\
+        \texttt{dropout}         & 0.0       & No dropout needed; train and validation curves track closely, indicating no overfitting. \\
+        \texttt{weight\_decay}   & 0.0       & Same reasoning as dropout; regularisation is not required given the data volume. \\
+        \texttt{cat\_loss\_weight} & 1.0     & Numerical and categorical components contribute equally to the total loss. \\
+        \texttt{seed}            & 110       & Same seed used in Workshops~1 and~2 for reproducibility across experiments. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Figure~\ref{fig:ae_arch} illustrates the full encoder–bottleneck–decoder pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/autoencoder_standard_architecture.png}
+    \caption{Standard Autoencoder architecture. The encoder compresses the 117-dimensional
+             input to a $z$-dimensional code; the decoder reconstructs numerical features
+             via a linear head and categorical features via per-class logit heads.}
+    \label{fig:ae_arch}
+\end{figure}
+
+\subsection{AE Train}
+
+All three latent configurations share the same training protocol. The Adam
+optimiser~\cite{kingma2014adam} is used with learning rate $10^{-3}$, no weight
+decay, and a batch size of 512. Training runs for up to 50 epochs with early
+stopping (patience~5) monitoring the validation reconstruction loss. The model
+state corresponding to the lowest validation loss is restored at the end of
+training.
+
+The training set consists of 697{,}095 non-churn customers from the February
+fit partition; the 116{,}183 non-churn customers of the stop partition are used
+as the validation set. The churn label is never seen during training.
+
+Table~\ref{tab:ae_train} summarises the final train and validation losses for
+each bottleneck size. None of the three runs triggered early stopping; all
+completed the full 50 epochs.
+
+\begin{table}[H]
+    \centering
+    \caption{AE training results by latent dimension (epoch 50).}
+    \label{tab:ae_train}
+    \begin{tabular}{ccccc}
+        \toprule
+        $z$ & Train loss & Val loss & Train MSE & Val MSE \\
+        \midrule
+        8  & 0.1274 & 0.1274 & 0.1250 & 0.1256 \\
+        16 & 0.0443 & 0.0427 & 0.0433 & 0.0421 \\
+        32 & 0.0161 & 0.0157 & 0.0156 & 0.0152 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Reconstruction error drops sharply as $z$ grows: $z{=}32$ achieves a validation
+loss roughly $8\times$ lower than $z{=}8$, confirming that larger bottlenecks
+retain more customer-level information. Figure~\ref{fig:ae_curves} shows the
+training and validation loss curves for all three runs.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/ae_training_curves.png}
+    \caption{Training and validation reconstruction loss per epoch for
+             $z \in \{8, 16, 32\}$. All curves converge smoothly without
+             overfitting, and larger bottlenecks achieve consistently lower loss.}
+    \label{fig:ae_curves}
+\end{figure}
+
+\subsection{VAE Architecture}
+
+The VAE shares the same input representation as the AE (117 dimensions: 55 numerical
+and 62 one-hot). The key difference lies in the encoder and the loss function.
+
+\textbf{Encoder.} A shared trunk identical to the AE encoder processes the input through
+two hidden layers:
+\[
+\mathbb{R}^{117} \xrightarrow{W_1,\,\text{ReLU}} \mathbb{R}^{64}
+                 \xrightarrow{W_2,\,\text{ReLU}} \mathbb{R}^{32}.
+\]
+Two parallel linear heads then project the trunk output to the parameters of the posterior
+distribution:
+\[
+\boldsymbol{\mu} = W_\mu\,\mathbf{h}, \qquad
+\log\boldsymbol{\sigma}^2 = \text{clamp}(W_\sigma\,\mathbf{h},\,-10,\,10).
+\]
+
+\textbf{Bottleneck.} A sample $\mathbf{z} \in \mathbb{R}^{z}$ is drawn during training
+via the reparameterization trick:
+\[
+\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\varepsilon},
+\quad \boldsymbol{\varepsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}).
+\]
+At inference the deterministic mean $\boldsymbol{\mu}$ is used instead. The same three
+latent dimensions as the AE were evaluated: $z \in \{8, 16, 32\}$; $z{=}16$ was selected.
+
+\textbf{Decoder.} The same \texttt{Decoder} module from the AE is reused unchanged:
+mirrored hidden layers $[32, 64]$ with ReLU, a linear numeric head, and per-category
+logit heads.
+
+\textbf{Loss (ELBO).} The training objective is the Evidence Lower Bound, composed of a
+reconstruction term and a KL divergence weighted by $\beta$:
+\[
+\mathcal{L}_\text{ELBO}
+    = \underbrace{\sum_{\text{num}} \text{MSE}_i + \sum_{c=1}^{C} \text{CE}_c}_{\text{reconstruction}}
+    + \beta \underbrace{\left(-\tfrac{1}{2}\sum_{j=1}^{z}
+      \bigl(1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2\bigr)\right)}_{\text{KL divergence}}.
+\]
+$\beta$ is linearly annealed from 0 to its target value over the first 10 epochs to
+prevent posterior collapse. Three values were evaluated: $\beta \in \{0.5, 1.0, 4.0\}$.
+
+Table~\ref{tab:vae_hparams} lists the VAE-specific hyperparameters and their rationale.
+
+\begin{table}[H]
+    \centering
+    \caption{VAE-specific hyperparameters and selection rationale.
+             All other hyperparameters match Table~\ref{tab:ae_hparams}.}
+    \label{tab:vae_hparams}
+    \begin{tabularx}{\linewidth}{llX}
+        \toprule
+        \textbf{Hyperparameter} & \textbf{Value} & \textbf{Rationale} \\
+        \midrule
+        \texttt{beta}             & 1.0  & Chosen by experiment (sweep over 0.5 / 1.0 / 4.0):
+                                           balances reconstruction quality and latent space
+                                           regularity. Standard $\beta$-VAE baseline. \\
+        \texttt{kl\_anneal\_epochs} & 10 & Linear warm-up prevents the KL term from dominating
+                                           in early epochs, which would collapse the posterior
+                                           before the decoder learns to reconstruct. \\
+        \texttt{logvar\_clamp}    & $(-10, 10)$ & Clamps $\log\sigma^2$ to avoid numerical
+                                           overflow in $\exp(\log\sigma^2)$ during the
+                                           reparameterization step. \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Figure~\ref{fig:vae_arch} illustrates the full VAE pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/variational_autoencoder_architecture.png}
+    \caption{Variational Autoencoder architecture. The encoder trunk branches into
+             $\boldsymbol{\mu}$ and $\log\boldsymbol{\sigma}^2$ heads; a sample is
+             drawn via the reparameterization trick and passed to the shared decoder.}
+    \label{fig:vae_arch}
+\end{figure}
+
+\subsection{VAE Train}
+
+The VAE follows the same training protocol as the AE (Adam, $\text{lr}=10^{-3}$,
+batch size 512, up to 50 epochs), with two differences: early stopping is delayed
+until after the KL warm-up phase (epoch $> 10$), and the KL annealer advances
+$\beta_t$ linearly each epoch. Three values of $\beta$ were evaluated:
+$\{0.5, 1.0, 4.0\}$.
+
+Unlike the AE runs, all three VAE experiments triggered early stopping before
+reaching epoch 50. The active latent units metric — the number of dimensions with
+$\text{Var}(\boldsymbol{\mu}) > 0.01$ across the validation set — is tracked each
+epoch to monitor posterior collapse.
+
+Table~\ref{tab:vae_train} summarises the results at the best checkpoint for each run.
+
+\begin{table}[H]
+    \centering
+    \caption{VAE training results by $\beta$ at the best validation epoch.}
+    \label{tab:vae_train}
+    \begin{tabular}{ccccccc}
+        \toprule
+        $\beta$ & Stop ep. & Best ep. & Val ELBO & Val recon & Val KL & Active units \\
+        \midrule
+        0.5 & 26 & 21 & 10.575 & 3.603  & 13.943 & 15 \\
+        1.0 & 27 & 22 & 15.304 & 5.997  &  9.308 & 13 \\
+        4.0 & 26 & 21 & 28.958 & 16.355 &  3.151 &  6 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Higher $\beta$ penalises the KL term more strongly, forcing the posterior closer to
+$\mathcal{N}(\mathbf{0}, \mathbf{I})$ at the cost of reconstruction quality:
+$\beta{=}4.0$ achieves the lowest KL (3.15) but the worst reconstruction (16.36)
+and collapses 10 of the 16 latent dimensions. $\beta{=}0.5$ retains 15 active units
+and the best reconstruction (3.60) but with a less regular latent space. $\beta{=}1.0$
+was selected as the best trade-off. Figure~\ref{fig:vae_curves} shows the training
+and validation ELBO curves for all three runs.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figures/vae_training_curves.png}
+    \caption{Training and validation ELBO per epoch for $\beta \in \{0.5, 1.0, 4.0\}$.
+             The KL warm-up phase (first 10 epochs) is visible as a rising loss before
+             convergence. All runs triggered early stopping before epoch 50.}
+    \label{fig:vae_curves}
+\end{figure}
+
+\section{Reconstruction quality}
+
+Both the AE and the best VAE ($z{=}16$, $\beta{=}1.0$) were evaluated on the full March
+test cohort (970{,}960 customers, 8.99\% churn). The churn label was not used during
+training and is only used here to stratify the results.
+
+\subsection{Test set metrics}
+
+Table~\ref{tab:recon_summary} reports global and class-stratified metrics. For continuous
+features, mean Pearson correlation $r$ measures how well the reconstructed values track
+the originals across the test set. For categorical features, top-1 accuracy is reported
+against a most-frequent baseline.
+
+\begin{table}[H]
+    \centering
+    \caption{Reconstruction quality on the March test set. Categorical accuracy baseline
+             uses the most-frequent class per feature.}
+    \label{tab:recon_summary}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Metric} & \textbf{AE} & \textbf{VAE} \\
+        \midrule
+        MSE global                      & 0.0519 & 0.0943 \\
+        MSE normal customers            & 0.0417 & 0.0834 \\
+        MSE churn customers             & 0.1543 & 0.2052 \\
+        Churn / normal MSE ratio        & 3.70   & 2.46   \\
+        Mean Pearson $r$ (numeric)      & 0.9764 & 0.9614 \\
+        Acc.\ \texttt{city}             & 99.98\% & 66.03\% \\
+        Acc.\ \texttt{registered\_via}  & 99.99\% & 89.44\% \\
+        Acc.\ \texttt{last\_payment\_method\_id} & 99.92\% & 86.71\% \\
+        \midrule
+        Baseline \texttt{city} (most-frequent)  & \multicolumn{2}{c}{45.58\%} \\
+        Baseline \texttt{registered\_via}       & \multicolumn{2}{c}{58.98\%} \\
+        Baseline \texttt{last\_payment\_method\_id} & \multicolumn{2}{c}{56.08\%} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The AE achieves a $1.8\times$ lower global MSE than the VAE and near-perfect categorical
+accuracy, reflecting its deterministic bottleneck which preserves more input detail.
+The VAE's probabilistic latent space sacrifices some reconstruction fidelity for a
+more regularised representation. Both models maintain high Pearson correlations
+($r > 0.96$), indicating that the overall structure of continuous features is well
+preserved.
+
+\subsection{Sample reconstructions}
+
+Figure~\ref{fig:recon_panel} shows eight test customers (four normal, four churners)
+reconstructed by both models across seven representative features. The colour scale maps
+standardised feature values, allowing direct visual comparison of original, AE, and VAE
+outputs.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/recon_sample_panel.png}
+    \caption{Sample panel for 8 test customers (N=normal, C=churn) across 7 features.
+             Columns show original values, AE reconstruction, and VAE reconstruction.
+             Colour scale is shared across all three panels.}
+    \label{fig:recon_panel}
+\end{figure}
+
+Figure~\ref{fig:recon_diff} presents element-wise absolute difference heatmaps
+$|\mathbf{x} - \hat{\mathbf{x}}|$ for the same 8 customers over the 20 hardest
+features. Both maps use the same colour scale to allow direct comparison.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/recon_difference_heatmaps.png}
+    \caption{Absolute difference heatmaps for AE and VAE on 8 sample customers
+             (same colour scale). Brighter cells indicate larger reconstruction error.
+             Churn customers (C) tend to show wider error spread.}
+    \label{fig:recon_diff}
+\end{figure}
+
+\subsection{Error patterns and analysis}
+
+\textbf{Churn customers are harder to reconstruct.} Both models were trained
+exclusively on normal customers, so churn customers represent out-of-distribution
+inputs. This is reflected in the MSE ratios: the AE makes $3.70\times$ larger errors
+on churners than on normal customers; the VAE $2.46\times$. The lower ratio for the
+VAE is not a sign of better churn modelling — its overall MSE is higher — but a
+consequence of the regularised prior smoothing all reconstructions toward the mean.
+Figure~\ref{fig:recon_class} shows the per-sample MSE distributions stratified by class
+for both models.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/recon_error_by_class.png}
+    \caption{Per-sample MSE distribution (log scale) for normal and churn customers.
+             Both models produce noticeably higher errors on churners, confirming that
+             churn behaviour is outside the manifold learned during training.}
+    \label{fig:recon_class}
+\end{figure}
+
+Figure~\ref{fig:recon_dist} shows the full MSE density, confirming that the
+normal-vs-churn separation is consistent across the test set.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/recon_error_distribution.png}
+    \caption{MSE density for normal and churn customers (log-scale x-axis).
+             The churn distribution is shifted to the right in both models, with
+             a longer tail indicating a subset of churners with very high error.}
+    \label{fig:recon_dist}
+\end{figure}
+
+\textbf{Temporal and cyclical features are hardest to reconstruct.}
+Table~\ref{tab:top_features} lists the five features with the highest VAE MSE.
+Temporal features — \texttt{expire\_dayofweek}, \texttt{days\_to\_expire},
+\texttt{registration\_month} — dominate the top positions. These features have
+irregular or multimodal distributions tied to billing cycles, which are difficult
+for the bottleneck to compress faithfully. The AE handles most of them better than
+the VAE, with the starkest gap on \texttt{registration\_month} (ratio 17.8) and
+\texttt{expire\_dayofweek} (ratio 5.3). Figure~\ref{fig:recon_top} shows the top-15
+hardest features for both models.
+
+\begin{table}[H]
+    \centering
+    \caption{Top-5 features with highest VAE MSE on the test set.}
+    \label{tab:top_features}
+    \begin{tabular}{lccr}
+        \toprule
+        \textbf{Feature} & \textbf{MSE AE} & \textbf{MSE VAE} & \textbf{VAE/AE} \\
+        \midrule
+        \texttt{expire\_dayofweek}           & 0.067 & 0.351 & $5.3\times$ \\
+        \texttt{days\_to\_expire}            & 0.157 & 0.267 & $1.7\times$ \\
+        \texttt{registration\_month}         & 0.014 & 0.241 & $17.8\times$ \\
+        \texttt{days\_since\_last\_transaction} & 0.179 & 0.196 & $1.1\times$ \\
+        \texttt{n\_amounts\_paid}            & 0.083 & 0.181 & $2.2\times$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/recon_top_features.png}
+    \caption{Top-15 features with highest MSE for AE and VAE. Temporal and cyclical
+             features consistently appear at the top; the VAE shows larger errors on
+             most of them.}
+    \label{fig:recon_top}
+\end{figure}
+
+\section{Anomaly detection}
+
+Churn customers are treated as anomalies: both models were trained exclusively on normal
+customers and are expected to reconstruct churners poorly. A per-customer anomaly score
+is derived from the reconstruction error; customers with higher scores are flagged as
+anomalous. No label information is used beyond selecting the training population.
+
+\subsection{Implementation}
+
+The anomaly detection pipeline is implemented in
+\texttt{anomaly\_detection.py} (\texttt{workshops/w4/src/evaluate/}):
+
+\begin{itemize}
+
+\item \texttt{AnomalyScorer}: computes three anomaly scores in a single forward pass
+over the test set using batches of 4{,}096 samples.
+\begin{itemize}
+    \item \texttt{AE\_recon}: per-sample reconstruction error from the AE —
+          sum of squared errors (numeric) plus sum of cross-entropies (categorical).
+    \item \texttt{VAE\_recon}: same reconstruction error computed from the VAE.
+    \item \texttt{VAE\_recon\_kl}: VAE reconstruction error plus the per-sample KL
+          divergence $D_\text{KL}(q(\mathbf{z}|\mathbf{x})\,\|\,\mathcal{N}(\mathbf{0},\mathbf{I}))$,
+          giving a full ELBO-based anomaly score.
+\end{itemize}
+
+\item \texttt{ThresholdSelector}: selects the decision threshold that maximises
+churn F1 on the tune set, keeping the test set completely held out.
+
+\item \texttt{AnomalyEvaluator}: reports ranking metrics (AUC-ROC, average precision)
+and decision metrics (precision, recall, F1, balanced accuracy, MCC) at the selected
+threshold.
+
+\item \texttt{CumulativeResults}: merges W4 results with the supervised baselines
+from Workshops~1 and~2 for a unified comparison table.
+
+\end{itemize}
+
+\subsection{Score distributions and ranking metrics}
+
+Figure~\ref{fig:anomaly_scores} shows the anomaly score distributions for normal
+and churn customers on the test set. All three scores separate the classes, with
+the churn distribution shifted toward higher values as expected. The red dashed
+line marks the threshold selected on the tune set.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/anomaly_score_distribution.png}
+    \caption{Anomaly score distributions (log scale) for normal and churn customers.
+             The red dashed line is the threshold maximising churn F1 on the tune set.
+             \texttt{VAE\_recon\_kl} shows the strongest class separation.}
+    \label{fig:anomaly_scores}
+\end{figure}
+
+Figures~\ref{fig:anomaly_roc} and~\ref{fig:anomaly_pr} show the ROC and
+precision-recall curves. \texttt{VAE\_recon\_kl} dominates both curves, confirming
+that adding the KL term provides a meaningful improvement over reconstruction error
+alone.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/anomaly_roc_curves.png}
+        \caption{ROC curves on the test set. \texttt{VAE\_recon\_kl}
+                 achieves AUC\,=\,0.812.}
+        \label{fig:anomaly_roc}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/anomaly_pr_curves.png}
+        \caption{PR curves on the test set. Random baseline at
+                 prevalence\,=\,0.090.}
+        \label{fig:anomaly_pr}
+    \end{minipage}
+\end{figure}
+
+\subsection{Decision metrics at selected threshold}
+
+Table~\ref{tab:anomaly_metrics} reports full decision metrics at the tune-set threshold
+for each score. The confusion matrix for the best scorer (\texttt{VAE\_recon\_kl}) is
+shown in Figure~\ref{fig:anomaly_cm}.
+
+\begin{table}[H]
+    \centering
+    \caption{Anomaly detection metrics on the test set (threshold selected on tune set).
+             Test prevalence: 8.99\%.}
+    \label{tab:anomaly_metrics}
+    \begin{tabular}{lccccccc}
+        \toprule
+        \textbf{Score} & \textbf{AUC-ROC} & \textbf{AP} & \textbf{Thresh.} &
+        \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{Bal.\ Acc.} \\
+        \midrule
+        \texttt{VAE\_recon\_kl} & \textbf{0.8116} & \textbf{0.3882} & 27.28 &
+            0.417 & 0.413 & \textbf{0.415} & 0.678 \\
+        \texttt{AE\_recon}      & 0.7823 & 0.3248 & 7.08  &
+            0.346 & 0.333 & 0.339 & 0.635 \\
+        \texttt{VAE\_recon}     & 0.7589 & 0.2947 & 14.82 &
+            0.351 & 0.256 & 0.296 & 0.605 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\linewidth]{figures/anomaly_confusion_matrices.png}
+    \caption{Confusion matrix for \texttt{VAE\_recon\_kl} on the test set
+             (threshold = 27.28, selected on tune set).}
+    \label{fig:anomaly_cm}
+\end{figure}
+
+\subsection{Comparison with W1 and W2 baselines}
+
+Table~\ref{tab:cumulative} presents all models from Workshops~1, 2, and~4 ranked by
+AUC-ROC. The supervised models retain a clear advantage, benefiting from direct access
+to churn labels. \texttt{VAE\_recon\_kl} is the best unsupervised detector and closes
+most of the gap to supervised approaches in AUC (0.812 vs.\ 0.863 for the best
+supervised model), while showing substantially lower precision and recall due to the
+harder task of detecting anomalies without label supervision.
+
+\begin{table}[H]
+    \centering
+    \caption{Cumulative model comparison across Workshops 1, 2, and 4, sorted by AUC-ROC.}
+    \label{tab:cumulative}
+    \begin{tabular}{llllcccc}
+        \toprule
+        \textbf{Model} & \textbf{Family} & \textbf{WS} & \textbf{Type} &
+        \textbf{AUC-ROC} & \textbf{AP} & \textbf{F1} & \textbf{Recall} \\
+        \midrule
+        M2            & Random Forest & W1 & supervised   & 0.863 & 0.593 & 0.584 & 0.539 \\
+        M3            & XGBoost       & W1 & supervised   & 0.852 & 0.588 & 0.574 & 0.542 \\
+        LSTM          & LSTM          & W2 & supervised   & 0.851 & 0.580 & 0.578 & 0.518 \\
+        M1            & Logistic      & W1 & supervised   & 0.844 & 0.555 & 0.557 & 0.534 \\
+        \midrule
+        \texttt{VAE\_recon\_kl} & Autoencoder & W4 & unsupervised & \textbf{0.812} & 0.388 & 0.415 & 0.413 \\
+        \texttt{AE\_recon}      & Autoencoder & W4 & unsupervised & 0.782 & 0.325 & 0.339 & 0.333 \\
+        \texttt{VAE\_recon}     & Autoencoder & W4 & unsupervised & 0.759 & 0.295 & 0.296 & 0.256 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The VAE ELBO score (\texttt{VAE\_recon\_kl}) surpasses the AE by 2.9 AUC points,
+confirming that the KL term — which measures how far a customer's posterior deviates
+from the learned prior — adds orthogonal signal beyond reconstruction error alone.
+Pure \texttt{VAE\_recon} underperforms the AE, reflecting the reconstruction
+quality trade-off already observed in Section~3: the regularised VAE bottleneck
+reconstructs all inputs somewhat uniformly, reducing the signal-to-noise ratio of
+reconstruction error as an anomaly detector.
+
+\section{Latent space visualization}
+
+The latent codes learned by the AE and VAE encoders are analysed to understand how
+the two architectures organise the customer manifold and whether the representations
+separate churners from normal customers without ever seeing labels.
+
+\subsection{Implementation}
+
+The analysis is split across two modules in
+\texttt{workshops/w4/src/analize\_latent/}:
+
+\begin{itemize}
+
+\item \texttt{analyze\_latent.py}: three classes support the full pipeline.
+\texttt{LatentExtractor} encodes the test set in batches of 2{,}048 — using
+\texttt{encode()} for the AE and the deterministic mean $\boldsymbol{\mu}$ (not a
+sampled $\mathbf{z}$) for the VAE. \texttt{LatentProjector} reduces representations
+to 2D via t-SNE (perplexity\,=\,30, PCA init) and UMAP
+(n\_neighbors\,=\,15, min\_dist\,=\,0.1). \texttt{SeparabilityAnalyzer} quantifies
+class separation with the Silhouette score (raw and after StandardScaler) and a
+linear probe — a logistic regression evaluated with 5-fold stratified cross-validation
+whose mean AUC measures how linearly separable the two classes are in the latent space.
+
+\item \texttt{extract\_lstm\_latent.py}: a subprocess script that extracts the hidden
+states from the Workshop~2 LSTM encoder for direct comparison. The W2 sequential
+export was not available in the current environment, so the LSTM comparison is omitted
+from the quantitative results; the analysis covers AE and VAE only.
+
+\end{itemize}
+
+Two samples are used throughout: a 20{,}000-point stratified sample (natural prevalence
+$\approx$9\% churn) for separability metrics, and a balanced 10{,}000-point sample
+(5{,}000 normal + 5{,}000 churn) for 2D projections to avoid the visualisation being
+dominated by the majority class.
+
+\subsection{Latent dimension analysis}
+
+Figure~\ref{fig:latent_dim_stats} shows the standard deviation per latent dimension
+for both models. The AE dimensions have varied and generally large standard deviations
+with no collapsed dimensions. The VAE dimensions cluster near the unit Gaussian prior
+($\sigma\,=\,1$), with 3 of the 16 dimensions below the collapse threshold
+($\text{Var}(\boldsymbol{\mu}) < 0.01$), leaving 13 active dimensions.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/latent_dim_stats.png}
+    \caption{Standard deviation per latent dimension for the AE (left) and VAE (right).
+             Grey bars in the VAE panel indicate collapsed dimensions; the red dashed
+             line marks $\sigma\,=\,1$ (unit Gaussian prior).}
+    \label{fig:latent_dim_stats}
+\end{figure}
+
+\subsection{2D projections}
+
+Figures~\ref{fig:latent_tsne} and~\ref{fig:latent_umap} show t-SNE and UMAP projections
+of the balanced 10{,}000-point sample coloured by ground-truth churn label.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/latent_tsne.png}
+    \caption{t-SNE projections (balanced 10k). Normal customers in blue, churners in red.
+             Both models show partial but incomplete class separation.}
+    \label{fig:latent_tsne}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/latent_umap.png}
+    \caption{UMAP projections (balanced 10k). Churn customers form distinct peripheral
+             clusters outside the main normal-customer manifold in both models.}
+    \label{fig:latent_umap}
+\end{figure}
+
+Figure~\ref{fig:latent_umap_anomaly} overlays the VAE ELBO anomaly score
+(\texttt{VAE\_recon\_kl}) on the VAE UMAP, confirming that high-anomaly regions
+align spatially with the churn cluster.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\linewidth]{figures/latent_umap_vae_anomaly.png}
+    \caption{VAE UMAP coloured by $\log(1 + \texttt{VAE\_recon\_kl})$. High anomaly
+             scores concentrate in the same peripheral regions occupied by churners.}
+    \label{fig:latent_umap_anomaly}
+\end{figure}
+
+\subsection{Class separability}
+
+Table~\ref{tab:separability} reports the Silhouette score (on standardised latent
+vectors) and linear probe AUC for both models.
+
+\begin{table}[H]
+    \centering
+    \caption{Latent space separability on the 20k stratified test sample.}
+    \label{tab:separability}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Model} & \textbf{Dims} & \textbf{Silhouette (std)} & \textbf{Linear probe AUC} \\
+        \midrule
+        AE (all dims)          & 16 & \textbf{0.252} & \textbf{0.848} \\
+        VAE (all dims)         & 16 & 0.156          & 0.847          \\
+        VAE (active dims only) & 13 & 0.152          & 0.846          \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Discussion}
+
+The AE achieves a higher Silhouette score (0.252 vs.\ 0.156), indicating more natural
+geometric separation between churn and normal customers. The VAE's KL regularisation
+pulls all codes toward the prior, reducing inter-class distance and lowering the
+Silhouette score. Despite this geometric difference, both models yield nearly identical
+linear probe AUC ($\approx$0.848), which is competitive with the best supervised model
+from Workshop~1 (Random Forest AUC\,=\,0.863).
+
+This finding reveals an important property of these representations: even though the
+autoencoders were trained entirely without labels, their internal codes carry enough
+churn signal for a linear classifier to approach supervised performance. The
+representations are not organised by class the way a supervised encoder would be,
+but the unsupervised manifold structure still captures the statistical irregularity
+of churner behaviour. Restricting the VAE to its 13 active dimensions produces no
+meaningful improvement in either metric, confirming that the 3 collapsed dimensions
+carry negligible information rather than useful redundancy.
+
+\section{Analysis}
+
+The AE outperforms the VAE on reconstruction quality (MSE $1.8\times$ lower,
+near-perfect categorical accuracy) because its deterministic bottleneck preserves
+input detail without KL pressure. The VAE trades fidelity for a smoother latent
+space, a cost that is visible on heterogeneous tabular data.
+
+For anomaly detection, the VAE ELBO score (\texttt{VAE\_recon\_kl}, AUC\,=\,0.812)
+approaches the supervised baselines (best AUC\,=\,0.863) without any label
+supervision. The remaining $\sim$5-point gap reflects the fundamental difficulty
+of defining the anomaly class by reconstruction error alone rather than by explicit
+labels: precision and recall stay well below the supervised models (F1 0.42 vs.\ 0.58).
+
+The latent space analysis confirms that both representations encode churn signal:
+a linear probe reaches AUC\,$\approx$\,0.848 on the raw codes. However, Silhouette
+scores remain modest (AE 0.25, VAE 0.16), indicating the signal is present but not
+geometrically concentrated — explaining why probe AUC is high while 2D projections
+show only partial class separation.
+
+Overall, autoencoders provide useful unsupervised signal that approaches supervised
+performance in AUC, but do not replace labelled classifiers where precision and
+recall matter.
+
+\begin{thebibliography}{9}
+\bibitem{kingma2014adam}
+Kingma, D.~P., \& Ba, J. (2015). Adam: A method for stochastic optimization.
+\textit{International Conference on Learning Representations (ICLR)}.
+
+\bibitem{rizvi2018kkbox}
+Rizvi, A. (2018). \textit{WSDM -- KKBox's Churn Prediction Challenge}. Medium. Retrieved from \url{https://asad-99rizvi.medium.com/wsdm-kkboxs-churn-prediction-challenge-d7c9cfa21cbd}
+\end{thebibliography}
+
+\end{document}

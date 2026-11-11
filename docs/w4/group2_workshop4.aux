@@ -1,0 +1,86 @@
+\relax 
+\providecommand \babel@aux [2]{\global \let \babel@toc \@gobbletwo }
+\@nameuse{bbl@beforestart}
+\babel@aux{english}{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Executive Summary}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Motivation}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}AE and VAE}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Data and preprocessing}{2}{}\protected@file@percent }
+\citation{kingma2014adam}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}AE Architecture}{3}{}\protected@file@percent }
+\citation{kingma2014adam}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces AE hyperparameters and selection rationale.}}{4}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:ae_hparams}{{1}{4}{}{table.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Standard Autoencoder architecture. The encoder compresses the 117-dimensional input to a $z$-dimensional code; the decoder reconstructs numerical features via a linear head and categorical features via per-class logit heads.}}{4}{}\protected@file@percent }
+\newlabel{fig:ae_arch}{{1}{4}{}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}AE Train}{5}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces AE training results by latent dimension (epoch 50).}}{5}{}\protected@file@percent }
+\newlabel{tab:ae_train}{{2}{5}{}{table.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Training and validation reconstruction loss per epoch for $z \in \{8, 16, 32\}$. All curves converge smoothly without overfitting, and larger bottlenecks achieve consistently lower loss.}}{5}{}\protected@file@percent }
+\newlabel{fig:ae_curves}{{2}{5}{}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}VAE Architecture}{5}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces VAE-specific hyperparameters and selection rationale. All other hyperparameters match Table~\ref {tab:ae_hparams}.}}{6}{}\protected@file@percent }
+\newlabel{tab:vae_hparams}{{3}{6}{}{table.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Variational Autoencoder architecture. The encoder trunk branches into $\boldsymbol  {\mu }$ and $\log \boldsymbol  {\sigma }^2$ heads; a sample is drawn via the reparameterization trick and passed to the shared decoder.}}{7}{}\protected@file@percent }
+\newlabel{fig:vae_arch}{{3}{7}{}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}VAE Train}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces VAE training results by $\beta $ at the best validation epoch.}}{7}{}\protected@file@percent }
+\newlabel{tab:vae_train}{{4}{7}{}{table.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Training and validation ELBO per epoch for $\beta \in \{0.5, 1.0, 4.0\}$. The KL warm-up phase (first 10 epochs) is visible as a rising loss before convergence. All runs triggered early stopping before epoch 50.}}{8}{}\protected@file@percent }
+\newlabel{fig:vae_curves}{{4}{8}{}{figure.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Reconstruction quality}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Test set metrics}{8}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Reconstruction quality on the March test set. Categorical accuracy baseline uses the most-frequent class per feature.}}{9}{}\protected@file@percent }
+\newlabel{tab:recon_summary}{{5}{9}{}{table.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Sample reconstructions}{9}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Sample panel for 8 test customers (N=normal, C=churn) across 7 features. Columns show original values, AE reconstruction, and VAE reconstruction. Colour scale is shared across all three panels.}}{9}{}\protected@file@percent }
+\newlabel{fig:recon_panel}{{5}{9}{}{figure.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Absolute difference heatmaps for AE and VAE on 8 sample customers (same colour scale). Brighter cells indicate larger reconstruction error. Churn customers (C) tend to show wider error spread.}}{10}{}\protected@file@percent }
+\newlabel{fig:recon_diff}{{6}{10}{}{figure.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Error patterns and analysis}{10}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Per-sample MSE distribution (log scale) for normal and churn customers. Both models produce noticeably higher errors on churners, confirming that churn behaviour is outside the manifold learned during training.}}{10}{}\protected@file@percent }
+\newlabel{fig:recon_class}{{7}{10}{}{figure.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces MSE density for normal and churn customers (log-scale x-axis). The churn distribution is shifted to the right in both models, with a longer tail indicating a subset of churners with very high error.}}{11}{}\protected@file@percent }
+\newlabel{fig:recon_dist}{{8}{11}{}{figure.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Top-5 features with highest VAE MSE on the test set.}}{11}{}\protected@file@percent }
+\newlabel{tab:top_features}{{6}{11}{}{table.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Top-15 features with highest MSE for AE and VAE. Temporal and cyclical features consistently appear at the top; the VAE shows larger errors on most of them.}}{12}{}\protected@file@percent }
+\newlabel{fig:recon_top}{{9}{12}{}{figure.9}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Anomaly detection}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Implementation}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Score distributions and ranking metrics}{13}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Anomaly score distributions (log scale) for normal and churn customers. The red dashed line is the threshold maximising churn F1 on the tune set. \texttt  {VAE\_recon\_kl} shows the strongest class separation.}}{13}{}\protected@file@percent }
+\newlabel{fig:anomaly_scores}{{10}{13}{}{figure.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces ROC curves on the test set. \texttt  {VAE\_recon\_kl} achieves AUC\,=\,0.812.}}{13}{}\protected@file@percent }
+\newlabel{fig:anomaly_roc}{{11}{13}{}{figure.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces PR curves on the test set. Random baseline at prevalence\,=\,0.090.}}{13}{}\protected@file@percent }
+\newlabel{fig:anomaly_pr}{{12}{13}{}{figure.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Decision metrics at selected threshold}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Anomaly detection metrics on the test set (threshold selected on tune set). Test prevalence: 8.99\%.}}{14}{}\protected@file@percent }
+\newlabel{tab:anomaly_metrics}{{7}{14}{}{table.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Confusion matrix for \texttt  {VAE\_recon\_kl} on the test set (threshold = 27.28, selected on tune set).}}{14}{}\protected@file@percent }
+\newlabel{fig:anomaly_cm}{{13}{14}{}{figure.13}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Comparison with W1 and W2 baselines}{14}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Cumulative model comparison across Workshops 1, 2, and 4, sorted by AUC-ROC.}}{14}{}\protected@file@percent }
+\newlabel{tab:cumulative}{{8}{14}{}{table.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Latent space visualization}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Implementation}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Latent dimension analysis}{15}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Standard deviation per latent dimension for the AE (left) and VAE (right). Grey bars in the VAE panel indicate collapsed dimensions; the red dashed line marks $\sigma \,=\,1$ (unit Gaussian prior).}}{16}{}\protected@file@percent }
+\newlabel{fig:latent_dim_stats}{{14}{16}{}{figure.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}2D projections}{16}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces t-SNE projections (balanced 10k). Normal customers in blue, churners in red. Both models show partial but incomplete class separation.}}{16}{}\protected@file@percent }
+\newlabel{fig:latent_tsne}{{15}{16}{}{figure.15}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {16}{\ignorespaces UMAP projections (balanced 10k). Churn customers form distinct peripheral clusters outside the main normal-customer manifold in both models.}}{17}{}\protected@file@percent }
+\newlabel{fig:latent_umap}{{16}{17}{}{figure.16}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {17}{\ignorespaces VAE UMAP coloured by $\log (1 + \texttt  {VAE\_recon\_kl})$. High anomaly scores concentrate in the same peripheral regions occupied by churners.}}{17}{}\protected@file@percent }
+\newlabel{fig:latent_umap_anomaly}{{17}{17}{}{figure.17}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Class separability}{17}{}\protected@file@percent }
+\bibcite{kingma2014adam}{1}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Latent space separability on the 20k stratified test sample.}}{18}{}\protected@file@percent }
+\newlabel{tab:separability}{{9}{18}{}{table.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Discussion}{18}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Analysis}{18}{}\protected@file@percent }
+\bibcite{rizvi2018kkbox}{2}
+\gdef \@abspage@last{19}
