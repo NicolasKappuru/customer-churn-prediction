@@ -13,6 +13,7 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{longtable}
+\emergencystretch=3em
 \usepackage[justification=centering]{caption}
 
 \lstset{
@@ -202,13 +203,121 @@ is\_cancel               & Flag indicating subscription cancellation (1 = yes, 0
 \label{tab:schema_transactions}
 \end{table}
 
+The analysis is organised as a series of ten notebooks in \texttt{workshops/w1/eda/} (index in the folder's \texttt{README.md}). Notebooks~01--06 explore the raw tables on the labelled March cohort (\texttt{train\_v2}); notebooks~07--10 explore the 59 engineered features on the February development cohort (\texttt{train\_feb}, 992{,}931 customers), which is the data used to fit and tune the models. The figures in this section are produced by notebooks~07--10 and saved in \texttt{workshops/w1/figures/eda/}. All findings are descriptive: an association with churn is not a causal effect.
+
 \subsection{Target Distribution}
+
+In the February development cohort 63{,}471 of 992{,}931 customers churn (6.39\%), a majority-to-minority ratio of 14.64:1 (Figure~\ref{fig:w1_target}). In the March test cohort the rate is higher, 8.99\% (87{,}330 of 970{,}960 customers). The target is therefore strongly imbalanced, and the imbalance changes between months.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\textwidth]{figures/target_distribution.png}
+\caption{Target distribution in the February development cohort (\texttt{is\_churn}).}
+\label{fig:w1_target}
+\end{figure}
+
+Two consequences shape the rest of the work. First, accuracy is uninformative: always predicting ``stays'' is 93.6\% accurate in February and 91.0\% accurate in March. The models are instead compared with log-loss, average precision (AP), and the precision, recall, F1 and Matthews correlation coefficient (MCC) of the churn class. Second, the relationship plots show the churn rate within each group against the overall rate (dashed line) rather than raw counts.
 
 \subsection{Feature Statistics}
 
+The final table has 59 features: 29 from transactions, 22 from the listening logs and 8 from the member table. Each feature is assigned a type that decides which association measure is used (Table~\ref{tab:w1_types}): Pearson, Spearman and the univariate ROC AUC for numeric features, Cram\'er's V for nominal codes, and churn rate per value or per decile for flags, counts and continuous features.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Source} & \textbf{Binary} & \textbf{Categorical} & \textbf{Constant} & \textbf{Continuous} & \textbf{Discrete} & \textbf{Total} \\
+\midrule
+Member        & 2 & 2 & 0 & 2  & 2 & 8  \\
+Transactions  & 6 & 1 & 1 & 15 & 6 & 29 \\
+Listening logs & 1 & 0 & 0 & 21 & 0 & 22 \\
+\midrule
+\textbf{Total} & 9 & 3 & 1 & 38 & 8 & 59 \\
+\bottomrule
+\end{tabular}
+\caption{Engineered features by source and type. The three nominal codes are \texttt{city}, \texttt{registered\_via} and \texttt{last\_payment\_method\_id}.}
+\label{tab:w1_types}
+\end{table}
+
+Many activity and payment aggregates are heavily right-skewed, so the median and the 99th percentile describe them better than the mean and maximum. The exploration of the raw tables (notebooks~02--05) adds the following observations:
+
+\begin{itemize}
+    \item \textbf{Members.} There are 21 cities and city~1 dominates. Age (\texttt{bd}) contains negative values and values above 100, and its median is 0 because a missing age was stored as 0. Gender is almost entirely empty, so it is not used as a feature. Registration has 18 channels, with codes 3, 4, 7 and 9 the most frequent.
+    \item \textbf{Transactions.} Almost every plan lasts 30 days, although some plans reach about 450 days. The list price and the amount paid are almost identical; where they differ, the difference concentrates at 30, 149 and 180 and sometimes the customer pays more than the list price. Auto-renew is active in most transactions and cancellations are infrequent.
+    \item \textbf{Listening logs.} The play counters have very long tails, and values above 1{,}200 songs in a day are implausible. Listening is bimodal: songs are either skipped before 25\% or played to the end. The number of records per user is also bimodal (very few or many).
+    \item \textbf{Dates.} Registrations grow strongly from year to year, and transactions and expiry dates follow the 30-day renewal cycle. Time therefore carries information and is encoded as features such as tenure, recency and days to expiry.
+\end{itemize}
+
 \subsection{Data Quality}
 
-\subsection{Feature Relationships}
+\begin{itemize}
+    \item \textbf{No member record.} 115{,}770 customers (11.7\%) have no member record, so \texttt{city}, \texttt{tenure\_days} and the registration fields are null for them. The flag \texttt{has\_member\_record} marks them.
+    \item \textbf{No transactions.} 2{,}095 customers (0.2\%) have no transaction history and their transaction statistics are null. They are a very high-risk group: 31.6\% of them churn, almost five times the overall rate.
+    \item \textbf{Invalid age.} The flag \texttt{bd\_missing} is 1 for 603{,}791 customers (60.8\%), whose raw age is invalid or absent. It is informative in itself: these customers churn \emph{less} (4.8\% versus 8.8\%), so the flag is kept next to the imputed age.
+    \item \textbf{Duplicates and invalid counters.} Exact duplicate transactions are removed and negative play counts are set to zero (see the preprocessing pipeline).
+\end{itemize}
+
+Missing values are kept in the analysis and dropped pairwise in each measure, so that no value is invented before modelling.
+
+\subsection{Feature Relationships}\label{sec:w1_eda_relationships}
+
+\paragraph{Numeric features.} Figure~\ref{fig:w1_numcorr} shows the Pearson and Spearman correlation of every numeric feature with churn. The strongest monotonic signals come from the subscription state: \texttt{last\_is\_auto\_renew} ($\rho=-0.378$), \texttt{is\_auto\_renew\_change\_flag} ($-0.348$) and \texttt{autorenew\_not\_cancel} ($-0.236$) are negatively associated with churn, while \texttt{last\_is\_cancel} ($+0.270$) is positively associated. Longer plans and higher prices go with more churn (\texttt{last\_plan\_days} $+0.210$, \texttt{average\_amount\_charged} $+0.172$, \texttt{average\_amount\_paid} $+0.148$), whereas a longer payment history goes with less churn (\texttt{transaction\_count} $-0.142$, \texttt{more\_than\_30} $-0.139$). The listening features are individually weak: none exceeds $|\rho|=0.05$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[height=0.82\textheight]{figures/churn_numeric_correlations.png}
+\caption{Spearman and Pearson correlation of each numeric feature with \texttt{is\_churn} (February cohort), sorted by absolute Spearman correlation.}
+\label{fig:w1_numcorr}
+\end{figure}
+
+\paragraph{Nominal features.} Cram\'er's V is 0.379 for \texttt{last\_payment\_method\_id} (33 levels), 0.173 for \texttt{registered\_via} and 0.073 for \texttt{city}. Figure~\ref{fig:w1_categorical} shows why: the payment method of the last transaction separates customers sharply (method 41, used by 570{,}014 customers, churns at 2.7\%, method 38 at 30.5\% and method 32 at 51.4\%), \texttt{registered\_via} ranges from 3.4\% (code 7) to 18.3\% (code 4), and city~1 churns at 4.8\% against 7.8--9.7\% in the other large cities.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{figures/churn_categorical_relationships.png}
+\caption{Churn rate per level of the three nominal features (most frequent levels; rarer levels pooled as \texttt{other}). The dashed line is the overall churn rate (6.39\%).}
+\label{fig:w1_categorical}
+\end{figure}
+
+\paragraph{Binary features.} Figure~\ref{fig:w1_binary} shows that auto-renew is the dominant flag: customers with \texttt{is\_auto\_renew\_change\_flag}~=~0 churn at 31.7\% (99{,}150 customers) against 3.5\% when it is 1 (891{,}686 customers). The flags \texttt{has\_member\_record} (5.0\% versus 6.6\%) and \texttt{is\_cancel\_change\_flag} (6.0\% versus 7.8\%) are much weaker.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/churn_binary_relationships_01.png}
+\caption{Churn rate by value of four binary features, annotated with the number of customers. The dashed line is the overall rate.}
+\label{fig:w1_binary}
+\end{figure}
+
+\paragraph{Continuous features.} Figure~\ref{fig:w1_continuous} combines box plots by class (top) with the churn rate per decile (bottom), which exposes patterns that a correlation coefficient hides. \texttt{transaction\_count} decreases steadily, from about 18\% churn in the lowest decile (median of 2 transactions) to about 3\% near 21 transactions. \texttt{average\_amount\_paid} is nearly flat at 3--6\% and then rises to about 21\% in the top decile (median 180), a threshold-like pattern. \texttt{bd} is highest for the youngest customers, and \texttt{tenure\_days} shows no monotonic pattern. Several relationships are therefore non-linear, which favours tree-based models over a linear one.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/churn_continuous_relationships_01.png}
+\caption{Distribution by class (top) and churn rate per decile (bottom) for four continuous features. The dashed line is the overall rate.}
+\label{fig:w1_continuous}
+\end{figure}
+
+\paragraph{Redundancy.} Many features are built from the same raw fields. Figure~\ref{fig:w1_featcorr} shows the Spearman correlation between numeric features on a stratified sample of 200{,}000 customers; 21 pairs have $|\rho|\geq 0.9$, for example \texttt{sum\_last\_second\_month\_total\_secs} with \texttt{last\_second\_sum\_total\_songs} (0.992), \texttt{registration\_year} with \texttt{tenure\_days} ($-0.988$), \texttt{sum\_list\_price} with \texttt{sum\_amount\_paid} (0.987) and \texttt{trend\_songs} with \texttt{trend\_secs} (0.980). Redundancy does not hurt tree ensembles but it affects the coefficients of the linear model.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/feature_correlation_matrix.png}
+\caption{Spearman correlation between numeric features (stratified sample of 200{,}000 customers).}
+\label{fig:w1_featcorr}
+\end{figure}
+
+\paragraph{Unified ranking.} Correlation coefficients and Cram\'er's V are on different scales, so the final ranking uses the mutual information with the target (Figure~\ref{fig:w1_mi}), estimated on the same sample. The 20 highest-ranked features are all transaction features except \texttt{bd} (rank 17); the top five are \texttt{last\_plan\_days}, \texttt{duration}, \texttt{last\_payment\_method\_id}, \texttt{last\_is\_auto\_renew} and \texttt{average\_amount\_charged}. The best listening feature, \texttt{days\_since\_last\_log}, only reaches rank 24. The feature \texttt{plan\_coverage\_ratio} has $|\rho|=0.014$ yet ranks ninth, an example of a non-monotonic relationship that correlation alone would discard.
+
+\begin{figure}[H]
+\centering
+\includegraphics[height=0.82\textheight]{figures/churn_mutual_information.png}
+\caption{Mutual information (in nats) between each feature and \texttt{is\_churn}, coloured by feature type.}
+\label{fig:w1_mi}
+\end{figure}
+
+\paragraph{Implications for modelling.} (i) The strong and shifting imbalance requires threshold-independent metrics and an explicit decision threshold. (ii) The signal is concentrated in the subscription state (auto-renew, plan, payment method and payment history); listening behaviour adds little on its own. (iii) Non-linear and threshold-like patterns, together with categorical levels with very different rates, favour tree-based models. (iv) Redundant feature blocks call for regularisation in the linear model.
+
 
 % ─────────────────────────────────────────────
 \section{Preprocessing Pipeline}
@@ -331,9 +440,272 @@ has\_listening\_logs & Flag: 1 if any listening record exists & Pipeline \\ \hli
 
 The two cohort tables are exported to \texttt{workshops/w1/export-tabular-v5/} as \texttt{train\_feb.parquet} (February, 992{,}931 users) and \texttt{test.parquet} (March, 970{,}960 users). Imputation and clipping parameters are persisted in \texttt{preprocess\_params.json} and the complete feature catalogue in \texttt{metadata.json}. Split indices for the development and test partitions are saved to \texttt{workshops/w1/artifacts/sherlock\_w1/split\_indices.npz}.
 
+\section{Data Partitioning}
+
+The split protocol is \texttt{cross\_month\_feb\_to\_mar}: the model is developed on one month and evaluated on the next, which mimics deployment, where a model trained on past customers must score a new month. Two cohorts are exported by the preprocessing pipeline, with the same 59 features but different observation cutoffs (Table~\ref{tab:w1_split}).
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llrrrp{4.2cm}}
+\toprule
+\textbf{Part} & \textbf{Source} & \textbf{Customers} & \textbf{Churners} & \textbf{Churn rate} & \textbf{Use} \\
+\midrule
+fit   & February (75\%)   & 744{,}699 & 47{,}604 & 6.39\% & train model parameters \\
+stop  & February (12.5\%) & 124{,}117 & 7{,}934  & 6.39\% & early stopping (XGBoost) \\
+tune  & February (12.5\%) & 124{,}115 & 7{,}933  & 6.39\% & Optuna objective, threshold, model selection \\
+\midrule
+test  & March (100\%)     & 970{,}960 & 87{,}330 & 8.99\% & final evaluation only \\
+\bottomrule
+\end{tabular}
+\caption{Partition of the data. The February cohort (observation cutoff 2017-01-31) is split into fit/stop/tune; the March cohort (cutoff 2017-02-28) is the test set.}
+\label{tab:w1_split}
+\end{table}
+
+\begin{itemize}
+    \item \textbf{Deterministic assignment.} Each customer is assigned to a part from a SHA-1 hash of \texttt{msno} with a fixed salt, so the assignment does not depend on row order or on a random state, and it is reproducible across machines. It is stratified by the label, so the three February parts keep the same churn rate (6.39\%).
+    \item \textbf{Roles.} \emph{fit} trains the parameters of each model. \emph{stop} is used only by XGBoost to stop adding trees when the validation loss stops improving. \emph{tune} (the validation set) is where Optuna evaluates hyperparameters, where the decision threshold is chosen and where the winning model is selected. Separating \emph{stop} from \emph{tune} prevents the early-stopping criterion from leaking into the hyperparameter comparison.
+    \item \textbf{Test set.} March is never used to fit, tune or choose a threshold. It is used once, for the final metrics.
+    \item \textbf{No leakage from preprocessing.} Imputation medians, scaling statistics and category encodings are learned on the fit/development data only and stored (\texttt{preprocessing/development.json}); the test cohort is transformed with those fixed values.
+    \item \textbf{Final model.} After the hyperparameters and the threshold are chosen, each model is refitted on all of February (fit, stop and tune together, 992{,}931 customers) before scoring March.
+\end{itemize}
+
+Because the test set is a different month, it also measures robustness to a change of the churn rate (6.39\% to 8.99\%); this shift matters for the interpretation of the results.
+
+\section{Models and Hyperparameter Tuning}
+
+\subsection{Baseline Models}
+
+Three models with increasing capacity are compared on the same 59 features and the same split.
+
+\begin{itemize}
+    \item \textbf{M1 -- Logistic regression.} Numeric features are median-imputed and standardised; the nominal codes are one-hot encoded (unseen categories ignored). It is fitted with the \texttt{newton-cholesky} solver with at most 200 iterations. It is an interpretable linear reference whose only tuned parameter is the inverse regularisation strength $C$.
+    \item \textbf{M2 -- Random Forest.} An ensemble of decision trees trained on bootstrap samples with random feature subsets \cite{breiman2001random}. It handles non-linear effects and interactions without scaling and is robust to the redundancy between features.
+    \item \textbf{M3 -- XGBoost.} Gradient-boosted trees \cite{chen2016xgboost} fitted on GPU with early stopping on the \emph{stop} part (up to 3{,}000 rounds, patience 100). To favour recall, the positive class is up-weighted with \texttt{scale\_pos\_weight} equal to twice the natural ratio of negatives to positives (about 29.3 on the fit data).
+\end{itemize}
+
+\subsection{Tuning with Optuna}
+
+Hyperparameters are optimised with Optuna \cite{akiba2019optuna} using the TPE sampler (seed 110) and a median pruner. The objective is the log-loss on the \emph{tune} part, which is a proper scoring rule and does not depend on a threshold. Studies are stored in SQLite so that interrupted runs resume. The first trial of every study is a fixed, sensible starting configuration, so the search can only improve on it. Table~\ref{tab:w1_space} gives the search spaces and the best values found.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{llll}
+\toprule
+\textbf{Model} & \textbf{Hyperparameter} & \textbf{Search space} & \textbf{Best value} \\
+\midrule
+M1 & $C$ & log-uniform $[10^{-4},10^{2}]$ & 91.1 \\
+\midrule
+M2 & \texttt{n\_estimators} & $\{100,150\}$ & 150 \\
+   & \texttt{max\_depth} & $\{8,10,12,16,20,24\}$ & 12 \\
+   & \texttt{min\_samples\_leaf} & integer $[5,100]$ & 5 \\
+   & \texttt{min\_samples\_split} & integer $[10,100]$ & 10 \\
+   & \texttt{max\_features} & $\{\texttt{sqrt},\texttt{log2},0.5\}$ & \texttt{sqrt} \\
+\midrule
+M3 & \texttt{learning\_rate} & log-uniform $[0.01,0.15]$ & 0.0287 \\
+   & \texttt{max\_depth} & integer $[3,10]$ & 10 \\
+   & \texttt{min\_child\_weight} & uniform $[1,30]$ & 5.72 \\
+   & \texttt{subsample} & uniform $[0.6,1.0]$ & 0.900 \\
+   & \texttt{colsample\_bytree} & uniform $[0.6,1.0]$ & 0.610 \\
+   & \texttt{reg\_alpha} & log-uniform $[10^{-4},10]$ & 0.393 \\
+   & \texttt{reg\_lambda} & log-uniform $[10^{-4},10]$ & 0.0471 \\
+   & \texttt{gamma} & log-uniform $[10^{-4},5]$ & 4.16 \\
+   & (selected rounds) & early stopping & 265 \\
+\bottomrule
+\end{tabular}
+\caption{Optuna search spaces and best configurations for M1--M3 (objective: log-loss on \emph{tune}).}
+\label{tab:w1_space}
+\end{table}
+
+The compute budget was small: 3 trials for M1, 3 for M2 and 8 for M3 (the configured ceiling is 50). Table~\ref{tab:w1_optuna} shows the outcome. For M1 the log-loss differs only in the fourth decimal and the best $C$ is close to the upper edge of the range, so a larger $C$ (weaker regularisation) is not excluded. For M2 the best trial is the initial configuration, so the three trials did not find an improvement. For M3 the search lowered the tune log-loss from 0.527 (initial configuration) to 0.494. These studies are therefore a light tuning rather than an exhaustive search, and the differences between models should be read with this in mind.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Model} & \textbf{Trials} & \textbf{First trial} & \textbf{Best trial} & \textbf{Best tune log-loss} \\
+\midrule
+M1 & 3 & 0.15557 & 3rd & 0.15537 \\
+M2 & 3 & 0.14485 & 1st & 0.14485 \\
+M3 & 8 & 0.52699 & 6th & 0.49402 \\
+\bottomrule
+\end{tabular}
+\caption{Optuna summary. ``First trial'' is the log-loss of the fixed starting configuration.}
+\label{tab:w1_optuna}
+\end{table}
+
+\paragraph{Probability scale of M3.} The tune log-loss of M3 (0.494) is not comparable with M1 and M2 (0.155 and 0.145): up-weighting the churners makes XGBoost's scores systematically larger than the true probabilities, which inflates the log-loss. As a consequence, the F1-optimal threshold of M3 is 0.88, whereas it is 0.28 and 0.26 for M1 and M2. M3's scores rank customers well but must not be read as probabilities. Table~\ref{tab:w1_select} therefore selects the winner on the tune log-loss among the models whose scores are probabilities, and the ranking metrics (ROC AUC, AP) are used to compare all three.
+
+\subsection{Decision Threshold and Model Selection}
+
+The threshold of each model is the value that maximises the F1 score of the churn class on \emph{tune}. The default 0.5 is inappropriate here, because with 6\% positives most calibrated probabilities fall below 0.5. The model with the lowest tune log-loss, M2 (Random Forest), is the primary winner (Table~\ref{tab:w1_select}).
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Model} & \textbf{Tune log-loss} & \textbf{F1-optimal threshold} \\
+\midrule
+M1 Logistic regression & 0.1554 & 0.28 \\
+\textbf{M2 Random Forest} & \textbf{0.1449} & 0.26 \\
+M3 XGBoost & 0.4940 & 0.88 \\
+\bottomrule
+\end{tabular}
+\caption{Model selection on the tune part (lower log-loss is better).}
+\label{tab:w1_select}
+\end{table}
+
+\section{Results}
+
+All figures below are computed on the March cohort (970{,}960 customers, 8.99\% churn) with the models refitted on February. Table~\ref{tab:w1_results} reports the threshold-free metrics and the metrics of the churn class at each model's tuned threshold.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+\textbf{Model} & \textbf{Log-loss} & \textbf{Brier} & \textbf{ROC AUC} & \textbf{AP} & \textbf{Thr.} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{MCC} \\
+\midrule
+M1 & 0.2126 & 0.0564 & 0.8445 & 0.5553 & 0.28 & 0.581 & 0.534 & 0.557 & 0.515 \\
+\textbf{M2} & \textbf{0.2032} & \textbf{0.0548} & \textbf{0.8632} & \textbf{0.5933} & 0.26 & \textbf{0.638} & 0.539 & \textbf{0.584} & \textbf{0.549} \\
+M3 & 0.4886 & 0.1498 & 0.8520 & 0.5882 & 0.88 & 0.609 & \textbf{0.542} & 0.574 & 0.536 \\
+\bottomrule
+\end{tabular}
+\caption{Test results on March. Precision, recall, F1 and MCC refer to the churn class at the threshold selected on \emph{tune}. A classifier that predicts nobody churns has AP $=0.0899$ (the churn rate); one that predicts everybody churns has F1 $=0.165$.}
+\label{tab:w1_results}
+\end{table}
+
+Table~\ref{tab:w1_conf} gives the confusion matrices at the tuned thresholds. Out of 87{,}330 churners, M2 detects 47{,}028 and misses 40{,}302, and raises 26{,}694 false alarms among 883{,}630 customers who stay.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Model} & \textbf{TN} & \textbf{FP} & \textbf{FN} & \textbf{TP} & \textbf{Predicted churn} & \textbf{Actual churn} \\
+\midrule
+M1 & 849{,}988 & 33{,}642 & 40{,}668 & 46{,}662 & 8.27\% & 8.99\% \\
+M2 & 856{,}936 & 26{,}694 & 40{,}302 & 47{,}028 & 7.59\% & 8.99\% \\
+M3 & 853{,}263 & 30{,}367 & 39{,}959 & 47{,}371 & 8.01\% & 8.99\% \\
+\bottomrule
+\end{tabular}
+\caption{Confusion matrices on March at the tuned thresholds (positive class: churn).}
+\label{tab:w1_conf}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/w1_roc_pr.png}
+\caption{ROC and precision--recall curves of M1--M3 on the March test cohort.}
+\label{fig:w1_roc_pr}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/w1_confusion_test.png}
+\caption{Confusion matrices on the March test cohort at the tuned thresholds.}
+\label{fig:w1_conf}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/w1_calibration_hist.png}
+\caption{Calibration curves and distribution of predicted scores on the March test cohort.}
+\label{fig:w1_calib}
+\end{figure}
+
+\subsection{Model Comparison}
+
+\begin{itemize}
+    \item \textbf{M2 (Random Forest) is the best overall.} It has the highest ROC AUC (0.863), AP (0.593), precision, F1 and MCC, and the lowest log-loss and Brier score of the three. It also gives the fewest false alarms.
+    \item \textbf{M3 (XGBoost) is very close in ranking.} Its AP (0.588) and AUC (0.852) are within one point of M2, and it has the highest recall (0.542). Its probabilities are not calibrated because of the class weight, so its log-loss and Brier score are much worse and cannot be compared with the other two.
+    \item \textbf{M1 (logistic regression) is the weakest} (AP 0.555, F1 0.557) but not by a large margin: a linear model on the engineered features is already competitive, which indicates that most of the signal is in a few strong features (auto-renew, plan, payment method).
+    \item \textbf{The differences among models are small compared with the gap to the trivial baselines.} The best AP is 6.6 times the no-skill AP (0.0899), whereas the gap between M2 and M1 is 0.04. With only 3--8 tuning trials per model, ranking the three should be taken as indicative, not definitive.
+\end{itemize}
+
+\subsection{Why the F1 Score Is Low}
+
+The best F1 for the churn class is 0.58, which looks low next to an accuracy above 92\%. This is expected given the problem and does not by itself indicate a bug:
+
+\begin{enumerate}
+    \item \textbf{Accuracy is not informative.} Predicting ``stays'' for everybody gives 91.0\% accuracy in March. The accuracies of 92.3--93.1\% obtained by the models are only about two points above this trivial classifier, while F1 focuses on the minority class.
+    \item \textbf{Class imbalance makes precision hard.} With 9\% positives, a model that is right on 54\% of the churners and wrong on 3\% of the stayers (M2: recall 0.539, false-positive rate 0.030) has a precision of only 0.64, because there are ten times more stayers than churners to make mistakes on. The precision--recall trade-off is also stiff: the AP of 0.59 means that precision drops quickly as recall grows (Figure~\ref{fig:w1_roc_pr}).
+    \item \textbf{ROC AUC looks good while F1 does not.} An AUC of 0.86 means that a random churner is ranked above a random non-churner 86\% of the time, but the ROC curve is insensitive to the number of negatives; AP and F1 are not. The metrics measure different things and are consistent with each other.
+    \item \textbf{The threshold was tuned on a month with a different prevalence.} The F1-optimal thresholds were selected on February (6.39\% churn) and applied to March (8.99\%). All three models therefore predict fewer churners than there actually are (7.6--8.3\% against 9.0\%), and the recall stays around 0.54. A threshold tuned on March itself would give a higher recall, so part of the loss is due to the prior shift between months (the same shift raises the log-loss from 0.145 on \emph{tune} to 0.203 on the test set for M2).
+    \item \textbf{Limited information.} The features are aggregates of subscription, payment and listening behaviour up to the cutoff. Many customers leave for reasons not recorded in these tables (price, competition, life events), and the listening features carry little individual signal (Section~\ref{sec:w1_eda_relationships}); this puts a ceiling on the achievable F1 regardless of the model.
+    \item \textbf{Light tuning.} The small number of Optuna trials leaves some room for improvement, although the extra experiment below suggests that it is limited.
+\end{enumerate}
+
+Table~\ref{tab:w1_thr05} shows the effect of the threshold directly. At the default 0.5, M1 and M2 detect only 24--27\% of the churners (precision 0.78--0.83), while M3, whose scores are inflated, flags 21\% of all customers; none of them is useful at 0.5, which justifies tuning the threshold.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Model} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{Predicted churn} \\
+\midrule
+M1 & 0.780 & 0.273 & 0.405 & 3.1\% \\
+M2 & 0.828 & 0.241 & 0.373 & 2.6\% \\
+M3 & 0.312 & 0.741 & 0.439 & 21.4\% \\
+\bottomrule
+\end{tabular}
+\caption{Metrics of the churn class on March at the default threshold 0.5.}
+\label{tab:w1_thr05}
+\end{table}
+
+\subsection{Additional Experiment: XGBoost v2}
+
+To check whether more tuning would change the picture, a second XGBoost study (M3v2) was run: 80 Optuna trials maximising the average precision on \emph{tune}, a wider search space (growth policy, leaves, column sampling per node, maximum delta step and \texttt{scale\_pos\_weight} in $[1,30]$), and isotonic calibration fitted on \emph{tune}. Its best configuration uses \texttt{scale\_pos\_weight} $=1.90$, i.e.\ almost no re-weighting. Table~\ref{tab:w1_v2} shows that M3v2 reaches the best ROC AUC (0.864) and a log-loss (0.204) now comparable with M2, but its AP (0.590) and its F1 at the F1-optimal threshold (0.576) are not better than M2's (0.593 and 0.584). A recall-oriented threshold ($\geq$0.70 on \emph{tune}) gives a recall of 0.645 at a precision of 0.482 (F1 0.552).
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Model / criterion} & \textbf{ROC AUC} & \textbf{AP} & \textbf{Log-loss} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} \\
+\midrule
+M2 (F1 threshold)           & 0.8632 & 0.5933 & 0.2032 & 0.638 & 0.539 & 0.584 \\
+M3 (F1 threshold)           & 0.8520 & 0.5882 & 0.4886 & 0.609 & 0.542 & 0.574 \\
+M3v2 (F1 threshold)         & 0.8642 & 0.5900 & 0.2037 & 0.659 & 0.511 & 0.576 \\
+M3v2 (recall $\geq 0.70$ on tune) & 0.8642 & 0.5900 & 0.2037 & 0.482 & 0.645 & 0.552 \\
+\bottomrule
+\end{tabular}
+\caption{XGBoost v2 compared with the main models on March. The F1 threshold of M3v2 is 0.275.}
+\label{tab:w1_v2}
+\end{table}
+
+More tuning therefore improves calibration but not the ranking quality: the three tree models converge to an AP of about 0.59, which supports the interpretation that the remaining error is due to the information in the features and to the prior shift, not to the hyperparameters. M3v2 is reported as a complementary experiment; the selection protocol above (M1--M3, winner on \emph{tune} log-loss) is unchanged.
+
+\subsection{Conclusions of Workshop 1}
+
+\begin{itemize}
+    \item The churn target is imbalanced (6.4\% in February, 9.0\% in March) and the signal is concentrated in subscription features, mainly auto-renew status, plan length, payment method and payment history.
+    \item The partition (fit/stop/tune from February, March as test) keeps the test month untouched and measures robustness to a change of churn rate.
+    \item The Random Forest (M2) is selected: ROC AUC 0.863, AP 0.593, F1 0.584 and MCC 0.549 on March. XGBoost is a close second and logistic regression is a competitive linear baseline.
+    \item An F1 around 0.58 is a consequence of class imbalance, the precision--recall trade-off, the shift in churn rate between months and the limited information in the features; it is not evidence of a faulty model. The metrics must be read together (AP, MCC, recall and precision), never accuracy alone.
+    \item Next steps: a larger Optuna budget, a threshold chosen with the expected prevalence of the target month, and sequence models that use the temporal structure of the logs (Workshop~2).
+\end{itemize}
+
+
 \begin{thebibliography}{9}
 \bibitem{rizvi2018kkbox}
 Rizvi, A. (2018). \textit{WSDM -- KKBox's Churn Prediction Challenge}. Medium. Retrieved from \url{https://asad-99rizvi.medium.com/wsdm-kkboxs-churn-prediction-challenge-d7c9cfa21cbd}
+
+\bibitem{breiman2001random}
+L.~Breiman, ``Random forests,'' \textit{Machine Learning}, vol.~45, no.~1, pp.~5--32, 2001.
+
+\bibitem{chen2016xgboost}
+T.~Chen and C.~Guestrin, ``XGBoost: A scalable tree boosting system,'' in \textit{Proc. 22nd ACM SIGKDD Int. Conf. Knowledge Discovery and Data Mining}, 2016, pp.~785--794.
+
+\bibitem{akiba2019optuna}
+T.~Akiba, S.~Sano, T.~Yanase, T.~Ohta and M.~Koyama, ``Optuna: A next-generation hyperparameter optimization framework,'' in \textit{Proc. 25th ACM SIGKDD Int. Conf. Knowledge Discovery and Data Mining}, 2019, pp.~2623--2631.
 \end{thebibliography}
 
 \end{document}
