@@ -2,20 +2,20 @@
 
 from pathlib import Path
 
-from ..lstm.config import EVALUATION_DIR, MODEL_ID
+from ..recurrent_models.config import model_dirs
 from .confusion import save_confusion
 from .curves import plot_reliability_histogram, plot_roc_pr
 from .figure_utils import show_or_close
-from .optuna_history import plot_optuna_history
+from .optuna_history import _load_history, plot_optuna_history
 from .reports import save_classification_report
 from .selection import save_selection_manifest
 from .tables import DISPLAY_COLUMNS, build_metrics_table, save_metrics_tables
 
 
-def _model_info(test_result, tune_result, data):
+def _model_info(test_result, tune_result, data, model_name):
     model = test_result.get("model")
     return {
-        "family": "lstm",
+        "family": model_name,
         "input": "sequence",
         "n_channels": data.input_dim,
         "n_parameters": (
@@ -79,9 +79,8 @@ def _curve_outputs(y_test, proba_test, model_id, out_dir, show_plots):
     )
     return roc_path, calibration_path
 
-
 def _manifest_and_history(
-    tune_result, threshold, model_id, out_dir, show_plots
+    tune_result, threshold, model_id, model_name, out_dir, show_plots
 ):
     manifest_path = save_selection_manifest(
         model_id,
@@ -90,13 +89,8 @@ def _manifest_and_history(
         tune_result.get("contract_hash", ""),
         out_dir,
     )
-    study = tune_result.get("study")
-    history_path = (
-        plot_optuna_history(study, model_id, out_dir, show_plots)
-        if study is not None else None
-    )
+    history_path = plot_optuna_history(model_name, out_dir, show_plots)
     return manifest_path, history_path
-
 
 def _paths(
     table_paths,
@@ -128,12 +122,19 @@ def evaluate_model(
     tune_result,
     data,
     *,
-    model_id=MODEL_ID,
-    out_dir=EVALUATION_DIR,
+    model_id=None,
+    model_name="lstm",
+    out_dir=None,
     show_plots=True,
 ):
-    """Write metrics, reports, confusion matrix, curves and the tune manifest."""
-    out_dir = Path(out_dir)
+    """Write metrics, reports, confusion matrix, curves and the tune manifest.
+
+    ``model_name`` ("lstm" / "gru") picks the default output folder
+    (``artifacts/sherlock_w2/<model_name>/evaluation``) and the figure label.
+    """
+    model_name = model_name.lower()
+    model_id = model_id or model_name.upper()
+    out_dir = Path(out_dir) if out_dir else model_dirs(model_name)["evaluation"]
     y_tune = data.labels("tune")
     y_test = test_result["y_test"]
     proba_test = test_result["proba_test"]
@@ -146,7 +147,7 @@ def evaluate_model(
         threshold,
         tune_result,
         model_id,
-        _model_info(test_result, tune_result, data),
+        _model_info(test_result, tune_result, data, model_name),
         out_dir,
     )
     report_json, report_text, confusion_png, confusion_svg = (
@@ -157,8 +158,9 @@ def evaluate_model(
     roc_path, calibration_path = _curve_outputs(
         y_test, proba_test, model_id, out_dir, show_plots
     )
+    
     manifest_path, optuna_path = _manifest_and_history(
-        tune_result, threshold, model_id, out_dir, show_plots
+        tune_result, threshold, model_id, model_name, out_dir, show_plots
     )
 
     paths = _paths(
