@@ -1,4 +1,4 @@
-"""Deep Q-Network agent with valid-action masking and replay memory."""
+﻿"""Deep Q-Network agent with valid-action masking and replay memory."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from torch import nn
 from torch.optim import Adam
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)

@@ -1,4 +1,4 @@
-"""Customer-side PPO agent for the KKBox retention environment."""
+﻿"""Customer-side PPO agent for the KKBox retention environment."""
 
 from __future__ import annotations
 
@@ -14,12 +14,49 @@ from torch.distributions import Categorical
 from torch.optim import Adam
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
 from constants import CUSTOMER_OBS_SIZE, CUSTOMER_N_ACTIONS
+
+# Index constants for two-branch split
+_CUSTOMER_FEAT_END = 59
+_OFFER_FEAT_START  = 59
+
+# Irrationality floor: bounds pi(accept) to [IRRATIONALITY/2, 1 - IRRATIONALITY/2]
+IRRATIONALITY = 0.10
+
+
+class FeatureNormalizer:
+    """Z-score normalizer fitted on the 59-feature customer block."""
+
+    def __init__(self) -> None:
+        self.mean_: np.ndarray | None = None
+        self.std_: np.ndarray | None = None
+
+    def fit(self, features: np.ndarray) -> "FeatureNormalizer":
+        self.mean_ = features.mean(axis=0)
+        std = features.std(axis=0)
+        std[std == 0] = 1.0
+        self.std_ = std
+        return self
+
+    def transform(self, x: np.ndarray) -> np.ndarray:
+        if self.mean_ is None or self.std_ is None:
+            return x
+        return np.clip((x - self.mean_) / self.std_, -5.0, 5.0)
+
+    def state_dict(self) -> dict:
+        return {"mean_": self.mean_, "std_": self.std_}
+
+    @classmethod
+    def from_state_dict(cls, d: dict) -> "FeatureNormalizer":
+        obj = cls()
+        obj.mean_ = d["mean_"]
+        obj.std_  = d["std_"]
+        return obj
 
 
 @dataclass(frozen=True)
@@ -34,7 +71,8 @@ class CustomerPPOConfig:
     weight_decay: float = 0.0
     gae_lambda: float = 0.95
     clip_epsilon: float = 0.2
-    entropy_coefficient: float = 0.01
+    entropy_coef: float = 0.01
+    entropy_coefficient: float = 0.01   # kept for backward compat
     value_coefficient: float = 0.5
     update_epochs: int = 4
     minibatch_size: int = 4
@@ -64,22 +102,41 @@ class CustomerTransition:
 
 
 class ActorCriticNetwork(nn.Module):
-    """Shared multilayer perceptron with policy-logit and value heads."""
+    """Two-branch actor-critic with separate customer-feature and offer+episode branches.
+
+    Branch 1 (customer): input[:59]  -> Linear(64) -> ReLU -> Linear(32) -> ReLU
+    Branch 2 (offer+ep): input[59:]  -> Linear(16) -> ReLU
+    Concat(32+16=48)                 -> Linear(32) -> ReLU
+    Actor head: 32 -> Linear(2)
+    Critic head: 32 -> Linear(1)
+    """
 
     def __init__(self, state_size: int, action_size: int, hidden_size: int) -> None:
         super().__init__()
-        self.shared = nn.Sequential(
-            nn.Linear(state_size, hidden_size),
-            nn.Tanh(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.Tanh(),
+        offer_feat_size = state_size - _CUSTOMER_FEAT_END   # 74 - 59 = 15
+
+        self.customer_branch = nn.Sequential(
+            nn.Linear(_CUSTOMER_FEAT_END, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
         )
-        self.policy_head = nn.Linear(hidden_size, action_size)
-        self.value_head = nn.Linear(hidden_size, 1)
+        self.offer_branch = nn.Sequential(
+            nn.Linear(offer_feat_size, 16),
+            nn.ReLU(),
+        )
+        self.shared = nn.Sequential(
+            nn.Linear(32 + 16, 32),
+            nn.ReLU(),
+        )
+        self.policy_head = nn.Linear(32, action_size)
+        self.value_head  = nn.Linear(32, 1)
 
     def forward(self, states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        features = self.shared(states)
-        return self.policy_head(features), self.value_head(features).squeeze(-1)
+        cust = self.customer_branch(states[:, :_CUSTOMER_FEAT_END])
+        offer = self.offer_branch(states[:, _OFFER_FEAT_START:])
+        combined = self.shared(torch.cat([cust, offer], dim=-1))
+        return self.policy_head(combined), self.value_head(combined).squeeze(-1)
 
 
 class CustomerPPOAgent:
@@ -104,7 +161,23 @@ class CustomerPPOAgent:
             lr=self.config.learning_rate,
             weight_decay=self.config.weight_decay,
         )
+        self.normalizer: FeatureNormalizer | None = None
         self.training_updates = 0
+
+    def _apply_normalizer(self, state_array: np.ndarray) -> np.ndarray:
+        """Normalize the first 59 features; leave offer/episode blocks untouched."""
+        if self.normalizer is None:
+            return state_array
+        normed = state_array.copy()
+        normed[:_CUSTOMER_FEAT_END] = self.normalizer.transform(
+            state_array[:_CUSTOMER_FEAT_END]
+        )
+        return normed
+
+    def _bounded_probs(self, logits: torch.Tensor) -> torch.Tensor:
+        """Apply irrationality floor/ceiling: pi in [IRRATIONALITY/2, 1-IRRATIONALITY/2]."""
+        raw = torch.softmax(logits, dim=-1)
+        return IRRATIONALITY / 2.0 + (1.0 - IRRATIONALITY) * raw
 
     def select_action(
         self,
@@ -118,7 +191,7 @@ class CustomerPPOAgent:
                 f"Expected a state with shape ({self.config.state_size},), "
                 f"received {state_array.shape}."
             )
-
+        state_array = self._apply_normalizer(state_array)
         state_tensor = torch.as_tensor(
             state_array, dtype=torch.float32, device=self.device
         ).unsqueeze(0)
@@ -126,9 +199,10 @@ class CustomerPPOAgent:
         self.network.eval()
         with torch.no_grad():
             logits, value = self.network(state_tensor)
-            distribution = Categorical(logits=logits)
+            probs = self._bounded_probs(logits)
+            distribution = Categorical(probs=probs)
             if deterministic:
-                action = torch.argmax(logits, dim=-1)
+                action = torch.argmax(probs, dim=-1)
             else:
                 action = distribution.sample()
             log_probability = distribution.log_prob(action)
@@ -146,13 +220,14 @@ class CustomerPPOAgent:
                 f"Expected a state with shape ({self.config.state_size},), "
                 f"received {state_array.shape}."
             )
+        state_array = self._apply_normalizer(state_array)
         state_tensor = torch.as_tensor(
             state_array, dtype=torch.float32, device=self.device
         ).unsqueeze(0)
         self.network.eval()
         with torch.no_grad():
             logits, _ = self.network(state_tensor)
-            probs = torch.softmax(logits, dim=-1)
+            probs = self._bounded_probs(logits)
         return float(probs[0, 1].item())
 
     def update(self, rollout: Sequence[CustomerTransition]) -> dict[str, float]:
@@ -181,7 +256,7 @@ class CustomerPPOAgent:
         checkpoint_path: str | Path,
         **metadata: object,
     ) -> None:
-        """Save policy, optimizer, configuration and training metadata."""
+        """Save policy, optimizer, normalizer, configuration and training metadata."""
         path = Path(checkpoint_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
@@ -190,6 +265,7 @@ class CustomerPPOAgent:
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "config": asdict(self.config),
                 "metadata": metadata,
+                "normalizer": self.normalizer.state_dict() if self.normalizer is not None else None,
             },
             path,
         )
@@ -207,7 +283,7 @@ class CustomerPPOAgent:
         checkpoint = torch.load(
             path,
             map_location=device or "cpu",
-            weights_only=True,
+            weights_only=False,
         )
         if not isinstance(checkpoint, dict) or not {
             "model_state_dict",
@@ -216,10 +292,16 @@ class CustomerPPOAgent:
         }.issubset(checkpoint):
             raise ValueError(f"Invalid customer PPO checkpoint: {path}")
 
-        agent = cls(config=CustomerPPOConfig(**checkpoint["config"]), device=device)
+        cfg_dict = dict(checkpoint["config"])
+        # Back-compat: old checkpoints only have entropy_coefficient; new ones have entropy_coef
+        if "entropy_coef" not in cfg_dict and "entropy_coefficient" in cfg_dict:
+            cfg_dict["entropy_coef"] = cfg_dict["entropy_coefficient"]
+        agent = cls(config=CustomerPPOConfig(**cfg_dict), device=device)
         agent.network.load_state_dict(checkpoint["model_state_dict"])
         if "optimizer_state_dict" in checkpoint:
             agent.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if checkpoint.get("normalizer") is not None:
+            agent.normalizer = FeatureNormalizer.from_state_dict(checkpoint["normalizer"])
         metadata = checkpoint["metadata"]
         if not isinstance(metadata, dict):
             raise ValueError(f"Invalid customer PPO checkpoint metadata: {path}")
@@ -314,7 +396,8 @@ class CustomerPPOAgent:
             for start in range(0, len(states), self.config.minibatch_size):
                 indices = permutation[start : start + self.config.minibatch_size]
                 logits, predicted_values = self.network(states[indices])
-                distribution = Categorical(logits=logits)
+                probs = self._bounded_probs(logits)
+                distribution = Categorical(probs=probs)
                 new_log_probabilities = distribution.log_prob(actions[indices])
                 entropy = distribution.entropy().mean()
 
@@ -333,10 +416,11 @@ class CustomerPPOAgent:
                 value_loss = torch.nn.functional.mse_loss(
                     predicted_values, returns[indices]
                 )
+                ent_coef = self.config.entropy_coef
                 loss = (
                     policy_loss
                     + self.config.value_coefficient * value_loss
-                    - self.config.entropy_coefficient * entropy
+                    - ent_coef * entropy
                 )
 
                 self.optimizer.zero_grad(set_to_none=True)

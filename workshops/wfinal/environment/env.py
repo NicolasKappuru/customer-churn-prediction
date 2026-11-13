@@ -10,11 +10,10 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import gymnasium as gym
 from gymnasium import spaces
 
-from constants import ACTION_DEFINITIONS, N_OBSERVATION, DO_NOTHING_ACTION, MAX_STEPS_PER_EPISODE, TURN_PENALTY
+from constants import ACTION_DEFINITIONS, N_OBSERVATION, DO_NOTHING_ACTION
 from actions_manager import ActionsManager
 from supervised_model.customer_selector import CustomerSelector
 from supervised_model.preprocessor_customer_data import PreprocessorCustomerData
@@ -68,9 +67,12 @@ class KKBoxRetentionEnv(gym.Env):
         # Observation cache: list of (observation, churn_probability) per pool index.
         # Auto-rebuilt whenever the pool size changes (e.g. after train/val split).
         self._obs_cache: list[tuple[np.ndarray, float]] | None = None
+        # Features cache: pd.Series per pool customer — avoids re-preprocessing on every step.
+        self._features_series_cache: list | None = None
+        self._current_pool_idx: int = 0
 
         self._rng = np.random.default_rng()
-        self._customer_utility = CustomerUtility()
+        self._customer_utility = CustomerUtility(self.action_manager)
 
         if customer_mode == "static":
             self._acceptance_policy = StaticAcceptance(self.action_manager)
@@ -110,6 +112,7 @@ class KKBoxRetentionEnv(gym.Env):
             self._build_obs_cache()
 
         idx = int(self.np_random.integers(0, len(pool)))
+        self._current_pool_idx = idx
         self.customer_data = pool[idx]
         observation, self.probability_churn_before = self._obs_cache[idx]
         self.turn = 0
@@ -128,33 +131,34 @@ class KKBoxRetentionEnv(gym.Env):
 
     def _build_obs_cache(self) -> None:
         pool = self.customer_selector._pool
-        cache = []
-        all_features: list[pd.DataFrame] = []
+        obs_cache = []
+        features_cache = []
         for customer in pool:
             with redirect_stdout(io.StringIO()):
                 features = self.preprocessor_customer_data.preprocess_customer(customer)
                 prob = float(self.supervised_model.predict_probability(features))
             obs_df = features.copy()
             obs_df["churn_probability"] = prob
-            cache.append((obs_df.to_numpy(dtype=np.float32).flatten(), prob))
-            all_features.append(features)
-        self._obs_cache = cache
-        if all_features:
-            pool_df = pd.concat(all_features, ignore_index=True)
-            self._customer_utility.fit(pool_df)
+            obs_cache.append((obs_df.to_numpy(dtype=np.float32).flatten(), prob))
+            features_cache.append(features.iloc[0])
+        self._obs_cache = obs_cache
+        self._features_series_cache = features_cache
 
     def get_valid_actions(self) -> list[int]:
-        """Return valid actions for the current state, excluding already-accepted ones."""
-        all_valid = self.action_manager.get_valid_actions(self.customer_data)
-        return [a for a in all_valid if a == DO_NOTHING_ACTION or a not in self.accepted_actions]
+        """Return valid actions for the current customer state."""
+        return self.action_manager.get_valid_actions(self.customer_data)
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
         if action == DO_NOTHING_ACTION:
             accepted = False
         else:
-            with redirect_stdout(io.StringIO()):
-                features_df = self.preprocessor_customer_data.preprocess_customer(self.customer_data)
-            features_row = features_df.iloc[0]
+            if self._features_series_cache is not None:
+                features_row = self._features_series_cache[self._current_pool_idx]
+            else:
+                with redirect_stdout(io.StringIO()):
+                    features_row = self.preprocessor_customer_data.preprocess_customer(
+                        self.customer_data
+                    ).iloc[0]
             accepted = self._acceptance_policy.decide(
                 self.customer_data,
                 features_row,
@@ -163,8 +167,6 @@ class KKBoxRetentionEnv(gym.Env):
                 self.n_rejections,
                 self._rng,
             )
-            if not accepted:
-                self.n_rejections += 1
 
         return self.step_with_decision(action, accepted)
 
@@ -179,40 +181,37 @@ class KKBoxRetentionEnv(gym.Env):
                 self.customer_data, action
             )
 
-        customer_features = self.preprocessor_customer_data.preprocess_customer(self.customer_data)
-        self.probability_churn_after = float(self.supervised_model.predict_probability(customer_features))
-
         if self.customer_data is customer_before:
+            # No state change — reuse cached observation and churn probability
             self.probability_churn_after = self.probability_churn_before
-
-        observation_df = customer_features.copy()
-        observation_df["churn_probability"] = self.probability_churn_after
-        observation = observation_df.to_numpy(dtype=np.float32).flatten()
-
-        if accepted and action != DO_NOTHING_ACTION:
-            self.accepted_actions.add(action)
+            observation = self._obs_cache[self._current_pool_idx][0]
+            new_features_for_bridge = None
+        else:
+            with redirect_stdout(io.StringIO()):
+                customer_features = self.preprocessor_customer_data.preprocess_customer(
+                    self.customer_data
+                )
+            self.probability_churn_after = float(
+                self.supervised_model.predict_probability(customer_features)
+            )
+            obs_df = customer_features.copy()
+            obs_df["churn_probability"] = self.probability_churn_after
+            observation = obs_df.to_numpy(dtype=np.float32).flatten()
+            new_features_for_bridge = customer_features
 
         prob_before_this_step = self.probability_churn_before
         churn_disminution = self.probability_churn_before - self.probability_churn_after
-        reward = churn_disminution * (1 - action_cost) - TURN_PENALTY[self.turn]
+        reward = churn_disminution * (1 - action_cost)
         self.probability_churn_before = self.probability_churn_after
 
         # Customer reward: utility if accepted, else 0.0
         if accepted and action != DO_NOTHING_ACTION:
-            with redirect_stdout(io.StringIO()):
-                features_df = self.preprocessor_customer_data.preprocess_customer(customer_before)
-            features_row = features_df.iloc[0]
-            customer_reward = self._customer_utility.utility(action, features_row, self.turn + 1)
+            customer_reward = self._customer_utility.utility(action, customer_before)
         else:
             customer_reward = 0.0
 
         self.turn += 1
-        valid_actions_next = self.get_valid_actions()
-        terminated = (
-            action == DO_NOTHING_ACTION
-            or self.turn >= MAX_STEPS_PER_EPISODE
-            or valid_actions_next == [DO_NOTHING_ACTION]
-        )
+        terminated = True
         truncated = False
 
         info = {
@@ -222,13 +221,13 @@ class KKBoxRetentionEnv(gym.Env):
             "action_cost": action_cost,
             "accepted": accepted,
             "turn": self.turn,
-            "valid_actions": [] if terminated else valid_actions_next,
+            "valid_actions": [],
             "customer_reward": customer_reward,
         }
 
-        if self._bridge is not None:
+        if self._bridge is not None and new_features_for_bridge is not None:
             self._bridge.on_step(
-                new_features=dict(customer_features.iloc[0]),
+                new_features=dict(new_features_for_bridge.iloc[0]),
                 new_churn=float(self.probability_churn_after),
                 action=action,
                 reward=float(reward),

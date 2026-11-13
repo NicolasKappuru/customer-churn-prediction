@@ -1,4 +1,4 @@
-"""Train and compare DQN hyperparameter configurations for KKBoxRetentionEnv."""
+﻿"""Train and compare DQN hyperparameter configurations for KKBoxRetentionEnv."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ import pandas as pd
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -43,11 +43,11 @@ CSV_DIR         = RUNS_DIR / "csv"
 
 BASE_CONFIG = RetentionDQNConfig()
 CONFIGURATIONS = (
-    # lr=1e-3 | epsilon_decay=0.999 | weight_decay=0.0  → learns fast, stays exploratory long
+    # lr=1e-3 | epsilon_decay=0.999 | weight_decay=0.0  â†’ learns fast, stays exploratory long
     ("exploratory",  replace(BASE_CONFIG, learning_rate=1e-3,  epsilon_decay=0.999, weight_decay=0.0)),
-    # lr=5e-4 | epsilon_decay=0.995 | weight_decay=1e-5 → default speed + light regularization
+    # lr=5e-4 | epsilon_decay=0.995 | weight_decay=1e-5 â†’ default speed + light regularization
     ("balanced",     replace(BASE_CONFIG, learning_rate=5e-4,  epsilon_decay=0.995, weight_decay=1e-5)),
-    # lr=1e-4 | epsilon_decay=0.990 | weight_decay=1e-4 → precise updates, greedy sooner, strong reg
+    # lr=1e-4 | epsilon_decay=0.990 | weight_decay=1e-4 â†’ precise updates, greedy sooner, strong reg
     ("conservative", replace(BASE_CONFIG, learning_rate=1e-4,  epsilon_decay=0.990, weight_decay=1e-4)),
 )
 
@@ -320,7 +320,7 @@ def _plot_best_config(best_config_name: str) -> None:
                zorder=5, s=30, label="Validation return")
     ax.set_xlabel("Episode")
     ax.set_ylabel("Return")
-    ax.set_title(f"Retention DQN — Best configuration: {best_config_name}")
+    ax.set_title(f"Retention DQN â€” Best configuration: {best_config_name}")
     ax.legend()
     ax.grid(alpha=0.3)
     fig.tight_layout()
@@ -375,7 +375,7 @@ def train_dqn(
             f"train customers={len(training_env.customer_selector._pool)} | "
             f"validation customers={len(validation_env.customer_selector._pool)} | "
             f"episodes/config={episodes_per_config} | "
-            f"grad_steps/config≈{_grad_steps} | validation_seed={VALIDATION_SEED} | seed={seed} | "
+            f"grad_steps/configâ‰ˆ{_grad_steps} | validation_seed={VALIDATION_SEED} | seed={seed} | "
             f"customer_mode={customer_mode}"
         )
         print(f"Best checkpoint: {checkpoint}")
@@ -448,7 +448,7 @@ def main() -> None:
         cp = Path(arguments.customer_checkpoint)
         if not cp.is_file():
             print(f"Error: customer checkpoint not found: {cp}")
-            print("Train the customer agent first with: python workshops/w3/train/customer_train_ppo.py")
+            print("Train the customer agent first with: python workshops/wfinal/train/customer_train_ppo.py")
             raise SystemExit(1)
         checkpoint_path = str(CHECKPOINT_PATH).replace("_static.pt", "_customer.pt")
     else:

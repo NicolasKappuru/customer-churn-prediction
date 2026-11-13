@@ -1,4 +1,4 @@
-"""Run a random valid-action baseline against the KKBox retention environment."""
+﻿"""Run a random valid-action baseline against the KKBox retention environment."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -32,7 +32,12 @@ def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
         return function(*args, **kwargs)
 
 
-def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, Any]]:
+def run_random_policy(
+    episodes: int = 100,
+    seed: int = 42,
+    customer_mode: str = "agent",
+    customer_checkpoint: str | Path | None = None,
+) -> list[dict[str, Any]]:
     """Run random valid actions and report episode diagnostics."""
     if episodes <= 0:
         raise ValueError("episodes must be greater than zero.")
@@ -40,7 +45,7 @@ def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, Any
     random.seed(seed)
     np.random.seed(seed)
     action_rng = np.random.default_rng(seed)
-    env = KKBoxRetentionEnv()
+    env = KKBoxRetentionEnv(customer_mode=customer_mode, customer_checkpoint=customer_checkpoint)
     results: list[dict[str, Any]] = []
     action_frequencies: Counter[int] = Counter()
     favorable_counts: dict[int, Counter] = {i: Counter() for i in range(len(ACTION_DEFINITIONS))}
@@ -56,7 +61,7 @@ def run_random_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, Any
     try:
         print(
             f"Random policy | episodes={episodes} | seed={seed} | "
-            f"customers={len(env.customer_selector._pool)}"
+            f"customer={customer_mode} | customers={len(env.customer_selector._pool)}"
         )
 
         for episode in range(1, episodes + 1):
@@ -161,8 +166,18 @@ def main() -> None:
     )
     parser.add_argument("--episodes", type=int, default=100)
     parser.add_argument("--seed",     type=int, default=42)
+    parser.add_argument("--customer", choices=["static", "agent"], default="agent")
+    parser.add_argument(
+        "--customer-checkpoint", type=str,
+        default=str(W3_ROOT / "checkpoints" / "customer_agent_ppo.pt"),
+    )
     args = parser.parse_args()
-    run_random_policy(episodes=args.episodes, seed=args.seed)
+    run_random_policy(
+        episodes=args.episodes,
+        seed=args.seed,
+        customer_mode=args.customer,
+        customer_checkpoint=args.customer_checkpoint,
+    )
 
 
 if __name__ == "__main__":

@@ -1,40 +1,37 @@
-# Customer agent (Etapa 1)
-python workshops/w3/train/customer_train_ppo.py
-python workshops/w3/evaluations/customer_evaluate_ppo.py
+# ── 1. Customer baselines ────────────────────────────────────────────────────
+python workshops/wfinal/baselines/customer_random_policy.py
+python workshops/wfinal/baselines/customer_price_heuristic.py
+python workshops/wfinal/baselines/customer_activity_heuristic.py
 
-# Retention baselines (static client)
-python workshops/w3/baselines/retention_random_policy.py
-python workshops/w3/baselines/retention_heuristic_policy.py
+# ── 2. Customer agent ────────────────────────────────────────────────────────
+python workshops/wfinal/train/customer_train_ppo.py
+python workshops/wfinal/evaluations/customer_evaluate_ppo.py
+python workshops/wfinal/evaluations/customer_evaluate_ppo_vs_baselines.py
 
-# Retention training
-python workshops/w3/train/retention_train_dqn.py
-python workshops/w3/train/retention_train_dqn.py --customer agent
+# ── 3. Retention baselines ───────────────────────────────────────────────────
+python workshops/wfinal/baselines/retention_random_policy.py
+python workshops/wfinal/baselines/retention_heuristic_policy.py --strategy cheapest
+python workshops/wfinal/baselines/retention_heuristic_policy.py --strategy risk
+python workshops/wfinal/baselines/retention_heuristic_policy.py --strategy greedy
 
-python workshops/w3/train/retention_train_ppo.py
-python workshops/w3/train/retention_train_ppo.py --customer agent
+# ── 4. Retention DQN ─────────────────────────────────────────────────────────
+# Train
+python workshops/wfinal/train/retention_train_dqn.py
+python workshops/wfinal/train/retention_train_dqn.py --customer agent
 
-# Retention evaluation
-python workshops/w3/evaluations/retention_evaluate_dqn.py
-python workshops/w3/evaluations/retention_evaluate_ppo.py
-python workshops/w3/evaluations/retention_dqn_vs_ppo.py --customer static
-python workshops/w3/evaluations/retention_dqn_vs_ppo.py --customer agent
+# Evaluate
+python workshops/wfinal/evaluations/retention_evaluate_dqn.py
+python workshops/wfinal/evaluations/retention_evaluate_dqn.py --customer agent
 
-# Legacy commands (kept for backward compatibility)
-python workshops/w3/baselines/random_policy.py
-python workshops/w3/baselines/random_policy.py --episodes 200 --seed 42
+# ── 5. Retention PPO ─────────────────────────────────────────────────────────
+# Train
+python workshops/wfinal/train/retention_train_ppo.py
+python workshops/wfinal/train/retention_train_ppo.py --customer agent
 
-python workshops/w3/baselines/heuristic_policy.py
+# Evaluate
+python workshops/wfinal/evaluations/retention_evaluate_ppo.py
+python workshops/wfinal/evaluations/retention_evaluate_ppo.py --customer agent
 
-python workshops/w3/train/train_dqn.py
-python workshops/w3/train/train_dqn.py --episodes 3000 --eval-every 250 --eval-episodes 100 --seed 42
-
-python workshops/w3/train/train_ppo.py
-python workshops/w3/train/train_ppo.py --episodes 3000 --rollout-episodes 8 --eval-every 250 --seed 42
-
-python workshops/w3/evaluations/evaluate_dqn.py
-python workshops/w3/evaluations/evaluate_dqn.py --episodes 100 --seed 2025
-
-python workshops/w3/evaluations/evaluate_ppo.py
-python workshops/w3/evaluations/evaluate_ppo.py --episodes 100 --seed 2025
-
-python workshops/w3/evaluations/dqn_vs_ppo.py
+# ── 6. DQN vs PPO ────────────────────────────────────────────────────────────
+python workshops/wfinal/evaluations/retention_dqn_vs_ppo.py
+python workshops/wfinal/evaluations/retention_dqn_vs_ppo.py --customer agent

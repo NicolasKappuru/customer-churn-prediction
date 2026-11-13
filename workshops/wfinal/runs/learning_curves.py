@@ -1,4 +1,4 @@
-"""Evaluate baselines on the validation split and plot DQN/PPO learning curves."""
+﻿"""Evaluate baselines on the validation split and plot DQN/PPO learning curves."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _p in (
     str(W3_ROOT),
     str(W3_ROOT / "environment"),
@@ -163,12 +163,12 @@ def plot_learning_curves(dqn_config: str, ppo_config: str) -> None:
     ax.plot(
         dqn_val["episode"], dqn_val["validation_return"],
         color="steelblue", marker="o", markersize=4, linewidth=1.5,
-        label=f"DQN — {dqn_config}",
+        label=f"DQN â€” {dqn_config}",
     )
     ax.plot(
         ppo_val["episode"], ppo_val["validation_return"],
         color="darkorange", marker="s", markersize=4, linewidth=1.5,
-        label=f"PPO — {ppo_config}",
+        label=f"PPO â€” {ppo_config}",
     )
 
     palette = {"Heuristic": "seagreen", "Random": "crimson"}
