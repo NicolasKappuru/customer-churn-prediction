@@ -50,7 +50,7 @@ def _batch_loss(model, x, y, criterion, device, amp):
         dtype=torch.float16,
         enabled=amp,
     ):
-        logits, _, _ = model(x)
+        logits = model(x) 
         return criterion(logits, y)
 
 
@@ -253,7 +253,7 @@ def predict_proba(
         drop_last=False,
     ):
         x = x.to(device, non_blocking=True)
-        logits, _, _ = model(x)
+        logits = model(x)
         probabilities.append(
             torch.sigmoid(logits).float().cpu().numpy().ravel()
         )

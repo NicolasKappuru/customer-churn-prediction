@@ -1,20 +1,22 @@
 """Final refit and test inference for the w2 LSTM."""
 
+import time
+
 import torch
 
 from .config import (
     BATCH_SIZE,
-    CHECKPOINT_DIR,
     EPOCHS,
     INFER_BATCH_SIZE,
     OUTPUT_DIM,
     SEED,
+    model_dirs,
 )
-from .model import LSTMModel
+from .recurrent_classifier import LSTMModel
 from .train import fit_fixed_epochs, predict_proba, resolve_device, set_seed
 
 
-def _build_model(best_params, input_dim):
+def _build_model_lstm(best_params, input_dim):
     return LSTMModel(
         input_dim=input_dim,
         hidden_dim=int(best_params["hidden_dim"]),
@@ -43,11 +45,13 @@ def _fit_final_model(
     )
 
 
-def _save_checkpoint(model, best_params, threshold, n_epochs):
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-    path = CHECKPOINT_DIR / "lstm.pt"
+def _save_checkpoint(model, best_params, threshold, n_epochs, model_name):
+    checkpoint_dir = model_dirs(model_name)["checkpoints"]
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    path = checkpoint_dir / f"{model_name}.pt"
     torch.save(
         {
+            "model_name": model_name,
             "state_dict": model.state_dict(),
             "params": best_params,
             "threshold": float(threshold),
@@ -67,6 +71,8 @@ def _test_result(model, fit, data, proba_test, threshold, n_epochs, device):
         "pred_test": (proba_test >= float(threshold)).astype(int),
         "threshold": float(threshold),
         "epochs": n_epochs,
+        "train_seconds": fit["train_seconds"],
+        "seconds_per_epoch": fit["train_seconds"] / max(n_epochs, 1),
         "device": str(device),
     }
 
@@ -82,6 +88,7 @@ def _fit_and_predict(
     amp,
     verbose,
 ):
+    start = time.perf_counter()
     fit = _fit_final_model(
         model,
         data,
@@ -93,6 +100,7 @@ def _fit_and_predict(
         amp,
         verbose,
     )
+    fit["train_seconds"] = time.perf_counter() - start
     proba = predict_proba(
         model,
         data,
@@ -117,11 +125,14 @@ def test_model(
     amp=True,
     verbose=False,
     save_checkpoint=True,
+    build_model,
+    model_name="lstm",
 ):
     """Refit on development, score test once and return probabilities."""
+    model_name = model_name.lower()
     device = resolve_device(device)
     set_seed(seed)
-    model = _build_model(best_params, data.input_dim)
+    model = build_model(best_params, data.input_dim) # It works with Gru and Lstm
     n_epochs = int(best_epoch) if best_epoch else int(epochs)
 
     fit, proba_test = _fit_and_predict(
@@ -141,6 +152,6 @@ def test_model(
 
     if save_checkpoint:
         result["checkpoint"] = _save_checkpoint(
-            model, best_params, threshold, n_epochs
+            model, best_params, threshold, n_epochs, model_name
         )
     return result

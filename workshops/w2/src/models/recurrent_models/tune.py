@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-
+import pandas as pd
 import optuna
 import torch
 from sklearn.metrics import log_loss
@@ -16,20 +16,21 @@ from .config import (
     LAYER_DIM_RANGE,
     LR_RANGE,
     N_TRIALS,
-    OPTUNA_DIR,
     OUTPUT_DIM,
     PATIENCE,
     SEED,
     WEIGHT_DECAY_RANGE,
+    model_dirs,
 )
-from .model import LSTMModel
+from .recurrent_classifier import LSTMModel
 from .train import predict_proba, set_seed, train_model
 
 
-def _contract(data, batch_size):
+def _contract(data, batch_size, model_name):
     """Fingerprint the data, split and model input for study reuse."""
     meta = data.meta
     return {
+        "model_name": model_name,
         "dataset_version": meta["dataset_version"],
         "hash_train_feb": meta["hash_train_feb"],
         "hash_test": meta["hash_test"],
@@ -48,10 +49,11 @@ def _contract_hash(contract):
     return hashlib.sha1(payload).hexdigest()[:12]
 
 
-def _get_study(contract, seed, n_trials):
-    OPTUNA_DIR.mkdir(parents=True, exist_ok=True)
-    storage = f"sqlite:///{(OPTUNA_DIR / 'lstm_study.sqlite3').as_posix()}"
-    name = f"lstm_{_contract_hash(contract)}"
+def _get_study(contract, seed, n_trials, model_name):
+    optuna_dir = model_dirs(model_name)["optuna"]
+    optuna_dir.mkdir(parents=True, exist_ok=True)
+    storage = f"sqlite:///{(optuna_dir / f'{model_name}_study.sqlite3').as_posix()}"
+    name = f"{model_name}_{_contract_hash(contract)}"
     study = optuna.create_study(
         study_name=name,
         storage=storage,
@@ -89,13 +91,27 @@ def _remaining_trials(study, total_trials):
     return max(0, total_trials - done)
 
 
-def _save_study_artifacts(study, best_params):
-    OPTUNA_DIR.mkdir(parents=True, exist_ok=True)
+def _save_study_artifacts(study, best_params, model_name):
+    optuna_dir = model_dirs(model_name)["optuna"]
+    optuna_dir.mkdir(parents=True, exist_ok=True)
     study.trials_dataframe().to_csv(
-        OPTUNA_DIR / "lstm_trials.csv", index=False
+        optuna_dir / f"{model_name}_trials.csv", index=False
     )
-    (OPTUNA_DIR / "lstm_best_params.json").write_text(
+    (optuna_dir / f"{model_name}_best_params.json").write_text(
         json.dumps(best_params, indent=2)
+    )
+    history = study.best_trial.user_attrs.get("history", [])
+    pd.DataFrame(history).to_csv(
+        optuna_dir / f"{model_name}_best_history.csv", index=False
+    )
+    (optuna_dir / f"{model_name}_best_meta.json").write_text(
+        json.dumps(
+            {
+                "best_epoch": study.best_trial.user_attrs.get("best_epoch"),
+                "trial_number": study.best_trial.number,
+            },
+            indent=2,
+        )
     )
 
 
@@ -103,6 +119,7 @@ def _store_trial_attributes(trial, train_result, model, threshold):
     trial.set_user_attr("best_epoch", train_result["best_epoch"])
     trial.set_user_attr("stopped_epoch", train_result["stopped_epoch"])
     trial.set_user_attr("best_stop_loss", train_result["best_stop_loss"])
+    trial.set_user_attr("history", train_result["history"]) 
     trial.set_user_attr("threshold", threshold)
     trial.set_user_attr(
         "n_parameters",
@@ -121,9 +138,10 @@ def _train_trial_model(
     seed,
     amp,
     verbose,
+    recurrent_model_class,
 ):
     set_seed(seed + trial.number)
-    model = LSTMModel(
+    model = recurrent_model_class(
         input_dim=data.input_dim,
         hidden_dim=params["hidden_dim"],
         layer_dim=params["layer_dim"],
@@ -174,6 +192,7 @@ def _run_trial(
     seed,
     amp,
     verbose,
+    recurrent_model_class,
 ):
     """Train one Optuna trial and return its tune log-loss."""
     params = _suggest_params(trial, batch_size)
@@ -191,6 +210,7 @@ def _run_trial(
         seed=seed,
         amp=amp,
         verbose=verbose,
+        recurrent_model_class=recurrent_model_class,
     )
     tune_loss, threshold = _evaluate_trial(model, data, y_tune, device)
     _store_trial_attributes(trial, train_result, model, threshold)
@@ -205,7 +225,16 @@ def _run_trial(
 
 
 def _make_objective(
-    data, y_tune, epochs, patience, batch_size, device, seed, amp, verbose
+    data,
+    y_tune,
+    epochs,
+    patience,
+    batch_size,
+    device,
+    seed,
+    amp,
+    verbose,
+    recurrent_model_class,
 ):
     def objective(trial):
         return _run_trial(
@@ -219,12 +248,13 @@ def _make_objective(
             seed=seed,
             amp=amp,
             verbose=verbose,
+            recurrent_model_class=recurrent_model_class,
         )
 
     return objective
 
 
-def _optimize(study, objective, n_trials):
+def _optimize(study, objective, n_trials, model_name):
     remaining = _remaining_trials(study, n_trials)
     print(f"Optuna budget={n_trials} | remaining={remaining}", flush=True)
     if remaining > 0:
@@ -238,7 +268,7 @@ def _optimize(study, objective, n_trials):
         trial.state == optuna.trial.TrialState.COMPLETE
         for trial in study.trials
     ):
-        raise RuntimeError("The LSTM study has no completed trial.")
+        raise RuntimeError(f"The {model_name} study has no completed trial.")
 
 
 def _tune_result(study, batch_size, contract_hash):
@@ -248,6 +278,7 @@ def _tune_result(study, batch_size, contract_hash):
         "study": study,
         "best_params": best_params,
         "best_value": float(study.best_value),
+         "history": best_trial.user_attrs.get("history", []),
         "best_epoch": int(best_trial.user_attrs.get("best_epoch", 0)),
         "stopped_epoch": int(best_trial.user_attrs.get("stopped_epoch", 0)),
         "threshold": float(best_trial.user_attrs.get("threshold", 0.5)),
@@ -277,11 +308,18 @@ def tune_model(
     seed=SEED,
     amp=True,
     verbose=False,
+    model_name="lstm",
+    recurrent_model_class=LSTMModel,
 ):
-    """Search LSTM hyper-parameters with Optuna and return the best configuration."""
+    """Search hyper-parameters with Optuna and return the best configuration.
+
+    ``model_name`` ("lstm" / "gru") selects the artifact folder and file names;
+    ``recurrent_model_class`` is the model to train (LSTMModel / GRUModel).
+    """
     optuna.logging.set_verbosity(optuna.logging.WARNING)
-    contract = _contract(data, batch_size)
-    study = _get_study(contract, seed, n_trials)
+    model_name = model_name.lower()
+    contract = _contract(data, batch_size, model_name)
+    study = _get_study(contract, seed, n_trials, model_name)
     objective = _make_objective(
         data,
         data.labels("tune"),
@@ -292,10 +330,12 @@ def tune_model(
         seed,
         amp,
         verbose,
+        recurrent_model_class,
     )
-    _optimize(study, objective, n_trials)
+    _optimize(study, objective, n_trials, model_name)
 
     result = _tune_result(study, batch_size, _contract_hash(contract))
-    _save_study_artifacts(study, result["best_params"])
+    result["model_name"] = model_name
+    _save_study_artifacts(study, result["best_params"], model_name)
     _print_best(result)
     return result
