@@ -1,8 +1,9 @@
-"""Greedy heuristic policy: pick the valid action maximising P(accept) × (1 − cost)."""
+"""Retention heuristic baselines: cheapest, risk-based, and greedy-simulator."""
 
 from __future__ import annotations
 
 import argparse
+import copy
 import io
 import sys
 from collections import Counter
@@ -13,26 +14,27 @@ from typing import Any, Sequence
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from environment.constants import ACTION_DEFINITIONS, TURN_PENALTY
+from environment.constants import ACTION_DEFINITIONS
 from environment.env import KKBoxRetentionEnv
 
 _DO_NOTHING_IDX: int = next(
     i for i, a in enumerate(ACTION_DEFINITIONS) if a.name == "Do nothing"
 )
 
+# Commercial vs engagement classification (matches customer_env.py)
+_IS_COMMERCIAL = {0: False, 1: True, 2: False, 3: True, 4: True, 5: False}
+_IS_ENGAGEMENT = {0: True,  1: False, 2: True,  3: False, 4: False, 5: True}
+
 
 class RetentionHeuristicPolicy:
-    """Selects the valid action that maximises P(accept) × (1 − cost) − TURN_PENALTY[turn].
+    """Always picks the valid action with the lowest cost (ties broken by smallest index).
 
-    P(accept) is  acceptance_probability_high  when is_favorable(action, customer)
-    is True, and  acceptance_probability  otherwise. If the best score after
-    subtracting the turn penalty is <= 0, Do nothing is returned. Ties are
-    resolved by the smallest action index, making the policy deterministic.
+    If no valid action other than Do nothing is available, returns Do nothing.
     """
 
     def select_action(
@@ -40,27 +42,77 @@ class RetentionHeuristicPolicy:
         valid_actions: Sequence[int],
         customer_data: dict,
         action_manager: Any,
-        turn: int = 0,
+        **kwargs: Any,
+    ) -> int:
+        candidates = [a for a in valid_actions if a != _DO_NOTHING_IDX]
+        if not candidates:
+            return _DO_NOTHING_IDX
+        return min(candidates, key=lambda a: (ACTION_DEFINITIONS[a].cost, a))
+
+
+class RetentionRiskPolicy:
+    """Risk-based heuristic: high churn risk → cheapest commercial; low risk → cheapest engagement.
+
+    If the required category has no valid candidates, falls back to the other category,
+    then to Do nothing.
+    """
+
+    def select_action(
+        self,
+        valid_actions: Sequence[int],
+        customer_data: dict,
+        action_manager: Any,
+        p_churn: float = 0.5,
+        **kwargs: Any,
     ) -> int:
         candidates = [a for a in valid_actions if a != _DO_NOTHING_IDX]
         if not candidates:
             return _DO_NOTHING_IDX
 
-        penalty = TURN_PENALTY[turn] if turn < len(TURN_PENALTY) else TURN_PENALTY[-1]
-        best_action: int = _DO_NOTHING_IDX
-        best_score: float = 0.0  # Do nothing scores 0; only beat it with a positive score
+        if p_churn > 0.5:
+            primary   = [a for a in candidates if _IS_COMMERCIAL.get(a, False)]
+            secondary = [a for a in candidates if _IS_ENGAGEMENT.get(a, False)]
+        else:
+            primary   = [a for a in candidates if _IS_ENGAGEMENT.get(a, False)]
+            secondary = [a for a in candidates if _IS_COMMERCIAL.get(a, False)]
 
-        for action in sorted(candidates):
-            defn = ACTION_DEFINITIONS[action]
-            if action_manager.is_favorable(action, customer_data):
-                p = (
-                    defn.acceptance_probability_high
-                    if defn.acceptance_probability_high is not None
-                    else defn.acceptance_probability
-                )
-            else:
-                p = defn.acceptance_probability
-            score = p * (1.0 - defn.cost) - penalty
+        pool = primary or secondary or candidates
+        return min(pool, key=lambda a: (ACTION_DEFINITIONS[a].cost, a))
+
+
+class RetentionGreedyPolicy:
+    """Greedy simulator: scores each action by 0.5 * Δp * (1 − cost) and picks the best.
+
+    Requires the supervised_model and preprocessor_customer_data from the env.
+    If no action improves churn more than Do nothing, returns Do nothing.
+    """
+
+    def __init__(self, supervised_model, preprocessor) -> None:
+        self._model = supervised_model
+        self._preprocessor = preprocessor
+
+    def select_action(
+        self,
+        valid_actions: Sequence[int],
+        customer_data: dict,
+        action_manager: Any,
+        p_churn_before: float = 0.0,
+        **kwargs: Any,
+    ) -> int:
+        candidates = [a for a in valid_actions if a != _DO_NOTHING_IDX]
+        if not candidates:
+            return _DO_NOTHING_IDX
+
+        best_action = _DO_NOTHING_IDX
+        best_score = 0.0
+
+        for action in candidates:
+            updated, cost = action_manager.apply_effect(copy.deepcopy(customer_data), action)
+            with redirect_stdout(io.StringIO()):
+                features = self._preprocessor.preprocess_customer(updated)
+            p_after = float(self._model.predict_probability(features))
+            delta_p = p_churn_before - p_after
+            score = 0.5 * delta_p * (1.0 - cost)
             if score > best_score:
                 best_score = score
                 best_action = action
@@ -73,8 +125,14 @@ def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
         return function(*args, **kwargs)
 
 
-def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, Any]]:
-    """Run the heuristic policy and report episode diagnostics."""
+def run_heuristic_policy(
+    episodes: int = 100,
+    seed: int = 42,
+    customer_mode: str = "agent",
+    customer_checkpoint: str | Path | None = None,
+    strategy: str = "cheapest",
+) -> list[dict[str, Any]]:
+    """Run one of the retention heuristic strategies and report episode diagnostics."""
     if episodes <= 0:
         raise ValueError("episodes must be greater than zero.")
 
@@ -82,13 +140,19 @@ def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, 
     random.seed(seed)
     np.random.seed(seed)
 
-    policy = RetentionHeuristicPolicy()
-    env = KKBoxRetentionEnv()
+    env = KKBoxRetentionEnv(customer_mode=customer_mode, customer_checkpoint=customer_checkpoint)
+
+    if strategy == "cheapest":
+        policy: Any = RetentionHeuristicPolicy()
+    elif strategy == "risk":
+        policy = RetentionRiskPolicy()
+    elif strategy == "greedy":
+        policy = RetentionGreedyPolicy(env.supervised_model, env.preprocessor_customer_data)
+    else:
+        raise ValueError(f"Unknown strategy '{strategy}'. Choose: cheapest, risk, greedy.")
+
     results: list[dict[str, Any]] = []
     action_frequencies: Counter[int] = Counter()
-    favorable_counts: dict[int, Counter] = {i: Counter() for i in range(len(ACTION_DEFINITIONS))}
-    episode_lengths: Counter[int] = Counter()
-    valid_action_sizes: Counter[int] = Counter()
     accepted_actions = 0
     total_action_cost = 0.0
     probability_reductions: list[float] = []
@@ -98,8 +162,8 @@ def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, 
 
     try:
         print(
-            f"Heuristic policy | episodes={episodes} | seed={seed} | "
-            f"customers={len(env.customer_selector._pool)}"
+            f"Heuristic policy [{strategy}] | episodes={episodes} | seed={seed} | "
+            f"customer={customer_mode} | customers={len(env.customer_selector._pool)}"
         )
 
         for episode in range(1, episodes + 1):
@@ -113,17 +177,21 @@ def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, 
             while not (terminated or truncated):
                 customer_before = env.customer_data
                 valid_actions = env.get_valid_actions()
-                valid_action_sizes[len(valid_actions)] += 1
 
-                action = policy.select_action(
-                    valid_actions, env.customer_data, env.action_manager, turn=env.turn
-                )
-                scenario = (
-                    "favorable"
-                    if env.action_manager.is_favorable(action, env.customer_data)
-                    else "unfavorable"
-                )
-                favorable_counts[action][scenario] += 1
+                if strategy == "risk":
+                    action = policy.select_action(
+                        valid_actions, env.customer_data, env.action_manager,
+                        p_churn=env.probability_churn_before,
+                    )
+                elif strategy == "greedy":
+                    action = policy.select_action(
+                        valid_actions, env.customer_data, env.action_manager,
+                        p_churn_before=env.probability_churn_before,
+                    )
+                else:
+                    action = policy.select_action(
+                        valid_actions, env.customer_data, env.action_manager,
+                    )
 
                 observation, reward, terminated, truncated, info = _quiet_env_call(env.step, action)
 
@@ -140,7 +208,6 @@ def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, 
                     if accepted:
                         accepted_interventions += 1
 
-            episode_lengths[episode_length] += 1
             prob_before = float(final_info["probability_before"])
             prob_after  = float(final_info["probability_after"])
             probability_reductions.append(prob_before - prob_after)
@@ -149,14 +216,13 @@ def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, 
 
             results.append({
                 "episode_return":     episode_return,
-                "episode_length":     episode_length,
                 "probability_before": prob_before,
                 "probability_after":  prob_after,
                 "action_cost":        float(final_info["action_cost"]),
             })
             print(
                 f"Episode {episode:03d}/{episodes} | "
-                f"return={episode_return:+.4f} | length={episode_length} | "
+                f"return={episode_return:+.4f} | "
                 f"churn_prob={prob_after:.3f}"
             )
 
@@ -174,26 +240,15 @@ def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, 
             f"Acceptance rate:          {acceptance_rate:.1%}  "
             f"({accepted_interventions}/{interventions} interventions accepted)"
         )
-        print("Episode length (steps: episodes):")
-        for length, count in sorted(episode_lengths.items()):
-            print(f"  {length}: {count}")
         print("Action frequency (index: name: count):")
         for index, definition in enumerate(ACTION_DEFINITIONS):
             print(f"  {index}: {definition.name}: {action_frequencies[index]}")
         print(f"All actions occurred:     {'YES' if not missing_actions else 'NO'}")
         if missing_actions:
             print(f"Actions not selected:     {missing_actions}")
-        print(f"Accepted actions:         {accepted_actions}/{sum(episode_lengths.values())}")
+        print(f"Accepted actions:         {accepted_actions}/{sum(action_frequencies.values())}")
         print(f"Total action cost:        {total_action_cost:.2f}")
         print(f"Mean churn-prob reduction:{np.mean(probability_reductions):+.4f}")
-        print("Action scenario breakdown (favorable / unfavorable):")
-        for index, definition in enumerate(ACTION_DEFINITIONS):
-            fav   = favorable_counts[index]["favorable"]
-            unfav = favorable_counts[index]["unfavorable"]
-            print(f"  {index}: {definition.name}: {fav} favorable / {unfav} unfavorable")
-        print("Valid-action count distribution:")
-        for size in sorted(valid_action_sizes):
-            print(f"  {valid_action_sizes[size]}/{episodes} episodes with {size} action(s) available")
 
         return results
     finally:
@@ -202,12 +257,27 @@ def run_heuristic_policy(episodes: int = 100, seed: int = 42) -> list[dict[str, 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Run the greedy heuristic policy on KKBoxRetentionEnv."
+        description="Run a retention heuristic policy on KKBoxRetentionEnv."
     )
-    parser.add_argument("--episodes", type=int, default=100)
-    parser.add_argument("--seed",     type=int, default=42)
+    parser.add_argument("--episodes",  type=int, default=100)
+    parser.add_argument("--seed",      type=int, default=42)
+    parser.add_argument("--customer",  choices=["static", "agent"], default="agent")
+    parser.add_argument(
+        "--customer-checkpoint", type=str,
+        default=str(W3_ROOT / "checkpoints" / "customer_agent_ppo.pt"),
+    )
+    parser.add_argument(
+        "--strategy", choices=["cheapest", "risk", "greedy"], default="cheapest",
+        help="cheapest: lowest cost; risk: commercial vs engagement by p_churn; greedy: simulator-scored",
+    )
     args = parser.parse_args()
-    run_heuristic_policy(episodes=args.episodes, seed=args.seed)
+    run_heuristic_policy(
+        episodes=args.episodes,
+        seed=args.seed,
+        customer_mode=args.customer,
+        customer_checkpoint=args.customer_checkpoint,
+        strategy=args.strategy,
+    )
 
 
 if __name__ == "__main__":

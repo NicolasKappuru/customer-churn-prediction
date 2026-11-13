@@ -1,4 +1,4 @@
-"""Train the CustomerPPOAgent on CustomerEnv."""
+﻿"""Train the CustomerPPOAgent on CustomerEnv."""
 
 from __future__ import annotations
 
@@ -19,20 +19,20 @@ import numpy as np
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from agent.customer_agent_ppo import CustomerPPOAgent, CustomerPPOConfig, CustomerTransition
+from agent.customer_agent_ppo import CustomerPPOAgent, CustomerPPOConfig, CustomerTransition, FeatureNormalizer
 from environment.customer_env import CustomerEnv
-from environment.constants import ACTION_DEFINITIONS, DO_NOTHING_ACTION
+from environment.constants import ACTION_DEFINITIONS, DO_NOTHING_ACTION, N_MODEL_FEATURES
 
 
-EPISODES_PER_CONFIG = 20_000
+EPISODES_PER_CONFIG = 50_000
 VALIDATION_INTERVAL = 1_000
 VALIDATION_EPISODES = 200
-ROLLOUT_EPISODES = 8
+ROLLOUT_EPISODES = 32
 LOG_INTERVAL = 500
 VALIDATION_SEED = 0
 CHECKPOINT_PATH = W3_ROOT / "checkpoints" / "customer_agent_ppo.pt"
@@ -92,6 +92,62 @@ def _evaluate_agent(
     }
 
 
+def _fit_normalizer(env: CustomerEnv) -> FeatureNormalizer:
+    """Collect 59-feature vectors for all pool customers and fit a FeatureNormalizer."""
+    inner = env._inner
+    pool_customers = getattr(inner, "customer_pool", None) or getattr(inner, "_customer_pool", None)
+    feature_rows: list[np.ndarray] = []
+
+    if pool_customers is not None:
+        for customer in pool_customers:
+            try:
+                with redirect_stdout(io.StringIO()):
+                    df = inner.preprocessor_customer_data.preprocess_customer(customer)
+                row = df.iloc[0]
+                feature_rows.append(np.array(list(row.values), dtype=np.float32))
+            except Exception:
+                pass
+
+    if not feature_rows:
+        # Fallback: collect by resetting the env several times
+        rng_seed = 0
+        for _ in range(200):
+            try:
+                with redirect_stdout(io.StringIO()):
+                    inner.reset(seed=rng_seed)
+                    df = inner.preprocessor_customer_data.preprocess_customer(inner.customer_data)
+                row = df.iloc[0]
+                feature_rows.append(np.array(list(row.values), dtype=np.float32))
+                rng_seed += 1
+            except Exception:
+                rng_seed += 1
+
+    if not feature_rows:
+        print("Warning: could not collect pool features; normalizer will be identity.")
+        normalizer = FeatureNormalizer()
+        dummy = np.zeros((1, N_MODEL_FEATURES), dtype=np.float32)
+        normalizer.fit(dummy)
+        return normalizer
+
+    all_features = np.stack(feature_rows, axis=0)   # (N, 59)
+    normalizer = FeatureNormalizer().fit(all_features)
+    print(f"FeatureNormalizer fitted on {len(feature_rows)} pool customers.")
+    return normalizer
+
+
+def _debug_obs(env: CustomerEnv, agent: CustomerPPOAgent) -> None:
+    """Print a sample observation showing one-hot and offer extras."""
+    with redirect_stdout(io.StringIO()):
+        obs1, info1 = env.reset(seed=9999)
+    offer1 = env._current_offer
+
+    print("\n--- DEBUG OBS ---")
+    print(f"Offer: {offer1}")
+    print(f"One-hot (idx 59-64): {obs1[59:65].tolist()}")
+    print(f"Offer extras (idx 65-70): {obs1[65:71].tolist()}")
+    print("--- END DEBUG OBS ---\n")
+
+
 def train_customer_ppo(
     episodes: int = EPISODES_PER_CONFIG,
     validation_interval: int = VALIDATION_INTERVAL,
@@ -99,6 +155,7 @@ def train_customer_ppo(
     rollout_episodes: int = ROLLOUT_EPISODES,
     seed: int = 42,
     checkpoint_path: str | Path = CHECKPOINT_PATH,
+    debug_obs: bool = False,
 ) -> None:
     """Train CustomerPPOAgent and save the best checkpoint by validation return."""
     if episodes <= 0:
@@ -109,6 +166,13 @@ def train_customer_ppo(
     env = CustomerEnv()
     val_env = CustomerEnv()
     checkpoint = Path(checkpoint_path)
+
+    # --- Fit normalizer on pool features ---
+    normalizer = _fit_normalizer(env)
+    agent.normalizer = normalizer
+
+    if debug_obs:
+        _debug_obs(env, agent)
 
     rollout: list[CustomerTransition] = []
     episode_returns: list[float] = []
@@ -221,7 +285,7 @@ def _plot_learning_curve(csv_path: Path) -> None:
                    zorder=5, s=30, label="Validation return")
     ax.set_xlabel("Episode")
     ax.set_ylabel("Customer utility return")
-    ax.set_title("Customer PPO — Learning curve")
+    ax.set_title("Customer PPO â€” Learning curve")
     ax.legend()
     ax.grid(alpha=0.3)
     fig.tight_layout()
@@ -241,6 +305,8 @@ def main() -> None:
     parser.add_argument("--rollout-episodes",   type=int,  default=ROLLOUT_EPISODES)
     parser.add_argument("--seed",               type=int,  default=42)
     parser.add_argument("--checkpoint",         type=Path, default=CHECKPOINT_PATH)
+    parser.add_argument("--debug-obs",          action="store_true",
+                        help="Print sample obs showing one-hot, price ratios, episode block.")
     args = parser.parse_args()
     train_customer_ppo(
         episodes=args.episodes,
@@ -249,6 +315,7 @@ def main() -> None:
         rollout_episodes=args.rollout_episodes,
         seed=args.seed,
         checkpoint_path=args.checkpoint,
+        debug_obs=args.debug_obs,
     )
 
 

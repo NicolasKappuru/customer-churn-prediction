@@ -1,4 +1,4 @@
-"""Evaluate a saved Retention DQN checkpoint on the held-out test set."""
+﻿"""Evaluate a saved Retention DQN checkpoint on the held-out test set."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(PROJECT_ROOT / ".env")
-W3_ROOT  = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT  = PROJECT_ROOT / "workshops" / "wfinal"
 _EVAL_DIR = Path(__file__).resolve().parent
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment"), str(_EVAL_DIR)):
     if _path not in sys.path:
@@ -32,7 +32,7 @@ from environment.env import KKBoxRetentionEnv
 
 DEFAULT_CHECKPOINT = W3_ROOT / "checkpoints" / "retention_agent_dqn_static.pt"
 _RESULTS_DIR = _EVAL_DIR / "results"
-_MAX_STEPS = 3
+_MAX_STEPS = 1
 _DO_NOTHING_IDX = next(
     i for i, a in enumerate(ACTION_DEFINITIONS) if a.name == "Do nothing"
 )
@@ -95,12 +95,12 @@ def evaluate_retention_dqn(
         print(f"Checkpoint metadata: {checkpoint_metadata}")
         print(
             f"Test pool: {len(flat_pool)} customers "
-            f"({len(test_pools)} pools × {len(test_pools[0])} each, fingerprint-excluded)"
+            f"({len(test_pools)} pools Ã— {len(test_pools[0])} each, fingerprint-excluded)"
         )
 
-        print("Building observation cache (first reset may take a few minutes)…")
+        print("Building observation cache (first reset may take a few minutes)â€¦")
         _quiet_env_call(env.reset, seed=seed)
-        print("Cache ready. Starting evaluation…")
+        print("Cache ready. Starting evaluationâ€¦")
 
         episodes_selected: list[dict] = []
 
@@ -256,8 +256,11 @@ def main() -> None:
         default=str(W3_ROOT / "checkpoints" / "customer_agent_ppo.pt"),
     )
     args = parser.parse_args()
+    checkpoint = args.checkpoint
+    if args.customer == "agent" and checkpoint == DEFAULT_CHECKPOINT:
+        checkpoint = W3_ROOT / "checkpoints" / "retention_agent_dqn_customer.pt"
     evaluate_retention_dqn(
-        checkpoint_path=args.checkpoint,
+        checkpoint_path=checkpoint,
         episodes=args.episodes,
         seed=args.seed,
         customer_mode=args.customer,

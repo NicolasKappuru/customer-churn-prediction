@@ -1,4 +1,4 @@
-"""Evaluate Retention DQN, PPO, Heuristic and Random across 5 held-out test pools."""
+﻿"""Evaluate Retention DQN, PPO, Heuristic and Random across 5 held-out test pools."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import numpy as np
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT   = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT   = PROJECT_ROOT / "workshops" / "wfinal"
 _EVAL_DIR = Path(__file__).resolve().parent
 
 for _path in (
@@ -208,7 +208,7 @@ def _print_pool_result(pool_index: int, result: dict[str, Any]) -> None:
     freq = result["action_frequencies"]
     print(
         f"  Pool {pool_index} | "
-        f"return={result['mean_episode_return']:+.4f} ± {result['std_episode_return']:.4f} | "
+        f"return={result['mean_episode_return']:+.4f} Â± {result['std_episode_return']:.4f} | "
         f"success={result['success_rate']:.1%} | "
         f"acceptance={result['acceptance_rate']:.1%} | "
         f"churn_red={result['mean_churn_probability_reduction']:+.4f} | "
@@ -230,7 +230,7 @@ def _print_agent_summary(agent_name: str, results: list[dict[str, Any]]) -> None
     acc_intv   = sum(r["accepted_interventions"] for r in results)
     print(
         f"  {agent_name} overall | "
-        f"mean_return={np.mean(returns):+.4f} ± {np.std(returns):.4f} | "
+        f"mean_return={np.mean(returns):+.4f} Â± {np.std(returns):.4f} | "
         f"success={successes/n_eps:.1%} | "
         f"acceptance={acc_intv/intv:.1%} | "
         f"churn_red={np.mean(reductions):+.4f}"
@@ -269,7 +269,7 @@ def _print_comparison(all_results: dict[str, list[dict[str, Any]]]) -> None:
     W = label_w + col_w * len(agents)
 
     print(f"\n{'='*W}")
-    print(f"FINAL COMPARISON — held-out test set  ({' | '.join(agents)})")
+    print(f"FINAL COMPARISON â€” held-out test set  ({' | '.join(agents)})")
     print(f"{'='*W}")
 
     header = " " * (label_w + 2)
@@ -287,7 +287,7 @@ def _print_comparison(all_results: dict[str, list[dict[str, Any]]]) -> None:
         line = f"  {label:<{label_w}}"
         for name in agents:
             cell = fmt.format(agg[name][key])
-            mark = "◀" if name == best else " "
+            mark = "â—€" if name == best else " "
             line += f"{cell:>{col_w - 1}}{mark}"
         print(line)
 
@@ -365,9 +365,9 @@ def _save_results(
 
     print(f"\nResults saved to {results_dir}")
     print(f"  {summary_path.name}: {len(summary_rows)} rows  "
-          f"({len(all_results)} agents × {len(summary_rows) // len(all_results)} pools)")
+          f"({len(all_results)} agents Ã— {len(summary_rows) // len(all_results)} pools)")
     print(f"  {episodes_path.name}: {len(all_episodes)} rows  "
-          f"({len(all_results)} agents × {len(all_episodes) // len(all_results)} episodes each)")
+          f"({len(all_results)} agents Ã— {len(all_episodes) // len(all_results)} episodes each)")
 
 
 def compare_agents(
@@ -428,7 +428,7 @@ def compare_agents(
         for agent_name, action_fn in policies:
             print(f"\n{'='*60}")
             print(
-                f"{agent_name} — {n_pools} pools × {episodes} episodes "
+                f"{agent_name} â€” {n_pools} pools Ã— {episodes} episodes "
                 f"({n_churn} churn + {n_non_churn} non-churn per pool)"
             )
             print(f"{'='*60}")

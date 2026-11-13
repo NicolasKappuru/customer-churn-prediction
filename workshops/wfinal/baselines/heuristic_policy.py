@@ -1,4 +1,4 @@
-"""Greedy heuristic policy: pick the valid action maximising P(accept) × (1 − cost)."""
+﻿"""Greedy heuristic policy: pick the valid action maximising P(accept) Ã— (1 âˆ’ cost)."""
 
 from __future__ import annotations
 
@@ -13,12 +13,12 @@ from typing import Any, Sequence
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from environment.constants import ACTION_DEFINITIONS, TURN_PENALTY
+from environment.constants import ACTION_DEFINITIONS
 from environment.env import KKBoxRetentionEnv
 
 _DO_NOTHING_IDX: int = next(
@@ -27,12 +27,11 @@ _DO_NOTHING_IDX: int = next(
 
 
 class HeuristicPolicy:
-    """Selects the valid action that maximises P(accept) × (1 − cost) − TURN_PENALTY[turn].
+    """Selects the valid action that maximises P(accept) × (1 − cost).
 
-    P(accept) is  acceptance_probability_high  when is_favorable(action, customer)
-    is True, and  acceptance_probability  otherwise. If the best score after
-    subtracting the turn penalty is <= 0, Do nothing is returned. Ties are
-    resolved by the smallest action index, making the policy deterministic.
+    P(accept) is acceptance_probability_high when is_favorable(action, customer)
+    is True, and acceptance_probability otherwise. If the best score is <= 0,
+    Do nothing is returned. Ties are resolved by the smallest action index.
     """
 
     def select_action(
@@ -46,7 +45,6 @@ class HeuristicPolicy:
         if not candidates:
             return _DO_NOTHING_IDX
 
-        penalty = TURN_PENALTY[turn] if turn < len(TURN_PENALTY) else TURN_PENALTY[-1]
         best_action: int = _DO_NOTHING_IDX
         best_score: float = 0.0  # Do nothing scores 0; only beat it with a positive score
 
@@ -60,7 +58,7 @@ class HeuristicPolicy:
                 )
             else:
                 p = defn.acceptance_probability
-            score = p * (1.0 - defn.cost) - penalty
+            score = p * (1.0 - defn.cost)
             if score > best_score:
                 best_score = score
                 best_action = action

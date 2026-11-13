@@ -28,7 +28,9 @@ from constants import (
     DOWNGRADE_TRANSACTION_DATE,
     DO_NOTHING_ACTION,
     WINBACK_INACTIVE_DAYS,
+    WINBACK_MIN_DEC_DAYS,
     WINBACK_LOG_DATES,
+    REENGAGEMENT_WINDOW_DAYS,
 )
 
 _CUTOFF_DATE = CUTOFF_DATE
@@ -50,18 +52,19 @@ class ActionsManager:
     def is_favorable(self, action_index: int, customer: dict) -> bool:
         """Return True if the customer meets the high-acceptance condition for this action."""
         if action_index == 0:
-            return self._days_since_last_log(customer) <= 30
+            return self._last_month_logins(customer) >= 2
         if action_index == 1:
-            return self._last_month_logins(customer) >= 15
+            return self._last_month_logins(customer) >= 5
         if action_index == 2:
-            return self._days_since_last_log(customer) <= 30
+            return self._is_declining_active(customer)
         if action_index == 3:
             return self._tenure_days(customer) < 365
         if action_index == 4:
             return self._tenure_days(customer) > 365
         if action_index == 5:
             logs = customer.get("user_logs") or []
-            return any(str(int(log["date"]))[:6] == PREV_MONTH for log in logs)
+            dec_days = sum(1 for log in logs if str(int(log["date"]))[:6] == PREV_MONTH)
+            return dec_days >= WINBACK_MIN_DEC_DAYS
         return False
 
     def get_valid_actions(self, customer: dict) -> list[int]:
@@ -83,8 +86,9 @@ class ActionsManager:
                 and not self._renewed_this_session(customer)):
             valid.append(1)
 
-        # Action 2: re-engagement — activity declining and customer recently inactive
-        if self._is_declining_active(customer) and self._days_since_last_log(customer) <= WINBACK_INACTIVE_DAYS:
+        # Action 2: re-engagement — any customer with listening history in the last 3 months
+        logs = customer.get("user_logs") or []
+        if logs and self._days_since_last_log(customer) <= REENGAGEMENT_WINDOW_DAYS:
             valid.append(2)
 
         # Action 3: downgrade — plan more expensive than 99 NTD and not renewed this session
@@ -93,12 +97,12 @@ class ActionsManager:
                 and not self._renewed_this_session(customer)):
             valid.append(3)
 
-        # Action 4: recover cancellation — last transaction was a cancellation
-        if last_tx is not None and int(last_tx["is_cancel"]) == 1:
+        # Action 4: recover cancellation — any of the last 3 transactions was a cancellation
+        recent_txns = (customer.get("transactions") or [])[-3:]
+        if any(int(t["is_cancel"]) == 1 for t in recent_txns):
             valid.append(4)
 
-        # Action 5: win-back — has logs but has been inactive beyond the window
-        logs = customer.get("user_logs") or []
+        # Action 5: win-back — has logs but inactive for more than 14 days
         if logs and self._days_since_last_log(customer) > WINBACK_INACTIVE_DAYS:
             valid.append(5)
 
@@ -247,18 +251,19 @@ class ActionsManager:
             return action_def.acceptance_probability
 
         if action_index == 0:
-            high = self._days_since_last_log(customer) <= 30
+            high = self._last_month_logins(customer) >= 2
         elif action_index == 1:
-            high = self._last_month_logins(customer) >= 15
+            high = self._last_month_logins(customer) >= 5
         elif action_index == 2:
-            high = self._days_since_last_log(customer) <= 30
+            high = self._is_declining_active(customer)
         elif action_index == 3:
             high = self._tenure_days(customer) < 365
         elif action_index == 4:
             high = self._tenure_days(customer) > 365
         elif action_index == 5:
             logs = customer.get("user_logs") or []
-            high = any(str(int(log["date"]))[:6] == PREV_MONTH for log in logs)
+            dec_days = sum(1 for log in logs if str(int(log["date"]))[:6] == PREV_MONTH)
+            high = dec_days >= WINBACK_MIN_DEC_DAYS
         else:
             high = False
 

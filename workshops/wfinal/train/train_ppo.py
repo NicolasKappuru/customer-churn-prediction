@@ -1,4 +1,4 @@
-"""Train and compare PPO configurations for KKBoxRetentionEnv."""
+﻿"""Train and compare PPO configurations for KKBoxRetentionEnv."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ import pandas as pd
 import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -44,11 +44,11 @@ CSV_DIR         = RUNS_DIR / "csv"
 
 BASE_CONFIG = PPOConfig()
 CONFIGURATIONS = (
-    # lr=1e-3 | weight_decay=0.0  → fast policy updates, no regularization
+    # lr=1e-3 | weight_decay=0.0  â†’ fast policy updates, no regularization
     ("exploratory",  replace(BASE_CONFIG, learning_rate=1e-3,  weight_decay=0.0)),
-    # lr=3e-4 | weight_decay=1e-5 → default speed + light regularization
+    # lr=3e-4 | weight_decay=1e-5 â†’ default speed + light regularization
     ("balanced",     replace(BASE_CONFIG, learning_rate=3e-4,  weight_decay=1e-5)),
-    # lr=1e-4 | weight_decay=1e-4 → conservative updates + strong regularization
+    # lr=1e-4 | weight_decay=1e-4 â†’ conservative updates + strong regularization
     ("conservative", replace(BASE_CONFIG, learning_rate=1e-4,  weight_decay=1e-4)),
 )
 
@@ -363,7 +363,7 @@ def _plot_best_config(best_config_name: str) -> None:
         return
     df = pd.read_csv(csv_path)
 
-    # ── Image 1: learning curve ───────────────────────────────────────────────
+    # â”€â”€ Image 1: learning curve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     fig1, ax1 = plt.subplots(figsize=(10, 4))
     ax1.plot(df["episode"], df["mean_return_100"], color="steelblue",
              linewidth=1.5, label="Mean return (100 ep)")
@@ -372,7 +372,7 @@ def _plot_best_config(best_config_name: str) -> None:
                 zorder=5, s=30, label="Validation return")
     ax1.set_xlabel("Episode")
     ax1.set_ylabel("Return")
-    ax1.set_title(f"PPO — Learning curve: {best_config_name}")
+    ax1.set_title(f"PPO â€” Learning curve: {best_config_name}")
     ax1.legend()
     ax1.grid(alpha=0.3)
     fig1.tight_layout()
@@ -381,7 +381,7 @@ def _plot_best_config(best_config_name: str) -> None:
     plt.close(fig1)
     print(f"Learning curve saved: {out1}")
 
-    # ── Image 2: policy losses ────────────────────────────────────────────────
+    # â”€â”€ Image 2: policy losses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     losses = df.dropna(subset=["policy_loss"])
     if losses.empty:
         return
@@ -394,7 +394,7 @@ def _plot_best_config(best_config_name: str) -> None:
              linewidth=1.2, label="Entropy", linestyle="--")
     ax2.set_xlabel("Episode")
     ax2.set_ylabel("Loss / Entropy")
-    ax2.set_title(f"PPO — Policy losses: {best_config_name}")
+    ax2.set_title(f"PPO â€” Policy losses: {best_config_name}")
     ax2.legend()
     ax2.grid(alpha=0.3)
     fig2.tight_layout()
@@ -450,7 +450,7 @@ def train_ppo(
             f"train customers={len(training_env.customer_selector._pool)} | "
             f"validation customers={len(validation_env.customer_selector._pool)} | "
             f"episodes/config={episodes_per_config} | rollout={rollout_episodes} | "
-            f"grad_steps/config≈{_grad_steps} | validation_seed={VALIDATION_SEED} | seed={seed}"
+            f"grad_steps/configâ‰ˆ{_grad_steps} | validation_seed={VALIDATION_SEED} | seed={seed}"
         )
         print(f"Best checkpoint: {checkpoint}")
 

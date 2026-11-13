@@ -1,4 +1,4 @@
-"""Interchangeable acceptance policies for KKBoxRetentionEnv."""
+﻿"""Interchangeable acceptance policies for KKBoxRetentionEnv."""
 from __future__ import annotations
 import random
 import sys
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from actions_manager import ActionsManager
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _p in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -20,7 +20,7 @@ from constants import ACTION_DEFINITIONS
 
 
 class AcceptancePolicy:
-    """Base class — decide whether a customer accepts a retention offer."""
+    """Base class â€” decide whether a customer accepts a retention offer."""
 
     def decide(
         self,
@@ -60,9 +60,13 @@ class CustomerAgentAcceptance(AcceptancePolicy):
         from customer_agent_ppo import CustomerPPOAgent
         self._agent, _ = CustomerPPOAgent.load_checkpoint(self._checkpoint_path)
 
-    def decide(self, customer, features_row, action, turn, n_rejections, rng) -> bool:
+    def decide(self, customer, features_row, action, turn, n_rejections, rng,
+               times_offered: int = 0, customer_data=None) -> bool:
         self._load_agent()
         from customer_env import CustomerEnv
-        obs = CustomerEnv.build_customer_observation(features_row, action, turn, n_rejections)
+        obs = CustomerEnv.build_customer_observation(
+            features_row, action,
+            customer_data=customer_data,
+        )
         p = self._agent.accept_probability(obs)
         return bool(rng.random() < p)

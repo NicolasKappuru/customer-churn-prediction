@@ -94,13 +94,12 @@ DOWNGRADE_TRANSACTION_DATE: int = 20170131   # cutoff date
 # Action 6 — do nothing: no state change, no cost, always valid
 # acceptance and cost are unused — apply_action short-circuits for this action
 
-MAX_STEPS_PER_EPISODE: int = 3
+MAX_STEPS_PER_EPISODE: int = 1
 DO_NOTHING_ACTION: int = 6
 WINBACK_INACTIVE_DAYS: int = 14
+WINBACK_MIN_DEC_DAYS: int = 5
+REENGAGEMENT_WINDOW_DAYS: int = 90
 WINBACK_LOG_DATES: tuple[int, ...] = (20170125, 20170127, 20170129, 20170131)
-
-# Penalty subtracted from reward per turn (turn 1 = 0.0, turn 2 = 0.005, turn 3 = 0.01)
-TURN_PENALTY: tuple[float, ...] = (0.0, 0.005, 0.01)
 
 
 
@@ -129,7 +128,10 @@ LOG_WINDOW_START: int = 20161101
 LOG_WINDOW_END: int = 20170131
 # Latest date (YYYYMMDD int) of the 3-month log window; should equal CUTOFF_INT.
 
-NOISE_STD: float = 0.1
-FATIGUE_PER_TURN: float = 0.05
+NOISE_STD: float = 0.10
+CUSTOMER_GAIN: tuple[float, ...] = (0.3, 0.5, 0.3, 0.4, 0.5, 0.3)   # actions 0..5
+CUSTOMER_LOSS: tuple[float, ...] = (0.1, 0.4, 0.1, 0.3, 0.4, 0.1)
+REJECT_PENALTY: float = 0.10   # penalty for rejecting a favorable offer
+REJECT_BONUS: float  = 0.01    # small bonus for correctly rejecting an unfavorable offer
 CUSTOMER_N_ACTIONS: int = 2   # 0 = reject, 1 = accept
-CUSTOMER_OBS_SIZE: int = 67   # 59 features + 6 one-hot offer + turn/3 + n_rejections/3
+CUSTOMER_OBS_SIZE: int = 71   # 59 features + 6 one-hot offer + 6 offer extras

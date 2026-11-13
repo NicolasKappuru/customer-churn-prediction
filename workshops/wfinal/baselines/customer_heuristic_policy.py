@@ -1,4 +1,4 @@
-"""Run a heuristic acceptance baseline for the customer agent."""
+﻿"""Run a heuristic acceptance baseline for the customer agent."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-W3_ROOT = PROJECT_ROOT / "workshops" / "w3"
+W3_ROOT = PROJECT_ROOT / "workshops" / "wfinal"
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -48,11 +48,9 @@ def run_customer_heuristic_policy(episodes: int = 100, seed: int = 42) -> dict[s
             terminated = truncated = False
             while not (terminated or truncated):
                 offer = env._current_offer
-                features_row = env._features_row
-                turn = env._inner.turn + 1   # 1-indexed
                 total_counts[offer] += 1
 
-                u = utility.utility(offer, features_row, turn)
+                u = utility.utility(offer, env._inner.customer_data)
                 action = 1 if u > 0 else 0   # accept if utility positive
                 if action == 1:
                     accept_counts[offer] += 1
