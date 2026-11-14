@@ -1,0 +1,82 @@
+\relax 
+\providecommand \babel@aux [2]{\global \let \babel@toc \@gobbletwo }
+\@nameuse{bbl@beforestart}
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\babel@aux{english}{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}From classification to trajectories}{4}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}What changes}{4}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}What it is for}{4}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Splitting the window}{4}{subsection.1.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces The 90-day window split into input and target.}}{4}{figure.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Input and target dates of each cohort.}}{4}{table.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}Why $H = 7$}{5}{subsection.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}The data}{5}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}The 20 channels}{5}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Export encoding}{5}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Masked standard scaling}{6}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}The 13 targets}{6}{subsection.2.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Layout of the target $Y_i \in \mathbb  {R}^{7 \times 13}$.}}{6}{table.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Events and states}{7}{section.3}\protected@file@percent }
+\newlabel{sec:states}{{3}{7}{Events and states}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}States are arithmetic on events}{7}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Predict events, rebuild states}{7}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Fit with the environment}{7}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}The model}{7}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Recurrent encoder}{7}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LSTM.}{8}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{GRU.}{8}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Stacking.}{8}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}User summary and normalisation}{8}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Direct multi-horizon head}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Architecture shared by LSTM and GRU. Only the recurrent cell changes.}}{9}{figure.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Why not an autoregressive decoder?}{9}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Capacity}{9}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Hurdle model for listening}{9}{section.5}\protected@file@percent }
+\newlabel{sec:hurdle}{{5}{9}{Hurdle model for listening}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}The problem of zeros}{9}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Two-part decomposition}{10}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}The composite loss}{10}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Binary cross-entropy}{10}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Huber loss}{10}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Masked averages}{11}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}The five terms}{11}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Fixed weights from a constant predictor}{11}{subsection.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Why there is no \texttt  {pos\_weight} on payments}{12}{subsection.6.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Training and hyper-parameter search}{12}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Backpropagation through time}{12}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Optimisation}{12}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Partitions}{13}{subsection.7.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces The same partitions as the classifier.}}{13}{table.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Optuna}{13}{subsection.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Simulation: from probabilities to one possible week}{13}{section.8}\protected@file@percent }
+\newlabel{sec:simulation}{{8}{13}{Simulation: from probabilities to one possible week}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Sampling, not thresholding}{13}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}State reconstruction rules}{14}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Expiry approximation.}{14}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Chaining weeks}{14}{subsection.8.3}\protected@file@percent }
+\newlabel{sec:rollout}{{8.3}{14}{Chaining weeks}{subsection.8.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Use from the agent's environment}{15}{subsection.8.4}\protected@file@percent }
+\newlabel{sec:use}{{8.4}{15}{Use from the agent's environment}{subsection.8.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Evaluation}{15}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Principle: compare with naive predictors}{15}{subsection.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Listening}{15}{subsection.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Point forecast.}{15}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Naive predictors.}{15}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Metrics.}{15}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Breakdowns.}{16}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{A note on MAE and the point forecast.}{16}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Events: activity and payment}{16}{subsection.9.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{ROC-AUC.}{16}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{AP (average precision).}{16}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Brier.}{16}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Naive predictors for \texttt  {active}:}{16}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Expiry rule for \texttt  {pay}.}{16}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Payment within the week.}{17}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Amount and plan}{17}{subsection.9.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.5}Realism of the simulation}{17}{subsection.9.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.6}Error of the rebuilt state}{17}{subsection.9.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.7}LSTM versus GRU: paired bootstrap}{18}{subsection.9.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10}Limitations}{18}{section.10}\protected@file@percent }
+\gdef \@abspage@last{18}
