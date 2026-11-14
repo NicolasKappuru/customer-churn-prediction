@@ -62,6 +62,22 @@ for _d in (FIG_DIR, CACHE_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 
+def _cut(users: pl.DataFrame) -> pl.Expr:
+    """The feature cutoff: per customer when ``users`` has an ``as_of`` date column
+    (notebook 10, prediction k days before each customer's expiry), else the global ``CUTOFF``."""
+    return pl.col("as_of") if "as_of" in users.columns else pl.lit(CUTOFF)
+
+
+def _keys(users: pl.DataFrame) -> list[str]:
+    return ["msno", "as_of"] if "as_of" in users.columns else ["msno"]
+
+
+def filter_as_of(t: pl.DataFrame, users: pl.DataFrame) -> pl.DataFrame:
+    """Keep the transactions dated on or before each customer's ``as_of``."""
+    return (t.join(users.select("msno", "as_of"), on="msno", how="inner")
+            .filter(pl.col("td") <= pl.col("as_of")).drop("as_of"))
+
+
 # ---------------------------------------------------------------------------
 # Population
 # ---------------------------------------------------------------------------
@@ -205,7 +221,8 @@ def subscription_state(t: pl.DataFrame, users: pl.DataFrame) -> pl.DataFrame:
                last_pay_auto_renew=pl.col("is_auto_renew").last(),
                last_pay_date=pl.col("td").last()))
     s = users.join(last_day, on="msno", how="left").join(pay, on="msno", how="left")
-    dte = (pl.col("last_expire") - pl.lit(CUTOFF)).dt.total_days()
+    cut = _cut(users)
+    dte = (pl.col("last_expire") - cut).dt.total_days()
     return s.with_columns(
         state=pl.when(pl.col("last_txn_date").is_null()).then(pl.lit("no txn"))
         .when(pl.col("day_has_cancel") & pl.col("day_has_payment")).then(pl.lit("cancel + payment"))
@@ -219,7 +236,7 @@ def subscription_state(t: pl.DataFrame, users: pl.DataFrame) -> pl.DataFrame:
         .when(dte <= 28).then(pl.lit("february"))
         .when(dte <= 59).then(pl.lit("march"))
         .otherwise(pl.lit("april+")),
-        days_since_last_txn=(pl.lit(CUTOFF) - pl.col("last_txn_date")).dt.total_days(),
+        days_since_last_txn=(cut - pl.col("last_txn_date")).dt.total_days(),
     )
 
 
@@ -264,10 +281,10 @@ def history_block(t: pl.DataFrame, users: pl.DataFrame) -> pl.DataFrame:
              .with_columns(gap=(pl.col("td") - pl.col("prev_expire")).dt.total_days()))
     lapses = days.filter(pl.col("has_payment") & (pl.col("gap") > 0)).group_by("msno").agg(
         n_lapses=pl.len(), total_lapse_days=pl.col("gap").sum())
-    return (users.select("msno").join(pay, on="msno", how="left").join(lapses, on="msno", how="left")
+    return (users.select(_keys(users)).join(pay, on="msno", how="left").join(lapses, on="msno", how="left")
             .with_columns(pl.col("n_payments", "n_lapses", "total_lapse_days").fill_null(0),
-                          payer_days=(pl.lit(CUTOFF) - pl.col("first_td")).dt.total_days())
-            .drop("first_td"))
+                          payer_days=(_cut(users) - pl.col("first_td")).dt.total_days())
+            .drop("first_td", "as_of", strict=False))
 
 
 MEMBER_CAT = ["via", "profile_state", "age_band"]
@@ -277,10 +294,10 @@ MEMBER_NUM = ["bd", "tenure_days"]
 def member_block(users: pl.DataFrame) -> pl.DataFrame:
     """Member features proposed in notebook 01: channel, profile state, age band (categorical);
     age with NaN for unknown and tenure with NaN for missing / post-cutoff registration (numeric)."""
-    m = users.select("msno").join(scan_members(users).collect(), on="msno", how="left")
+    m = users.select(_keys(users)).join(scan_members(users).collect(), on="msno", how="left")
     valid = pl.col("bd").is_between(1, 100).fill_null(False)
     bd = pl.col("bd")
-    tenure = (pl.lit(CUTOFF) - to_date("registration_init_time")).dt.total_days()
+    tenure = (_cut(users) - to_date("registration_init_time")).dt.total_days()
     return m.select(
         "msno",
         via=pl.col("registered_via").cast(pl.String).fill_null("no member"),
@@ -344,9 +361,32 @@ def payment_cycles(t: pl.DataFrame) -> pl.DataFrame:
 LISTEN_BLOCK = ["has_logs", "days_since_last_log", "longest_gap", "active_days_30", "secs_30"]
 
 
-def listening_block(users: pl.DataFrame) -> pl.DataFrame:
-    """The five listening features kept in notebook 06 (cleaned daily logs, current window)."""
-    ud = clean_user_days(users)
+def daily_logs(users: pl.DataFrame, start: date, end: date) -> pl.DataFrame:
+    """Cleaned daily logs of ``users`` between ``start`` and ``end`` (24 h rescaling of
+    notebook 05), reduced to ``msno, date, total_secs``. Input of the per-customer
+    ``listening_block(users, days=...)``."""
+    scale = pl.when(pl.col("total_secs") > 86_400).then(86_400 / pl.col("total_secs")).otherwise(1.0)
+    lf = scan_user_logs(users, int(start.strftime("%Y%m%d")), int(end.strftime("%Y%m%d")))
+    return lf.select("msno", date=to_date("date"),
+                     total_secs=(pl.col("total_secs").cast(pl.Float64) * scale).cast(pl.Float32)
+                     ).collect(engine="streaming")
+
+
+def _window_days(days: pl.DataFrame, users: pl.DataFrame) -> pl.LazyFrame:
+    """Rows of ``days`` inside each customer's 90-day window ending at ``as_of``;
+    ``day`` = 0 (window start) ... 89 (``as_of``), as in ``clean_user_days``."""
+    back = (pl.col("as_of") - pl.col("date")).dt.total_days()
+    return (days.lazy().join(users.lazy().select("msno", "as_of"), on="msno", how="inner")
+            .filter(back.is_between(0, WINDOW_DAYS - 1))
+            .with_columns(day=(WINDOW_DAYS - 1 - back).cast(pl.Int16)).drop("as_of"))
+
+
+def listening_block(users: pl.DataFrame, days: pl.DataFrame | None = None) -> pl.DataFrame:
+    """The five listening features kept in notebook 06 (cleaned daily logs, current window).
+
+    With ``days`` (from ``daily_logs``) and an ``as_of`` column in ``users``, each customer's
+    window ends at their own ``as_of`` instead of the global cutoff."""
+    ud = clean_user_days(users) if days is None else _window_days(days, users)
     last30 = ud.filter(pl.col("day") >= WINDOW_DAYS - 30).group_by("msno").agg(
         active_days_30=pl.len(), secs_30=pl.col("total_secs").sum())
     rec = (ud.group_by("msno").agg(days=pl.col("day").sort())
