@@ -1,0 +1,65 @@
+\babel@toc {english}{}\relax 
+\contentsline {section}{\numberline {1}From classification to trajectories}{4}{section.1}%
+\contentsline {subsection}{\numberline {1.1}What changes}{4}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}What it is for}{4}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Splitting the window}{4}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Why $H = 7$}{5}{subsection.1.4}%
+\contentsline {section}{\numberline {2}The data}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}The 20 channels}{5}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Export encoding}{5}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Masked standard scaling}{6}{subsection.2.3}%
+\contentsline {subsection}{\numberline {2.4}The 13 targets}{6}{subsection.2.4}%
+\contentsline {section}{\numberline {3}Events and states}{7}{section.3}%
+\contentsline {subsection}{\numberline {3.1}States are arithmetic on events}{7}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Predict events, rebuild states}{7}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Fit with the environment}{7}{subsection.3.3}%
+\contentsline {section}{\numberline {4}The model}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Recurrent encoder}{7}{subsection.4.1}%
+\contentsline {paragraph}{LSTM.}{8}{section*.2}%
+\contentsline {paragraph}{GRU.}{8}{section*.3}%
+\contentsline {paragraph}{Stacking.}{8}{section*.4}%
+\contentsline {subsection}{\numberline {4.2}User summary and normalisation}{8}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Direct multi-horizon head}{8}{subsection.4.3}%
+\contentsline {paragraph}{Why not an autoregressive decoder?}{9}{section*.5}%
+\contentsline {subsection}{\numberline {4.4}Capacity}{9}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Hurdle model for listening}{9}{section.5}%
+\contentsline {subsection}{\numberline {5.1}The problem of zeros}{9}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Two-part decomposition}{10}{subsection.5.2}%
+\contentsline {section}{\numberline {6}The composite loss}{10}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Binary cross-entropy}{10}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Huber loss}{10}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Masked averages}{11}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}The five terms}{11}{subsection.6.4}%
+\contentsline {subsection}{\numberline {6.5}Fixed weights from a constant predictor}{11}{subsection.6.5}%
+\contentsline {subsection}{\numberline {6.6}Why there is no \texttt {pos\_weight} on payments}{12}{subsection.6.6}%
+\contentsline {section}{\numberline {7}Training and hyper-parameter search}{12}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Backpropagation through time}{12}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Optimisation}{12}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Partitions}{13}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Optuna}{13}{subsection.7.4}%
+\contentsline {section}{\numberline {8}Simulation: from probabilities to one possible week}{13}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Sampling, not thresholding}{13}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}State reconstruction rules}{14}{subsection.8.2}%
+\contentsline {paragraph}{Expiry approximation.}{14}{section*.6}%
+\contentsline {subsection}{\numberline {8.3}Chaining weeks}{14}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.4}Use from the agent's environment}{15}{subsection.8.4}%
+\contentsline {section}{\numberline {9}Evaluation}{15}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Principle: compare with naive predictors}{15}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Listening}{15}{subsection.9.2}%
+\contentsline {paragraph}{Point forecast.}{15}{section*.7}%
+\contentsline {paragraph}{Naive predictors.}{15}{section*.8}%
+\contentsline {paragraph}{Metrics.}{15}{section*.9}%
+\contentsline {paragraph}{Breakdowns.}{16}{section*.10}%
+\contentsline {paragraph}{A note on MAE and the point forecast.}{16}{section*.11}%
+\contentsline {subsection}{\numberline {9.3}Events: activity and payment}{16}{subsection.9.3}%
+\contentsline {paragraph}{ROC-AUC.}{16}{section*.12}%
+\contentsline {paragraph}{AP (average precision).}{16}{section*.13}%
+\contentsline {paragraph}{Brier.}{16}{section*.14}%
+\contentsline {paragraph}{Naive predictors for \texttt {active}:}{16}{section*.15}%
+\contentsline {paragraph}{Expiry rule for \texttt {pay}.}{16}{section*.16}%
+\contentsline {paragraph}{Payment within the week.}{17}{section*.17}%
+\contentsline {subsection}{\numberline {9.4}Amount and plan}{17}{subsection.9.4}%
+\contentsline {subsection}{\numberline {9.5}Realism of the simulation}{17}{subsection.9.5}%
+\contentsline {subsection}{\numberline {9.6}Error of the rebuilt state}{17}{subsection.9.6}%
+\contentsline {subsection}{\numberline {9.7}LSTM versus GRU: paired bootstrap}{18}{subsection.9.7}%
+\contentsline {section}{\numberline {10}Limitations}{18}{section.10}%

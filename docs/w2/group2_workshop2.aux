@@ -1,0 +1,96 @@
+\relax 
+\providecommand \babel@aux [2]{\global \let \babel@toc \@gobbletwo }
+\@nameuse{bbl@beforestart}
+\citation{kkbox2017}
+\babel@aux{english}{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Data Preparation}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Structure of the Raw Data}{1}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Schema of \texttt  {train.csv} (February cohort) and \texttt  {train\_v2.csv} (March cohort).}}{1}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:w2_schema_train}{{1}{1}{}{table.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Schema of \texttt  {user\_logs.csv} and \texttt  {user\_logs\_v2.csv}.}}{2}{}\protected@file@percent }
+\newlabel{tab:w2_schema_logs}{{2}{2}{}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Schema of \texttt  {transactions.csv} and \texttt  {transactions\_v2.csv}.}}{2}{}\protected@file@percent }
+\newlabel{tab:w2_schema_transactions}{{3}{2}{}{table.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Tensor Construction}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.2.1}Temporal Split and Window Overlap}{2}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Labelled cohorts, their 90-day windows and churn targets.}}{3}{}\protected@file@percent }
+\newlabel{tab:w2_cohorts}{{4}{3}{}{table.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces 90-day windows of the two cohorts. Each window ends at its cutoff (2017-01-31 and 2017-02-28) and is followed by its target month.}}{3}{}\protected@file@percent }
+\newlabel{fig:w2_overlap}{{1}{3}{}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.2.2}Cleaning}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Transactions.}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Listening logs.}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.2.3}Listening Channels}{4}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Listening channels (8) of the sequence tensor.}}{5}{}\protected@file@percent }
+\newlabel{tab:w2_listening}{{5}{5}{}{table.5}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.2.4}Transaction Channels: Events and States}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Payments before the window.}{5}{}\protected@file@percent }
+\gdef \LT@i {\LT@entry 
+    {1}{41.27902pt}\LT@entry 
+    {5}{103.32797pt}\LT@entry 
+    {1}{44.7054pt}\LT@entry 
+    {1}{188.80699pt}\LT@entry 
+    {1}{59.40671pt}}
+\@writefile{toc}{\contentsline {paragraph}{Worked example.}{6}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Recency and expiry channels for a user whose only payment (2016-11-20, expiring 2016-12-20) falls before the \texttt  {test} window.}}{6}{}\protected@file@percent }
+\newlabel{tab:w2_example}{{6}{6}{}{table.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Transaction channels (12) of the sequence tensor.}}{7}{}\protected@file@percent }
+\newlabel{tab:w2_transactions}{{7}{7}{}{table.7}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.2.5}Resulting Tensor}{7}{}\protected@file@percent }
+\citation{chung2014}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Recurrent Models}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Architecture}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.1}LSTM Cell}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.1.2}GRU Cell}{9}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Common LSTM/GRU classifier architecture. Only the recurrent cell changes between models; $B$ is the batch size and $H$ the hidden dimension.}}{9}{}\protected@file@percent }
+\newlabel{fig:w2_arch}{{2}{9}{}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Loss Function and Optimiser}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Backpropagation.}{10}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Forward and backward passes shared by LSTM and GRU. At the logit the gradient reduces to $\hat  p-y$; inside the selected recurrent cell it travels back through the 90 days and its gates.}}{11}{}\protected@file@percent }
+\newlabel{fig:w2_backprop}{{3}{11}{}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Hyperparameter Search}{11}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Shared Optuna search space for LSTM and GRU.}}{11}{}\protected@file@percent }
+\newlabel{tab:w2_space}{{8}{11}{}{table.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Training}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Data Split}{12}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Partitions used for training, tuning and testing.}}{12}{}\protected@file@percent }
+\newlabel{tab:w2_split}{{9}{12}{}{table.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Training Procedure}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Optuna Results}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Best Optuna configuration for each recurrent family.}}{13}{}\protected@file@percent }
+\newlabel{tab:w2_best}{{10}{13}{}{table.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Training and early-stopping loss histories of the selected LSTM and GRU trials.}}{13}{}\protected@file@percent }
+\newlabel{fig:w2_training_history}{{4}{13}{}{figure.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Decision thresholds.}{13}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Final models.}{13}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Test}{13}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Metrics}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Test metrics at the model-specific thresholds selected on February. Bold marks the better value for each metric.}}{14}{}\protected@file@percent }
+\newlabel{tab:w2_test}{{11}{14}{}{table.11}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Confusion Matrix}{14}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Confusion matrices on the March test cohort at the model-specific thresholds.}}{15}{}\protected@file@percent }
+\newlabel{fig:w2_confusion}{{5}{15}{}{figure.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}ROC and Precision-Recall Curves}{15}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces ROC and precision-recall curves for LSTM and GRU on the March test cohort.}}{15}{}\protected@file@percent }
+\newlabel{fig:w2_rocpr}{{6}{15}{}{figure.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Calibration}{15}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Reliability diagrams and predicted-probability distributions on the March test cohort.}}{16}{}\protected@file@percent }
+\newlabel{fig:w2_calibration}{{7}{16}{}{figure.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Statistical and Operational Comparison}{16}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Paired bootstrap comparison on March. For log-loss, a negative difference favours LSTM.}}{16}{}\protected@file@percent }
+\newlabel{tab:w2_significance}{{12}{16}{}{table.12}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Cumulative gain and lift for ranked retention campaigns.}}{17}{}\protected@file@percent }
+\newlabel{fig:w2_gain}{{8}{17}{}{figure.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{Efficiency.}{17}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Comparison with Workshop 1}{17}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Test metrics on March for Workshop~1 tabular models and Workshop~2 recurrent models. Best value per column is bold.}}{17}{}\protected@file@percent }
+\newlabel{tab:w2_vs_w1}{{13}{17}{}{table.13}{}}
+\bibcite{chung2014}{1}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusions}{18}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LSTM versus GRU.}{18}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Relation with Workshop 1.}{18}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{How the sequence captures behaviour.}{18}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Why no further experiments are possible.}{18}{}\protected@file@percent }
+\bibcite{kkbox2017}{2}
+\gdef \@abspage@last{19}
