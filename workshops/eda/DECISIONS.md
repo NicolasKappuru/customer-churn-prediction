@@ -134,3 +134,31 @@ One section per notebook, written by `write_decisions` in its last cell. This ta
 | All other features stable (PSI < 0.04) without using March labels | No drift handling needed beyond the two fixes; keep a PSI check in the pipeline | no action |
 | Correlated pairs remain (payer_days-n_payments 0.91, active_days_30-secs_30 0.93, ...) | Keep for trees; if the linear baseline is unstable drop n_payments and secs_30 first | open |
 <!-- /nb:08 -->
+
+<!-- nb:10 -->
+## 10 · Per-cycle prediction (as-of = expiry - k)
+
+| Finding | Decision | Kind |
+|---|---|---|
+| Scoring k days before each customer's expiry beats the calendar cutoff from k <= 14: AP +0.04 (k=14), +0.08-0.11 (k=7), +0.14-0.24 (k=1), CIs exclude 0 (Feb holdout and March) | Adopt as_of = expiry - k per customer for w1 and w2 (default k = 7; final k is a business choice); calendar cutoff only for the 11 % out of scope | open |
+| k = 28 is slightly worse than the calendar cutoff (-0.025 / -0.006 AP): the calendar lead time is already 1-28 days | Do not use k > 14; report the AP-vs-k curve (figures/10_k_curve.png) as the lead-time menu | no action |
+| The gain comes from auto-renew churners who switch off auto-renew between the cutoff and the expiry (recall 1-6 % -> 22-28 % at k=7, precision 0.83-0.90) | w1/w2 data processing take a per-customer as_of (`_common` helpers accept an `as_of` column; tested equal to the global cutoff) | transformation |
+| Everyone in scope expires in the label month, so expiry_month is constant | In the per-cycle setting replace expiry_month by numeric days_to_expire at as_of | transformation |
+| Eligibility (expiry known at as_of) >= 99.9 % except March k=28 (85 %); no record on or after the expiry is used | Keep the eligibility rule and the leakage assertion in the pipeline | cleaning |
+| E3c: six features describing a payment made before the expiry (paid_ahead, days_early, plan days, auto, count, extension) change AP by -0.001..+0.002 at every k; days_to_expire and the last-payment block already carry them | Do not add them; the KKBox early-payment rule (nb 11) is already learned by the 20-feature model when the payment is visible at as_of | drop |
+| Early payers extending 26-30 days churn 6 % (Feb) vs 42 % (Mar): composition of month lengths (nb 11 s5); March auto-renew early payers get a 0.07-0.26 % FP rate, like February (diagnostic A) | Keep days_to_expire; no calendar-robust encoding needed | no action |
+| March F1 plateau is a threshold problem: the model under-predicts March (7.0-7.8 % churn vs 5.1-5.6 % mean p); with the oracle March threshold F1 rises to 0.612 / 0.629 / 0.641 at k = 7 / 3 / 1, the Feb threshold loses 0.008 / 0.033 / 0.049 | Apply the EM prior correction (Saerens 2002) before thresholding: label-free, +0.004 / +0.009 / +0.011 F1, never worse | transformation |
+| EM estimates the March prior at 6.0-6.7 % vs 7.9 % true: the shift is not a pure prior shift (auto-renew early payers 5.4 % vs 2.2 %) | Recalibrate monthly on the latest month with matured labels; in a campaign set the cut-off by contact budget | open |
+<!-- /nb:10 -->
+
+<!-- nb:11 -->
+## 11 · Label audit
+
+| Finding | Decision | Kind |
+|---|---|---|
+| is_churn = no payment dated in [expiry, expiry + 30] (99.4 % agreement); a payment made before the expiry does not count as renewal even when it extends the subscription | Keep the official label as target and metric; document the definition in the w1/w2 reports | no action |
+| Manual early renewers without cancellation churn 40 % (45 % March); stable across fit/stop/tune; 26 % of manual churners, ~17 % of all in-scope churners | Treat them as a systematic part of the label, not noise; do not drop them from training | no action |
+| Inside that group the label is learnable (AUC 0.93 tree / 0.94 GBM on the Feb holdout) from payment timing and plan length | Per-cycle model: add paid_ahead, days_early, plan days of the early payment and payments in the current cycle (all dated <= as_of) | new feature |
+| Early payers extending 26-30 days churn 6 % (Feb) vs 42 % (Mar) only because an early monthly auto-renew charge extends +28 days in February and +31 in March; at the exact extension both months match (2 % auto, 46 % manual) | No label mechanic to model; but days_to_expire after an early payment carries month length (k+28 vs k+31): test a calendar-robust encoding in the per-cycle model | open |
+| A business label (any payment extending past the expiry) differs for ~1 in 6 churners and needs data to expiry + 30 (unavailable for March) | Report a February-only diagnostic with the business label next to the official metrics | open |
+<!-- /nb:11 -->

@@ -23,6 +23,12 @@ features that already exist. It replaces `workshops/w1/eda_legacy/`.
 | 06 | `06_user_logs_aggregates` | Which listening summaries add signal, over which window? |
 | 07 | `07_trajectories` | Is there a temporal dynamic that justifies a sequence model, and how should w2 be set up? |
 | 08 | `08_integration_and_drift` | Final 20-feature set, ablation, comparison with current w1, Feb → Mar drift |
+| 09 | `09_xgboost_old_vs_new` | Do the 20 EDA features beat the 108 current w1 columns with the same XGBoost? |
+| 10 | `10_per_cycle_prediction` | Scoring each customer k days before their own expiry: AP/F1 vs lead time k |
+| 11 | `11_label_audit` | What exactly does `is_churn` mean? Early renewers labelled as churn: noise or rule? |
+
+Notebooks 09, 10 and 11 are the only ones that look at `tune` and March with labels (to evaluate, never to choose
+features). Notebook 10 needs about 8 GB of RAM; do not run it next to another large kernel.
 
 **Running.** Notebooks read `workshops/data/parquet/` (created by the w1 preprocessing notebook). Shared code
 lives in `_common.py`; intermediate results are cached in `eda/cache/` (git-ignored). Run 06 before 07 (07 reads
