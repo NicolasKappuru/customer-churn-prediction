@@ -1,4 +1,9 @@
-# EDA series (w1) · KKBox churn
+# EDA series (w1) · KKBox churn — legacy
+
+> **Legacy.** Superseded by `workshops/eda/`. Notebooks 01-06 come from a public Kaggle kernel and were run on the
+> March cohort (the test set) without the as-of cutoff; 07-10 describe features that were already engineered.
+> Kept for reference only; do not use their conclusions.
+
 
 The exploratory analysis of the KKBox churn data, split into ten short notebooks that are meant to be read in order.
 Each notebook opens with the question it answers and closes with its conclusions.
