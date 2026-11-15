@@ -26,8 +26,11 @@ features that already exist. It replaces `workshops/w1/eda_legacy/`.
 | 09 | `09_xgboost_old_vs_new` | Do the 20 EDA features beat the 108 current w1 columns with the same XGBoost? |
 | 10 | `10_per_cycle_prediction` | Scoring each customer k days before their own expiry: AP/F1 vs lead time k |
 | 11 | `11_label_audit` | What exactly does `is_churn` mean? Early renewers labelled as churn: noise or rule? |
+| 12 | `12_march_shift_diagnosis` | Why does the per-cycle model under-predict March? (the label rule differs between `train` and `train_v2`) |
+| 13 | `13_relabelled_target_models` | Does the relabelled February target help the w1 model (59 features) and the EDA model (20 features)? |
+| 14 | `14_february_only_split` | Same comparison on a February-only 70 / 15 / 15 split, March never read |
 
-Notebooks 09, 10 and 11 are the only ones that look at `tune` and March with labels (to evaluate, never to choose
+Notebooks 09 to 14 are the only ones that look at `tune` and March with labels (to evaluate, never to choose
 features). Notebook 10 needs about 8 GB of RAM; do not run it next to another large kernel.
 
 **Running.** Notebooks read `workshops/data/parquet/` (created by the w1 preprocessing notebook). Shared code

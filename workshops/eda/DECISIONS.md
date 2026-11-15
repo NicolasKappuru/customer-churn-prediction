@@ -162,3 +162,38 @@ One section per notebook, written by `write_decisions` in its last cell. This ta
 | Early payers extending 26-30 days churn 6 % (Feb) vs 42 % (Mar) only because an early monthly auto-renew charge extends +28 days in February and +31 in March; at the exact extension both months match (2 % auto, 46 % manual) | No label mechanic to model; but days_to_expire after an early payment carries month length (k+28 vs k+31): test a calendar-robust encoding in the per-cycle model | open |
 | A business label (any payment extending past the expiry) differs for ~1 in 6 churners and needs data to expiry + 30 (unavailable for March) | Report a February-only diagnostic with the business label next to the official metrics | open |
 <!-- /nb:11 -->
+
+<!-- nb:12 -->
+## 12 · Why the per-cycle model under-predicts March
+
+| Finding | Decision | Kind |
+|---|---|---|
+| The March shortfall sits in three segments that are calibrated in February: manual payers on plans > 31 d (2.5 % of customers, ~50 % of the deficit, churn 44-47 % -> 82-83 %, mean p 45-47 %), auto-renewers (~30 %, 1.2-1.7 % -> 1.8-2.2 %) and manual 30-day payers (~17 %, 25 % -> 27 %) | Report calibration by these four state x plan-length segments whenever a model is moved to another month | no action |
+| Not covariate shift: March features alone predict slightly less churn (covariate effect -2..+2 points per segment); the churn rate given the features rises (+0.6 / +3.5 / +37 points). The only strong feature differences are calendar artefacts (payer_days, n_payments, days_to_expire) that do not move predictions | No feature change and no covariate reweighting | no action |
+| The label definition differs between train (Feb) and train_v2 (Mar) while renewal behaviour is identical: a renewal with a plan > 31 d in the 30-day window is 2 % churn in Feb and 97 % in Mar (9,700 March churners); a renewal followed by a cancellation is 48 % vs 96 %. Applying both rules to February moves its churn rate 5.6 % -> 7.4 % (March 7.3 %), every segment on its March rate | For models evaluated on March, rebuild the February training target from transactions with the March rule (official label OR long-plan-only renewal OR renew-then-cancel). Rule found by auditing March labels: needs sign-off, or confirmation of the train_v2 definition from its source | open |
+| Trained on the relabelled February target (same features, settings, protocol), March F1 at the February threshold goes 0.592 -> 0.613 (k=7) and 0.590 -> 0.674 (k=1), AP 0.618 -> 0.661 and 0.682 -> 0.730; the February threshold is within 0.002 F1 of the best March threshold and every segment is calibrated | No threshold transfer or recalibration step is needed once the label is consistent; the March F1 plateau of notebook 10 was the label mismatch | transformation |
+| Label-free corrections fail on the full eligible population: EM prior shift estimates 5.0-5.3 % (below the training rate) and costs -0.009 / -0.005 F1, per-segment EM -0.012 / -0.015. The gain reported in notebook 10 came from the common-customers filter | Drop the EM prior correction and the monthly recalibration item (supersedes the last two rows of section 10) | drop |
+| The calendar-cutoff model (whole cohort, notebook 09 setting) has the same mismatch: 6.4 % predicted vs 9.0 % real in March. Rules 1 + 2 give F1 0.584 -> 0.592 and AP 0.601 -> 0.627; also labelling customers prepaid beyond the next month as churn (40 % churn in Feb, 90 % in Mar) gives F1 0.628, AP 0.661. Customers expiring in the next month stay under-predicted (4.3 % vs 9.0 %) | The relabelled target is needed for any model trained on train and evaluated on train_v2, not only per-cycle; the rule for customers whose expiry is outside the label month is only partly identified (rule 3 is exploratory) | open |
+<!-- /nb:12 -->
+
+<!-- nb:13 -->
+## 13 · Relabelled February target on the w1 (59 features) and EDA (20 features) models
+
+| Finding | Decision | Kind |
+|---|---|---|
+| Trained on February relabelled with rules 1 + 2 and evaluated on the official March label, both calendar models gain the same: F1 0.584 -> 0.592 (20 features) and 0.578 -> 0.586 (w1 M3v2, 59 features), AP +0.026 in both; customers expiring in the label month become calibrated (7.3 % predicted vs 7.3 % real) | Use the relabelled February target for w1 models evaluated on train_v2; official February label only for February reporting | transformation |
+| Adding rule 3 (prepaid beyond the next month = churn) gives most of the gain: F1 0.628 / AP 0.661 with 20 features, F1 0.610 / AP 0.603 with 59 features (d F1 +0.044 and +0.032, bootstrap CIs exclude 0) | Train with rules 1 + 2 + 3; rule 3 stays flagged as exploratory (found on one group, 90 % pure in March) until the train_v2 definition is confirmed | open |
+| With rule 3 the 59-feature model learns days_to_expire >= 60 from February; in March the boundary is 62, so 3,960 customers expiring on April 29-30 (5.7 % churn) get p = 1.00 (~3,700 false positives) and AP falls 0.622 -> 0.603. The 20-feature model uses expiry_month and is not affected | Encode the expiry by calendar month (expiry_month) instead of numeric days_to_expire in any calendar-cutoff model trained with rule 3 | transformation |
+| The 20-feature model beats the tuned 59-feature model under every training target (F1 0.584 vs 0.578, 0.592 vs 0.586, 0.628 vs 0.610) | Keep the 20-feature set as the w1 feature table (confirms notebook 09) | no action |
+| Customers expiring in the next month stay under-predicted in both models (4.3-4.5 % vs 9.0 %) | No rule identified; report this segment separately | open |
+<!-- /nb:13 -->
+
+<!-- nb:14 -->
+## 14 · Relabelled target with a February-only split (70 / 15 / 15)
+
+| Finding | Decision | Kind |
+|---|---|---|
+| On a February-only split (train 70 / tune 15 / test 15, March never read) the 20 and 59 features tie: F1 0.562 vs 0.561 and AP 0.601 vs 0.600 on the official label, 0.653 vs 0.653 with rules 1 + 2 + 3 | Choose the feature set on transfer to another month (notebooks 09 and 13), not on a February holdout | no action |
+| Relabelled targets are learned better on their own label (F1 0.56 -> 0.63 -> 0.65, AP 0.60 -> 0.68 -> 0.71) and stay calibrated, but partly mechanically: higher base rate, and rule 3 positives are fully determined by expiry_month = later | Never compare targets by their own-label metrics; compare them on a common evaluation label | no action |
+| On the official February label rules 1 + 2 cost nothing measurable (d F1 -0.001 / -0.003, CIs include 0); rule 3 costs about 0.02 F1 (-0.019 / -0.021) | Rules 1 + 2 are the default training target (neutral on train, better on train_v2); rule 3 only when the evaluation label is train_v2, still exploratory | open |
+<!-- /nb:14 -->
