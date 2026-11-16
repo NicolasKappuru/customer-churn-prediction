@@ -136,7 +136,7 @@ def fit_transaction_scaler(
     block_rows=BLOCK_ROWS,
     seed=SEED,
 ):
-    """Fit clipping and standardisation for the twelve transaction/state channels."""
+    """Fit clipping and standardisation for the transaction/state channels."""
     index = channel_index(channel_specs)
     specs, scaled_specs = _transaction_layout(channel_specs)
     samples = _collect_transaction_quantile_samples(
@@ -147,7 +147,7 @@ def fit_transaction_scaler(
         view, rows, scaled_specs, index, limits, block_rows
     )
     return {
-        "channel_slice": [8, 20],
+        "channel_slice": [TRANSACTION_SLICE.start, TRANSACTION_SLICE.stop],
         "channels": [item["name"] for item in specs],
         "parameters": _build_transaction_parameters(
             scaled_specs, limits, accumulators

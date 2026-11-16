@@ -30,10 +30,10 @@
     }
   },
   "environment": {
-    "python": "3.14.7",
-    "numpy": "2.5.2",
+    "python": "3.13.16",
+    "numpy": "2.5.3",
     "pandas": "3.0.6",
-    "torch": "2.13.0+cu130"
+    "torch": "2.14.0+cu130"
   },
   "contract": {
     "dataset_version": 5,
@@ -94,5 +94,5 @@
     "development": "preprocessing/development.json"
   },
   "row_index": "row_index.parquet",
-  "generated_at": "2026-10-17T20:27:04"
+  "generated_at": "2026-11-16T16:07:12"
 }

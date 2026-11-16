@@ -1,0 +1,6 @@
+{
+  "model_id": "LSTM",
+  "contract_hash": "f8c807cc08e9",
+  "threshold": 0.29,
+  "tune_log_loss": 0.509458
+}

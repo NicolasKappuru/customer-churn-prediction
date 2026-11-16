@@ -2,7 +2,7 @@
 
 Layout of one export directory::
 
-    seq_lstm_<cohort>.npy       (users, 90, 20) float16
+    seq_lstm_<cohort>.npy       (users, 90, channels) float16  (14 in contract v6)
     labels_<cohort>.parquet     row, msno, is_churn  (same order as the array)
     sequence_audit.json         audit summary per cohort (written in section 8)
     metadata.json               contract: cutoffs, channels, shapes, row hashes
@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 
-from w2.src.data_processing.constants import LSTM_CHANNELS
+from w2.src.data_processing.constants import EXPORT_CHANNELS
 from w2.src.data_processing.sequences.transactions_sequences import sequence_channel_specs
 
 _TRANSACTION_SOURCES = ["transactions.parquet", "transactions_v2.parquet"]
@@ -31,11 +31,13 @@ _TIE_POLICY = {"version": 1, "order": ["transaction_date", "_ord"],
 # Entry points
 # --------------------------------------------------------------------------
 
-def export_sequence_dataset(export_dir, lstm, labels, users, audit, metadata, dataset_version):
+def export_sequence_dataset(export_dir, lstm, labels, users, audit, metadata, dataset_version,
+                            channels=EXPORT_CHANNELS):
     """Check alignment, write the labels and publish ``metadata.json``.
 
     ``lstm``, ``labels``, ``users`` and ``audit`` are dicts keyed by cohort;
-    ``metadata`` holds the run configuration (cutoffs, windows, ...).
+    ``metadata`` holds the run configuration (cutoffs, windows, ...);
+    ``channels`` names the last axis of every array, in order.
     """
     root = Path(export_dir)
     root.mkdir(parents=True, exist_ok=True)
@@ -49,7 +51,7 @@ def export_sequence_dataset(export_dir, lstm, labels, users, audit, metadata, da
         "dataset_version": dataset_version,
         **{f"n_{split}": len(lstm[split]) for split in hashes},
         **{f"hash_{split}": digest for split, digest in hashes.items()},
-        "sequences": {"lstm": _write_sequences(root, lstm, hashes)},
+        "sequences": {"lstm": _write_sequences(root, lstm, hashes, list(channels))},
         "labels": _write_labels(root, labels, hashes),
         "transaction_sources": _TRANSACTION_SOURCES,
         "transaction_tie_policy": _TIE_POLICY,
@@ -108,13 +110,15 @@ def _check_alignment(split, array, labels, users):
     return digest
 
 
-def _write_sequences(root, arrays, hashes):
+def _write_sequences(root, arrays, hashes, channels):
     """Make sure every array is on disk and describe it."""
-    spec = {"channels": LSTM_CHANNELS, "channel_specs": sequence_channel_specs(),
+    spec = {"channels": channels, "channel_specs": sequence_channel_specs(channels),
             "dtype": "float16", "order": "oldest_to_newest_calendar_day"}
     for split, array in arrays.items():
         if array.dtype != np.float16:
             raise ValueError(f"{split}: the sequence export requires float16.")
+        if array.shape[2] != len(channels):
+            raise ValueError(f"{split}: array has {array.shape[2]} channels, expected {len(channels)}.")
         path = root / f"seq_lstm_{split}.npy"
         if _is_memmap_of(array, path):
             array.flush()
