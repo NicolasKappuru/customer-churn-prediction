@@ -48,10 +48,42 @@
 \maketitle
 
 % ─────────────────────────────────────────────
+\section{Problem Statement}
+% ─────────────────────────────────────────────
+
+In this workshop the churn problem is approached from a different angle from Workshop~1. Instead of summarising each subscriber into a single tabular row, we use the dates in the dataset to treat churn as a \textbf{time-series problem}: each subscriber is represented by the day-by-day evolution of their listening activity and subscription status, and the models are recurrent neural networks that read those days in order.
+
+\paragraph{Population: manual payers only.} We work only with customers whose last transaction before the cutoff is a \textbf{manual payment} (a payment, not a cancellation, without automatic renewal). The exploratory analysis showed that this is the segment where behaviour actually decides churn and where the label is most consistent. A manual customer has to pay again by hand, so whether they keep listening and paying is directly related to whether they renew: their churn rate is 32\,\% in February, and inside the segment it ranges from 27\,\% for customers who listened on the last day to 88\,\% for customers with no listening in 90 days. For the other customers the renewal is mostly decided by the billing system, churn is rare (2.1\,\% among automatic renewals) and the label contains more inconsistencies. Restricting the problem to manual payers removes that noise and keeps the customers for whom a retention action is meaningful.
+
+\paragraph{Three approaches.} The same data are used in three ways (Table~\ref{tab:w2_approaches}):
+\begin{enumerate}
+    \item \textbf{Calendar cutoff (classification).} The same protocol as Workshop~1: every customer is scored on the same date, the last day of the month before the label month. February is used for training and March for testing.
+    \item \textbf{Per-customer cutoff (classification).} The scoring date is not fixed. Each customer is scored $k = 7$ days before their own plan expires, so every sequence ends at the same point of the billing cycle.
+    \item \textbf{Behaviour forecast (sequence-to-sequence).} Instead of predicting churn, the model predicts what the customer will do during the next 7 days. It reads the first 83 days of the 90-day window and is evaluated on the remaining 7.
+\end{enumerate}
+Approaches 1 and 2 use the LSTM and GRU as classifiers; approach 3 uses them as forecasters of daily behaviour.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|l|X|X|X|}
+\hline
+ & \textbf{1. Calendar cutoff} & \textbf{2. Per-customer cutoff} & \textbf{3. Behaviour forecast} \\ \hline
+Task & Churn classification & Churn classification & Next 7 days of events \\ \hline
+Window end & Cohort cutoff (same for everyone) & $k = 7$ days before each customer's expiry & Day 82 of the calendar window \\ \hline
+Input & 90 days $\times$ 14 channels & 90 days $\times$ 14 channels & 83 days $\times$ 14 channels \\ \hline
+Target & \texttt{is\_churn} & \texttt{is\_churn} & Days 83--89 (11 targets per day) \\ \hline
+Tensor & Calendar tensor & Per-cycle tensor & Calendar tensor \\ \hline
+\end{tabularx}
+\caption{The three approaches.}
+\label{tab:w2_approaches}
+\end{table}
+
+% ─────────────────────────────────────────────
 \section{Data Preparation}
 % ─────────────────────────────────────────────
 
-In this workshop the churn problem is approached from a different angle. Instead of summarising each subscriber into a single tabular row, as in Workshop~1, we use the dates in the dataset to treat churn prediction as a \textbf{sequence problem}: each subscriber is represented by the day-by-day evolution of their listening activity and subscription status. This requires transforming the raw data in a different way from the previous workshop. The pipeline is implemented in \path{workshops/w2/w2_sequence_preprocessing.ipynb} and the modules under \path{workshops/w2/src/data_processing/}.
+The pipeline is implemented in \path{workshops/w2/w2_sequence_preprocessing.ipynb} (calendar tensor), \path{workshops/w2/w2_cycle_preprocessing.ipynb} (per-cycle tensor) and the modules under \path{workshops/w2/src/data_processing/}.
 
 % ─────────────────────────────────────────────
 \subsection{Structure of the Raw Data}
@@ -113,35 +145,47 @@ is\_cancel               & Cancellation flag (1 = yes, 0 = no) & \texttt{int8} \
 \end{table}
 
 % ─────────────────────────────────────────────
+\subsection{Cleaning}
+% ─────────────────────────────────────────────
+
+\paragraph{Transactions.} Both transaction files are concatenated, restricted to the target users and to transactions on or before the cutoff. Exact duplicates are then removed: two rows are considered duplicates when the user (\texttt{msno}) and all eight transaction fields are equal. Only the first copy is kept. Two rows on the same day with different values are treated as different payments and both are kept.
+
+\paragraph{Listening logs.} The raw logs may contain several rows for the same user and day. Before aggregation, negative counters are clipped to zero and non-finite values of \texttt{total\_secs} are replaced by zero. The rows of the same user and day are then summed into a single row. For example, if user $A$ has three rows on 2017-02-01, with \texttt{num\_25} equal to 3, 2 and 1, the aggregated row has \texttt{num\_25} $= 6$. Formally, for user $i$, day $d$ and counter $k$:
+\begin{equation}
+v_{i,d,k} = \sum_{r \in R_{i,d}} \max(0,\, v_{r,k}),
+\end{equation}
+where $R_{i,d}$ is the set of raw log rows of user $i$ on day $d$. The number of raw rows $|R_{i,d}|$ is kept to define the activity flag.
+
+% ─────────────────────────────────────────────
 \subsection{Tensor Construction}
 % ─────────────────────────────────────────────
 
-\subsubsection{Temporal Split and Window Overlap}
+Approaches 1 and 3 use the same \textbf{calendar tensor}; approach 2 uses a \textbf{per-cycle tensor}. Both have the same 14 channels, built by the same code; they differ only in the day on which each customer's 90-day window ends.
+
+\subsubsection{Calendar Tensor (Approaches 1 and 3)}
 
 Each cohort $c$ is defined by a cutoff date $\tau_c$, the last day whose information may be used. Its sequence window contains the $L = 90$ consecutive calendar days that end on the cutoff:
 \begin{equation}
 W_c = \{\, \tau_c - 89,\; \tau_c - 88,\; \dots,\; \tau_c \,\}, \qquad |W_c| = L = 90 .
 \end{equation}
-A calendar date $d \in W_c$ is mapped to the day index
-\begin{equation}
-t(d) = d - (\tau_c - 89) \in \{0, 1, \dots, 89\},
-\end{equation}
-so $t = 0$ is the oldest day of the window and $t = 89$ is the cutoff. Table~\ref{tab:w2_cohorts} lists the two cohorts.
+A calendar date $d \in W_c$ is mapped to the day index $t(d) = d - (\tau_c - 89) \in \{0, \dots, 89\}$, so $t = 0$ is the oldest day of the window and $t = 89$ is the cutoff.
+
+\paragraph{Manual segment.} A customer belongs to the segment when, on the cutoff, their most recent transaction day is a payment without automatic renewal and without cancellation. The state is read with the same function that fills the payment-state channels (Section~\ref{sec:w2_channels}), so it uses exactly the information available up to the cutoff, and it is applied to each cohort at its own cutoff \emph{before} the tensor is built: only the segment customers are processed. Table~\ref{tab:w2_cohorts} lists the two cohorts.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|l|l|l|l|r|r|}
 \hline
-\textbf{Cohort} & \textbf{Role} & \textbf{Window $W_c$} & \textbf{Target} & \textbf{Users $N_c$} & \textbf{Churn rate} \\ \hline
-\texttt{train\_feb} & Training & 2016-11-03 to 2017-01-31 & February 2017 & 992{,}931 & 6.4\% \\ \hline
-\texttt{test}       & Test     & 2016-12-01 to 2017-02-28 & March 2017    & 970{,}960 & 9.0\% \\ \hline
+\textbf{Cohort} & \textbf{Role} & \textbf{Window $W_c$} & \textbf{Target} & \textbf{Manual users} & \textbf{Churn rate} \\ \hline
+\texttt{train\_feb} & Training & 2016-11-03 to 2017-01-31 & February 2017 & 111{,}751 & 32.2\% \\ \hline
+\texttt{test}       & Test     & 2016-12-01 to 2017-02-28 & March 2017    & 113{,}870 & 41.1\% \\ \hline
 \end{tabular}
-\caption{Labelled cohorts, their 90-day windows and churn targets.}
+\caption{Manual-segment cohorts of the calendar tensor, their 90-day windows and churn targets.}
 \label{tab:w2_cohorts}
 \end{table}
 
-We build the training tensor from each user's activity between 2016-11-03 and 2017-01-31, with February 2017 churn as the target. The test tensor uses the window from 2016-12-01 to 2017-02-28, with March 2017 churn as the target. The two windows overlap by 62 days (2016-12-01 to 2017-01-31), as shown in Figure~\ref{fig:w2_overlap}.
+The two windows overlap by 62 days (2016-12-01 to 2017-01-31), as shown in Figure~\ref{fig:w2_overlap}. This overlap is intentional: it follows from a fixed-length lookback window that advances one month at a time, which is how a subscription service would score its customers in production. It does not leak target information, because every channel uses only data up to its window's cutoff and the labels belong to different months. 60{,}478 customers are manual payers in both cohorts; each appears once per cohort, with its own cutoff, sequence and label.
 
 \begin{figure}[H]
 \centering
@@ -152,14 +196,11 @@ We build the training tensor from each user's activity between 2016-11-03 and 20
         \draw[gray] (\x,0.1) -- (\x,-0.1);
         \node[below, gray] at (\x,-0.1) {\lbl};
     }
-    % Overlap band
     \fill[orange!20] (28,0.35) rectangle (90,2.25);
     \node[orange!70!black] at (59,2.5) {overlap: 62 days};
-    % Train window
     \fill[blue!35] (0,1.45) rectangle (90,1.95);
     \node[left] at (0,1.7) {\texttt{train\_feb}};
     \node[right] at (90,1.7) {$\rightarrow$ churn Feb};
-    % Test window
     \fill[red!35] (28,0.65) rectangle (118,1.15);
     \node[left] at (28,0.9) {\texttt{test}};
     \node[right] at (118,0.9) {$\rightarrow$ churn Mar};
@@ -168,75 +209,78 @@ We build the training tensor from each user's activity between 2016-11-03 and 20
 \label{fig:w2_overlap}
 \end{figure}
 
-This overlap is intentional. It follows from using a fixed-length lookback window that advances one month at a time, which is how a subscription service would score its customers in production. Each month, the model receives the most recent 90 days of behaviour and predicts whether the customer will renew in the following month, so consecutive scoring windows necessarily share most of their history.
+\paragraph{Approach 3 uses the same tensor, cut in two.} For the behaviour forecast the 90 days of each customer are split into an input and a target part:
+\begin{center}
+\begin{tikzpicture}[x=0.11cm, y=1cm, font=\small]
+    \fill[blue!25] (0,0) rectangle (83,0.5);
+    \fill[green!30] (83,0) rectangle (90,0.5);
+    \node at (41.5,0.25) {input: days 0--82 (83 days, 14 channels)};
+    \node[anchor=west] at (91,0.25) {target: days 83--89};
+    \node[below] at (0,0) {0}; \node[below] at (83,0) {83}; \node[below] at (90,0) {89};
+\end{tikzpicture}
+\end{center}
+For February the target week is 2017-01-25 to 2017-01-31 and for March 2017-02-22 to 2017-02-28. These days are in the future only relative to what the model reads, so no new export is needed.
 
-The overlap does not leak target information. Every feature is computed using only data up to its window's cutoff, and the labels belong to different, non-overlapping periods (February for training, March for testing). During training the model never observes the March outcome, nor any activity after 2017-01-31. The test set therefore measures forward-looking temporal generalisation: how well a model trained on one month's snapshot predicts the next month's churn, including any behavioural drift between the two months.
+\subsubsection{Per-Cycle Tensor (Approach 2)}
 
-Many users appear in both cohorts (881{,}701 of the February users are also in the March cohort), as they would in real monthly scoring. A shared integer identifier \texttt{uid} is assigned over the union of both cohorts (1{,}082{,}190 unique users) and is used only to join each user with their logs and transactions. Each cohort keeps its own complete list of users, its own row order and its own labels: a user present in only one cohort appears only in that cohort's tensor, and a user present in both appears twice, with a different cutoff, sequence and label each time. Our results should therefore be read as performance on an existing customer base rather than on entirely unseen users.
-
-\subsubsection{Cleaning}
-
-\paragraph{Transactions.} Both transaction files are concatenated, restricted to the target users and to transactions on or before the cutoff. Exact duplicates are then removed: two rows are considered duplicates when the user (\texttt{msno}) and all eight transaction fields (\texttt{payment\_method\_id}, \texttt{payment\_plan\_days}, \texttt{plan\_list\_price}, \texttt{actual\_amount\_paid}, \texttt{is\_auto\_renew}, \texttt{transaction\_date}, \texttt{membership\_expire\_date}, \texttt{is\_cancel}) are equal. Only the first copy is kept. Two rows on the same day with different values are treated as different payments and both are kept.
-
-\paragraph{Listening logs.} The raw logs may contain several rows for the same user and day. Before aggregation, negative counters are clipped to zero and non-finite values of \texttt{total\_secs} are replaced by zero. The rows of the same user and day are then summed into a single row. For example, if user $A$ has three rows on 2017-02-01, with \texttt{num\_25} equal to 3, 2 and 1, the aggregated row has \texttt{num\_25} $= 6$; the other counters are summed in the same way. Formally, for user $i$, day $d$ and counter $k$:
-\begin{equation}
-v_{i,d,k} = \sum_{r \in R_{i,d}} \max(0,\, v_{r,k}),
-\end{equation}
-where $R_{i,d}$ is the set of raw log rows of user $i$ on day $d$. The number of raw rows $|R_{i,d}|$ is kept to define the activity flag.
-
-\subsubsection{Listening Channels}
-
-The aggregated logs are placed into the window. Days without any log row are filled with zeros. The seven counters are transformed with $\log(1+x)$ to compress their heavy-tailed distribution; standard scaling is fitted later, on the training split only, inside the model notebook. An eighth channel, \texttt{active}, indicates whether a log row exists for that day, independently of the counter values:
-\begin{equation}
-x_{i,t,k} = \log\!\left(1 + v_{i,d,k}\right), \quad k = 1,\dots,7, \qquad
-a_{i,t} = \ind\!\left[\,|R_{i,d}| > 0\,\right],
-\end{equation}
-with $t = t(d)$. A day with a log row where every counter is zero is still active, which distinguishes ``logged in but did not listen'' from ``no record''. Table~\ref{tab:w2_listening} lists the listening channels.
+In the calendar tensor every window ends on the same date, but each customer is at a different point of their billing cycle: one expires the next day, another in four weeks. The exploratory analysis showed that the behaviour of manual payers is anchored to their expiry date (they listen most right after paying and fade until the expiry). The per-cycle tensor therefore ends each customer's window $k$ days before their own expiry. The definitions are:
+\begin{itemize}
+    \item \textbf{Reference date} $\rho_c$: 2017-01-31 for February and 2017-02-28 for March.
+    \item \textbf{Anchor} $a_i$: the membership expiry known at the reference date, read from the last transaction day exactly as the state channels read it.
+    \item \textbf{Scope}: the anchor falls inside the label month (1--28 days after 2017-01-31, 1--31 days after 2017-02-28). These are the customers the official label is defined for.
+    \item \textbf{Segment}: manual at the reference date, with the same rule as the calendar tensor.
+    \item \textbf{Scoring date}: $\text{as\_of}_i = a_i - k$, with $k = 7$. Every channel uses only records dated on or before $\text{as\_of}_i$, so nothing from the expiry day onwards is used.
+    \item \textbf{Eligibility (no look-ahead)}: when $\text{as\_of}_i$ is before the reference date, the anchor itself comes from a later transaction, so the customer is kept only if the expiry already known at $\text{as\_of}_i$ equals the anchor.
+\end{itemize}
+The window of customer $i$ is $W_i = \{\text{as\_of}_i - 89, \dots, \text{as\_of}_i\}$, so day 89 is always 7 days before the expiry. Table~\ref{tab:w2_cycle_pop} shows how the population is obtained.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
-\begin{tabularx}{\textwidth}{|c|l|X|l|}
+\begin{tabular}{|l|r|r|r|r|}
 \hline
-\textbf{Index} & \textbf{Channel} & \textbf{Description} & \textbf{Encoding} \\ \hline
-0 & num\_25     & Songs played less than 25\% & $\log(1+x)$ \\ \hline
-1 & num\_50     & Songs played 25--50\%       & $\log(1+x)$ \\ \hline
-2 & num\_75     & Songs played 50--75\%       & $\log(1+x)$ \\ \hline
-3 & num\_985    & Songs played 75--98.5\%     & $\log(1+x)$ \\ \hline
-4 & num\_100    & Songs played at least 98.5\% & $\log(1+x)$ \\ \hline
-5 & num\_unq    & Unique songs played         & $\log(1+x)$ \\ \hline
-6 & total\_secs & Seconds listened            & $\log(1+x)$ \\ \hline
-7 & active      & 1 if a log row exists for the day, 0 otherwise & flag \\ \hline
-\end{tabularx}
-\caption{Listening channels (8) of the sequence tensor.}
-\label{tab:w2_listening}
+ & \multicolumn{2}{c|}{\textbf{February}} & \multicolumn{2}{c|}{\textbf{March}} \\ \hline
+\textbf{Step} & \textbf{Customers} & \textbf{Churn} & \textbf{Customers} & \textbf{Churn} \\ \hline
+Labelled cohort                  & 992{,}931 & 6.4\%  & 970{,}960 & 9.0\% \\ \hline
+Manual at the reference date     & 111{,}751 & 32.2\% & 113{,}870 & 41.1\% \\ \hline
+Anchor inside the label month    & 104{,}970 & 29.3\% & 104{,}465 & 38.4\% \\ \hline
+Eligible at $\text{as\_of} = a - 7$ & \textbf{104{,}964} & \textbf{29.3\%} & \textbf{104{,}322} & \textbf{38.3\%} \\ \hline
+\end{tabular}
+\caption{Population of the per-cycle tensor ($k = 7$). The eligibility filter removes 6 February and 143 March customers.}
+\label{tab:w2_cycle_pop}
 \end{table}
 
-\subsubsection{Transaction Channels: Events and States}
+The scoring dates range from 2017-01-25 to 2017-02-21 for February and from 2017-02-22 to 2017-03-24 for March.
 
-The tensor is completed with twelve transaction channels, divided into two groups:
+\paragraph{Construction by date shift.} The builders of the calendar tensor take a single cutoff. Instead of rewriting them, every date of a customer (transactions, expiries and listening days) is shifted by $\rho_c - \text{as\_of}_i$ days, so that their scoring date falls on the reference date, and the unchanged builder runs with cutoff $\rho_c$. The 14 channels depend only on differences between dates, so the result is exactly the window that ends on $\text{as\_of}_i$. Two checks confirm it: for the three most frequent scoring dates of each cohort, up to 300 customers rebuilt without any shift and with $\text{cutoff} = \text{as\_of}$ are identical to the exported rows; and on the last day \texttt{tx\_days\_to\_expire} equals 7 for every customer scored on or before the reference date. Customers scored after the reference date may have transacted again before their scoring date (usually an early payment); that event is legitimate information and the model sees it in the transaction channels.
 
+\subsubsection{Channels}
+\label{sec:w2_channels}
+
+Both tensors have 14 channels per day: 8 describe listening and 6 describe payments.
+
+\paragraph{Listening (8 channels).} The aggregated logs are placed into the window. Days without any log row are filled with zeros. The seven counters are transformed with $\log(1+x)$ to compress their heavy-tailed distribution; standardisation is fitted later, on the training split only. An eighth channel, \texttt{active}, indicates whether a log row exists for that day, independently of the counter values:
+\begin{equation}
+x_{i,t,k} = \log\!\left(1 + v_{i,d,k}\right), \quad k = 1,\dots,7, \qquad
+a_{i,t} = \ind\!\left[\,|R_{i,d}| > 0\,\right],
+\end{equation}
+with $t = t(d)$. A day with a log row where every counter is zero is still active, which distinguishes ``logged in but did not listen'' from ``no record''.
+
+\paragraph{Payments (6 channels): events and states.} The transactions of each user are first aggregated per day. The payment channels are divided into two groups:
 \begin{itemize}
     \item \textbf{Events} encode what happened on a specific day. They are written only on the days with at least one payment and are zero on every other day.
-    \item \textbf{States} encode the subscription status known at the end of a specific day. They are carried forward to the following days until the next payment updates them.
+    \item \textbf{States} encode the subscription status known at the end of each day. They are carried forward to the following days until the next payment updates them.
 \end{itemize}
+Only the \textbf{latest payment day before the window} is kept from the earlier history. This record initialises the state at $t = 0$ but does not create an event inside the window. A payment on day $t$ writes the event channels on day $t$ and updates the state from day $t$ onward; future payments never modify earlier days, so the tensor is causal. This is verified in the notebook by comparing the vectorised builder against a day-by-day reference implementation and checking that adding a later payment leaves every earlier day unchanged.
 
-First, the transactions of each user are aggregated per day. Event values are summed over all payments of the day. State values (cancellation, auto-renewal and expiry date) are taken from the last record of that day in source order, and a flag marks the day as ambiguous when the records of the same day disagree on any of these three values.
-
-\paragraph{Payments before the window.} Only the \textbf{latest payment day before the window} is kept from the earlier history; all earlier payments are summarised by that single record. This record initialises the state at $t = 0$ but does not create an event inside the window. A payment on day $t$ writes the event channels on day $t$ and updates the state from day $t$ onward. Future payments never modify earlier days, which guarantees that the tensor is causal. This property is verified in the notebook by comparing the vectorised builder against a day-by-day reference implementation and checking that adding a later payment leaves every earlier day unchanged.
-
-Formally, let $P_i$ be the set of payment days of user $i$ up to the cutoff, and let
-\begin{equation}
-s_i(t) = \max \{\, p \in P_i : p \le d_t \,\}
-\end{equation}
-be the most recent payment day known on day $d_t$ (possibly before the window). The state is known when $s_i(t)$ exists, and the recency and expiry channels are
+Let $P_i$ be the set of payment days of user $i$ up to the cutoff, and $s_i(t) = \max \{\, p \in P_i : p \le d_t \,\}$ the most recent payment day known on day $d_t$ (possibly before the window). The state is known when $s_i(t)$ exists, and the two numeric state channels are
 \begin{align}
 \text{tx\_days\_since\_last}_{i,t} &= \log\!\Big(1 + \clip\big(d_t - s_i(t),\, 0,\, 3650\big)\Big), \\
 \text{tx\_days\_to\_expire}_{i,t}  &= \slog\!\Big(\clip\big(e_i(t) - d_t,\, -3650,\, 3650\big)\Big),
 \end{align}
-where $e_i(t)$ is the membership expiry date recorded on day $s_i(t)$, and $\slog(x) = \operatorname{sign}(x)\log(1 + |x|)$ is the signed logarithm, used for quantities that can be negative (an already expired membership, or a negative amount paid). When the state is not yet known, all state channels are zero.
+where $e_i(t)$ is the membership expiry recorded on day $s_i(t)$, and $\slog(x) = \operatorname{sign}(x)\log(1 + |x|)$ is the signed logarithm, used for quantities that can be negative (an already expired membership, or a refund). When the state is not yet known, all state channels are zero.
 
-\paragraph{Worked example.} Consider a user of the \texttt{test} cohort, whose window starts on 2016-12-01 ($t = 0$). The user paid on 2016-11-20, before the window, with auto-renewal disabled and a membership that expires on 2016-12-20, and made no further payments. The pre-window payment initialises the state, so $s_i(t) = \text{2016-11-20}$ and $e_i(t) = \text{2016-12-20}$ for every day of the window, and no event is written on any day. Table~\ref{tab:w2_example} shows the two channels on three days. On day 19 the membership expires and \texttt{tx\_days\_to\_expire} is zero; from day 20 on it is negative, a strong signal that the user has not renewed. These values were obtained by running this user through the same builder used for the export.
+\paragraph{Worked example.} Consider a customer of the \texttt{test} cohort, whose window starts on 2016-12-01 ($t = 0$). The customer paid manually on 2016-11-20, before the window, for a membership that expires on 2016-12-20, and made no further payments. The pre-window payment initialises the state, so $s_i(t) = \text{2016-11-20}$ and $e_i(t) = \text{2016-12-20}$ for every day of the window, and no event is written on any day. Table~\ref{tab:w2_example} shows the two channels on three days. On day 19 the membership expires and \texttt{tx\_days\_to\_expire} is zero; from day 20 on it is negative, a strong signal that the customer has not renewed. These values were obtained by running this customer through the same builder used for the export.
 
 \begin{table}[H]
 \centering
@@ -248,14 +292,14 @@ where $e_i(t)$ is the membership expiry date recorded on day $s_i(t)$, and $\slo
 19 & 2016-12-20 & 30 & $\log(1 + 30) = 3.43$ & 0   & $\slog(0) = 0.00$ \\ \hline
 24 & 2016-12-25 & 35 & $\log(1 + 35) = 3.58$ & $-5$ & $\slog(-5) = -1.79$ \\ \hline
 \end{tabular}
-\caption{Recency and expiry channels for a user whose only payment (2016-11-20, expiring 2016-12-20) falls before the \texttt{test} window.}
+\caption{Recency and expiry channels for a customer whose only payment (2016-11-20, expiring 2016-12-20) falls before the \texttt{test} window.}
 \label{tab:w2_example}
 \end{table}
 
-Table~\ref{tab:w2_transactions} describes each transaction channel.
+Table~\ref{tab:w2_channels} lists the 14 channels.
 
 \renewcommand{\arraystretch}{1.3}
-\begin{longtable}{|c|l|c|p{6.2cm}|l|}
+\begin{longtable}{|c|l|c|p{6.4cm}|l|}
 \hline
 \textbf{Index} & \textbf{Channel} & \textbf{Group} & \textbf{Description} & \textbf{Encoding} \\ \hline
 \endfirsthead
@@ -266,69 +310,67 @@ Table~\ref{tab:w2_transactions} describes each transaction channel.
 \multicolumn{5}{r}{\small\textit{Continued on next page}} \\
 \endfoot
 \hline
-\caption{Transaction channels (12) of the sequence tensor.}
-\label{tab:w2_transactions}
+\caption{The 14 channels of both tensors.}
+\label{tab:w2_channels}
 \endlastfoot
-8  & tx\_count               & Event & Number of payments on the day & $\log(1+x)$ \\ \hline
-9  & tx\_paid\_sum           & Event & Total amount paid on the day (NTD) & $\slog(x)$ \\ \hline
-10 & tx\_plan\_days\_sum     & Event & Total plan days purchased on the day & $\log(1+x)$ \\ \hline
-11 & tx\_cancel\_count       & Event & Number of cancellation records on the day & $\log(1+x)$ \\ \hline
-12 & tx\_auto\_renew\_count  & Event & Number of auto-renew records on the day & $\log(1+x)$ \\ \hline
-13 & tx\_state\_known        & State & 1 once at least one payment has been observed up to the day, including the pre-window payment & flag \\ \hline
-14 & tx\_last\_is\_cancel    & State & Cancellation flag of the most recent payment day & flag \\ \hline
-15 & tx\_last\_is\_auto\_renew & State & Auto-renew flag of the most recent payment day & flag \\ \hline
-16 & tx\_days\_since\_last   & State & Days since the most recent payment, clipped to $[0, 3650]$ & $\log(1+x)$ \\ \hline
-17 & tx\_days\_to\_expire    & State & Membership expiry minus the current day, clipped to $[-3650, 3650]$ & $\slog(x)$ \\ \hline
-18 & tx\_expiry\_known       & State & 1 if the expiry date of the most recent payment is valid & flag \\ \hline
-19 & tx\_state\_ambiguous    & State & 1 if the records of the most recent payment day disagree on cancellation, auto-renewal or expiry & flag \\ \hline
+0  & num\_25              & Listening & Songs played less than 25\% & $\log(1+x)$ \\ \hline
+1  & num\_50              & Listening & Songs played 25--50\%       & $\log(1+x)$ \\ \hline
+2  & num\_75              & Listening & Songs played 50--75\%       & $\log(1+x)$ \\ \hline
+3  & num\_985             & Listening & Songs played 75--98.5\%     & $\log(1+x)$ \\ \hline
+4  & num\_100             & Listening & Songs played at least 98.5\% & $\log(1+x)$ \\ \hline
+5  & num\_unq             & Listening & Unique songs played         & $\log(1+x)$ \\ \hline
+6  & total\_secs          & Listening & Seconds listened            & $\log(1+x)$ \\ \hline
+7  & active               & Listening & 1 if a log row exists for the day, 0 otherwise & flag \\ \hline
+8  & tx\_count            & Event & Number of payments on the day & $\log(1+x)$ \\ \hline
+9  & tx\_paid\_sum        & Event & Total amount paid on the day (NTD) & $\slog(x)$ \\ \hline
+10 & tx\_plan\_days\_sum  & Event & Total plan days purchased on the day & $\log(1+x)$ \\ \hline
+11 & tx\_state\_known     & State & 1 once at least one payment has been observed up to the day, including the pre-window payment & flag \\ \hline
+12 & tx\_days\_since\_last & State & Days since the most recent payment, clipped to $[0, 3650]$ & $\log(1+x)$ \\ \hline
+13 & tx\_days\_to\_expire & State & Membership expiry minus the current day, clipped to $[-3650, 3650]$ & $\slog(x)$ \\ \hline
 \end{longtable}
 
-\subsubsection{Resulting Tensor}
+The builder computes six further transaction channels internally (cancellation and renewal-type counters and flags, an expiry-validity flag and a flag for conflicting records on the same day), because the audit of the tensor is defined on them. In the manual segment they carry almost no information (the cancellation and renewal channels are non-zero for only 2--3.5\,\% of customers and the expiry-validity flag equals \texttt{tx\_state\_known} on every day), so they are not exported.
 
-For each user $i$ of cohort $c$, the 20 channels are stacked into a matrix whose rows are the 90 days, ordered from oldest to newest, and whose columns are the channels in the order of Tables~\ref{tab:w2_listening} and~\ref{tab:w2_transactions}:
+\subsubsection{Resulting Tensors}
+
+For each customer $i$ of cohort $c$, the 14 channels are stacked into a matrix whose rows are the 90 days, from oldest to newest, and whose columns follow Table~\ref{tab:w2_channels}:
 \begin{equation}
 X_i^{(c)} =
 \begin{bmatrix}
-x_{i,0,0}  & x_{i,0,1}  & \cdots & x_{i,0,19} \\
-x_{i,1,0}  & x_{i,1,1}  & \cdots & x_{i,1,19} \\
-\vdots     & \vdots     & \ddots & \vdots \\
-x_{i,89,0} & x_{i,89,1} & \cdots & x_{i,89,19}
+x_{i,0,0}  & \cdots & x_{i,0,13} \\
+\vdots     & \ddots & \vdots \\
+x_{i,89,0} & \cdots & x_{i,89,13}
 \end{bmatrix}
-\in \R^{L \times F}, \qquad L = 90,\; F = 20 .
+\in \R^{L \times F}, \qquad L = 90,\; F = 14 ,
+\qquad
+X_i^{(c)} = \big[\; \underbrace{X_i^{\text{listen}}}_{\R^{90 \times 8}} \;\big|\; \underbrace{X_i^{\text{event}}}_{\R^{90 \times 3}} \;\big|\; \underbrace{X_i^{\text{state}}}_{\R^{90 \times 3}} \;\big].
 \end{equation}
-Stacking the $N_c$ users of the cohort gives the cohort tensor
-\begin{equation}
-\mathcal{X}^{(c)} = \big[\, X_1^{(c)}, X_2^{(c)}, \dots, X_{N_c}^{(c)} \,\big] \in \R^{N_c \times L \times F},
-\end{equation}
-together with the label vector $y^{(c)} \in \{0,1\}^{N_c}$, aligned so that position $i$ of $y^{(c)}$ is the label of $X_i^{(c)}$. The channel dimension splits into three blocks:
-\begin{equation}
-X_i^{(c)} = \big[\; \underbrace{X_i^{\text{listen}}}_{\R^{90 \times 8}} \;\big|\; \underbrace{X_i^{\text{event}}}_{\R^{90 \times 5}} \;\big|\; \underbrace{X_i^{\text{state}}}_{\R^{90 \times 7}} \;\big].
-\end{equation}
+Stacking the $N_c$ customers gives $\mathcal{X}^{(c)} \in \R^{N_c \times 90 \times 14}$, aligned with the label vector $y^{(c)} \in \{0,1\}^{N_c}$. Table~\ref{tab:w2_tensors} summarises the two tensors. They are stored as \texttt{float16} arrays (\texttt{export-sequential-v6-manual/} and \texttt{export-sequential-v6-cycle-k7-manual/}) with their labels in \texttt{labels\_<cohort>.parquet}. Before export, an audit rejects a tensor if any of the following fails: the expected shape, finite values, binary flags, non-negative counts and recency, zero event channels on days without a payment, and zero state channels before the state is known.
 
-In this way we obtain $\mathcal{X}^{(\text{train\_feb})} \in \R^{992{,}931 \times 90 \times 20}$ and $\mathcal{X}^{(\text{test})} \in \R^{970{,}960 \times 90 \times 20}$. The tensors are stored as \texttt{float16} arrays (\texttt{seq\_lstm\_train\_feb.npy} and \texttt{seq\_lstm\_test.npy}, about 3.5~GB each) with their labels in \texttt{labels\_<cohort>.parquet}, in the directory \texttt{workshops/w2/export-sequential-v5/}. Before export, an audit rejects the tensor if any of the following fails: the expected shape, finite values, binary flags, non-negative counts and recency, zero event channels on days without a payment, and zero state channels before the state is known.
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Tensor} & \textbf{Approaches} & \textbf{February (train)} & \textbf{March (test)} \\ \hline
+Calendar  & 1, 3 & $111{,}751 \times 90 \times 14$ & $113{,}870 \times 90 \times 14$ \\ \hline
+Per-cycle & 2    & $104{,}964 \times 90 \times 14$ & $104{,}322 \times 90 \times 14$ \\ \hline
+\end{tabular}
+\caption{Shapes of the two tensors.}
+\label{tab:w2_tensors}
+\end{table}
 
 % ─────────────────────────────────────────────
-\section{Recurrent Models}
+\section{Architecture}
 % ─────────────────────────────────────────────
 
-We compare two gated recurrent neural networks: a Long Short-Term Memory network (LSTM) and a Gated Recurrent Unit network (GRU). Both read the 90 days in chronological order and maintain a hidden representation of the customer's behaviour. Prior empirical work found GRU performance comparable to LSTM on sequence-modelling tasks, while noting that the relative result depends on the dataset and task \cite{chung2014}. Our comparison isolates the recurrent cell: the input tensor, preprocessing, data partitions, classifier head, loss, optimiser, search space and evaluation protocol are identical. The models are implemented in PyTorch by the shared \texttt{RecurrentClassifier} and its subclasses \texttt{LSTMModel} and \texttt{GRUModel} (\path{workshops/w2/src/models/recurrent_models/recurrent_classifier.py}); training and evaluation are orchestrated in \path{workshops/w2/w2_neural_models.ipynb}.
+Two gated recurrent neural networks are compared: a Long Short-Term Memory network (LSTM) and a Gated Recurrent Unit network (GRU). Both read the days in chronological order and maintain a hidden representation of the customer's behaviour. Prior empirical work found GRU performance comparable to LSTM on sequence-modelling tasks, while noting that the relative result depends on the dataset and task \cite{chung2014}. For every approach, both cells are evaluated under identical conditions: the input, preprocessing, data partitions, output head, loss, optimiser, search space and evaluation protocol are the same, and only the recurrent cell changes. The models are implemented in PyTorch under \path{workshops/w2/src/models/}.
 
-\subsection{Architecture}
+\subsection{Recurrent Encoder}
 
-The common architecture has the following layers (Figure~\ref{fig:w2_arch}):
+The encoder is shared by the three approaches. It is a stack of \texttt{layer\_dim} LSTM or GRU layers with \texttt{hidden\_dim} $= H$ units each: the first layer reads the 14 channels of each day and every following layer reads the hidden states of the layer below. The states start at zero.
 
-\begin{itemize}
-    \item \textbf{Input layer.} A batch of users taken from the tensor built before, with shape $(B, 90, 20)$: $B$ users, 90 days and 20 channels. Each day $t$ of user $i$ is the vector $x_{i,t} \in \R^{20}$.
-    \item \textbf{Recurrent encoder.} Either stacked LSTM or stacked GRU layers. The first layer reads the 20 channels and each subsequent layer reads the hidden states of the layer below.
-    \item \textbf{Hidden dimension} (\texttt{hidden\_dim}). The number of units in each hidden state $h_t \in \R^{H}$; it controls the capacity of the temporal representation.
-    \item \textbf{Layer dimension} (\texttt{layer\_dim}). The number of stacked recurrent layers, between 2 and 4.
-    \item \textbf{Batch normalisation layer.} After the 90 days, the output of the last layer on the last day, $h_{90} \in \R^{H}$, has shape $(B, H)$. This vector summarises the customer's behaviour over the 90 days. \texttt{BatchNorm1d} normalises it across the batch, which stabilises the training.
-    \item \textbf{Output layer.} A linear layer applies the transformation $z = w^\top \tilde{h}_{90} + b$ and produces one value per user, the \emph{logit} $z \in \R$.
-\end{itemize}
-
-\subsubsection{LSTM Cell}
-
-For each day, an LSTM cell updates a separate memory cell $c_t$ and hidden state $h_t$ with
+\paragraph{LSTM cell.} For each day, an LSTM cell updates a separate memory cell $c_t$ and hidden state $h_t$ with
 \begin{align}
 f_t &= \sigma(W_f x_t + U_f h_{t-1} + b_f), &
 i_t &= \sigma(W_i x_t + U_i h_{t-1} + b_i), &
@@ -337,142 +379,137 @@ o_t &= \sigma(W_o x_t + U_o h_{t-1} + b_o), \\
 c_t &= f_t \odot c_{t-1} + i_t \odot \tilde{c}_t, &
 h_t &= o_t \odot \tanh(c_t),
 \end{align}
-where $f_t$, $i_t$ and $o_t$ are the forget, input and output gates, $\sigma$ is the sigmoid function and $\odot$ is the element-wise product. The states start at $h_0 = c_0 = 0$.
+where $f_t$, $i_t$ and $o_t$ are the forget, input and output gates, $\sigma$ is the sigmoid function and $\odot$ is the element-wise product. The explicit memory path lets the forget gate retain information over many days, at the cost of four affine transformations per layer.
 
-The explicit memory path allows the forget gate to retain information over many time steps, while the input and output gates control what is written and exposed. This flexibility comes at a computational cost: each layer computes four affine transformations (three gates and one candidate state).
-
-\subsubsection{GRU Cell}
-
-The GRU merges the memory and hidden states into a single vector. For each day it computes a reset gate $r_t$, an update gate $u_t$ and a candidate state $n_t$:
+\paragraph{GRU cell.} The GRU merges the memory and hidden states into a single vector. For each day it computes a reset gate $r_t$, an update gate $u_t$ and a candidate state $n_t$:
 \begin{align}
-r_t &= \sigma(W_r x_t + U_r h_{t-1} + b_r), \\
-u_t &= \sigma(W_u x_t + U_u h_{t-1} + b_u), \\
-n_t &= \tanh\!\left(W_n x_t + b_n + r_t \odot (U_n h_{t-1} + d_n)\right), \\
-h_t &= (1-u_t) \odot n_t + u_t \odot h_{t-1}.
+r_t &= \sigma(W_r x_t + U_r h_{t-1} + b_r), \qquad
+u_t = \sigma(W_u x_t + U_u h_{t-1} + b_u), \\
+n_t &= \tanh\!\left(W_n x_t + b_n + r_t \odot (U_n h_{t-1} + d_n)\right), \qquad
+h_t = (1-u_t) \odot n_t + u_t \odot h_{t-1}.
 \end{align}
-The reset gate controls how much previous information enters the candidate, and the update gate interpolates between the new candidate and the previous state. Thus, when $u_t$ is close to one, the GRU preserves its previous memory; when it is close to zero, it replaces it with the candidate. A GRU uses three affine transformations instead of the LSTM's four and has no separate cell state, so it is generally smaller and faster for the same $H$ and number of layers.
+When $u_t$ is close to one the GRU keeps its previous memory; when it is close to zero it replaces it with the candidate. It uses three affine transformations instead of four and has no separate cell state, so it is smaller and faster for the same $H$ and number of layers.
 
-For either encoder, the states start at zero and the classifier uses only the final hidden state. The model output and churn probability are
-\begin{equation}
-z_i = w^\top \operatorname{BN}\big(h_{i,90}\big) + b, \qquad \hat{p}_i = \sigma(z_i) = \frac{1}{1 + e^{-z_i}} .
-\end{equation}
+The output of the encoder is the hidden state of the last layer on the last day it reads: $h_{90}$ in approaches 1 and 2, and $h_{83}$ in approach 3. That vector summarises the customer's behaviour over the window, and only the head that follows it changes between approaches.
+
+\subsection{Approaches 1 and 2: Churn Classifier}
+
+The classifier has the following layers (Figure~\ref{fig:w2_arch}):
+\begin{itemize}
+    \item \textbf{Input.} A batch of $B$ customers with shape $(B, 90, 14)$.
+    \item \textbf{Recurrent encoder.} LSTM or GRU layers, as above.
+    \item \textbf{Batch normalisation.} The last hidden state $h_{90} \in \R^{H}$ of each customer is normalised across the batch with \texttt{BatchNorm1d}, which stabilises training.
+    \item \textbf{Linear layer.} $z = w^\top \tilde{h}_{90} + b$ produces one value per customer, the \emph{logit} $z \in \R$.
+    \item \textbf{Sigmoid.} $\hat{p} = \sigma(z) = 1 / (1 + e^{-z})$ is the churn probability.
+\end{itemize}
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
     box/.style={draw, rounded corners=2pt, minimum height=1.1cm, align=center, font=\small, fill=#1},
     box/.default={gray!10},
-    >=stealth, node distance=0.55cm
+    >=stealth, node distance=0.45cm
 ]
-    \node[box] (in) {Input\\$(B, 90, 20)$};
+    \node[box] (in) {Input\\$(B, 90, 14)$};
     \node[box=blue!12, right=of in] (rnn) {LSTM or GRU\\$\times$ \texttt{layer\_dim}};
     \node[box, right=of rnn] (last) {Last day\\$h_{90}: (B, H)$};
     \node[box=orange!15, right=of last] (bn) {BatchNorm1d\\$(B, H)$};
     \node[box=green!12, right=of bn] (fc) {Linear\\$(B, 1)$};
+    \node[box=violet!12, right=of fc] (sig) {Sigmoid\\$\hat p$};
     \draw[->] (in) -- (rnn);
     \draw[->] (rnn) -- (last);
     \draw[->] (last) -- (bn);
     \draw[->] (bn) -- (fc);
-    \node[below=0.35cm of fc, font=\small] (out) {logit $z$};
-    \draw[->] (fc) -- (out);
+    \draw[->] (fc) -- (sig);
 \end{tikzpicture}
-\caption{Common LSTM/GRU classifier architecture. Only the recurrent cell changes between models; $B$ is the batch size and $H$ the hidden dimension.}
+\caption{Classifier used in approaches 1 and 2. Only the recurrent cell changes between models; $B$ is the batch size and $H$ the hidden dimension.}
 \label{fig:w2_arch}
 \end{figure}
 
-\subsection{Loss Function and Optimiser}
-
-Since churn is a binary classification problem, we use the binary cross-entropy loss. In PyTorch it is defined as \texttt{criterion = nn.BCEWithLogitsLoss()}. This function receives the logit $z_i$ and applies the sigmoid internally, so the model does not include a sigmoid layer. Combining both operations in one function is numerically stable: it never evaluates $\log(0)$ when the sigmoid saturates. For a batch of $B$ users the loss is
+\paragraph{Loss.} Churn is a binary problem, so the loss is the binary cross-entropy. In PyTorch it is \texttt{nn.BCEWithLogitsLoss()}, which receives the logit and applies the sigmoid internally; combining both operations never evaluates $\log(0)$ when the sigmoid saturates. For a batch of $B$ customers
 \begin{equation}
 \mathcal{L} = -\frac{1}{B} \sum_{i=1}^{B} \Big[ y_i \log \sigma(z_i) + (1 - y_i) \log\big(1 - \sigma(z_i)\big) \Big].
 \end{equation}
-At prediction time, where there is no loss, the probability is obtained explicitly with \path{torch.sigmoid(logits)}.
+At prediction time the probability is obtained explicitly with \texttt{torch.sigmoid(logits)}.
 
-\paragraph{Backpropagation.} Training needs the gradient of the loss with respect to every weight $\theta$ of the network. Backpropagation computes it by applying the chain rule backwards, from the loss to the input, through the same operations used in the forward pass (Figure~\ref{fig:w2_backprop}). Using the derivative of the sigmoid, $\sigma'(z) = \sigma(z)\big(1 - \sigma(z)\big)$, the first two steps for one user are
+\paragraph{Backpropagation.} Using $\sigma'(z) = \sigma(z)\big(1 - \sigma(z)\big)$, the gradient of the loss with respect to the logit of one customer is
 \begin{equation}
-\frac{\partial \mathcal{L}}{\partial \hat p} = -\frac{y}{\hat p} + \frac{1 - y}{1 - \hat p},
-\qquad
 \frac{\partial \mathcal{L}}{\partial z} = \frac{\partial \mathcal{L}}{\partial \hat p} \cdot \sigma'(z) = \frac{\hat p - y}{\hat p (1 - \hat p)} \cdot \hat p (1 - \hat p) = \hat p - y .
 \end{equation}
-The derivative of the sigmoid cancels the denominator of the cross-entropy, so the error signal that enters the network is simply the difference between the predicted probability and the true label. It is large when the prediction is confidently wrong and close to zero when it is correct, and the saturation of the sigmoid cannot make it vanish while the prediction is wrong. This simplification is also what \texttt{BCEWithLogitsLoss} exploits to compute the loss and its gradient in a stable way. From $z$, the gradient continues to the output layer and to the hidden state:
-\begin{equation}
-\frac{\partial \mathcal{L}}{\partial w} = (\hat p - y)\, \tilde h_{90}, \qquad
-\frac{\partial \mathcal{L}}{\partial b} = \hat p - y, \qquad
-\frac{\partial \mathcal{L}}{\partial \tilde h_{90}} = (\hat p - y)\, w .
-\end{equation}
-It then passes through batch normalisation to $h_{90}$ and travels from day 90 to day 1 through the recurrent connections, a procedure called \emph{backpropagation through time}. This outer procedure is identical for LSTM and GRU; only the local derivatives inside their gates differ. Since the recurrent weights are shared across days, their gradient is the sum of the contributions of the 90 time steps:
+The error signal that enters the network is simply the difference between the predicted probability and the true label, and the saturation of the sigmoid cannot make it vanish while the prediction is wrong. From $z$ the gradient reaches the linear layer, $\partial \mathcal{L} / \partial w = (\hat p - y)\, \tilde h_{90}$, passes through batch normalisation to $h_{90}$ and travels from day 90 to day 1 through the recurrent connections (\emph{backpropagation through time}). Since the recurrent weights are shared across days, their gradient is the sum of the contributions of all days:
 \begin{equation}
 \frac{\partial \mathcal{L}}{\partial \theta_{\text{RNN}}} = \sum_{t=1}^{90} \frac{\partial \mathcal{L}}{\partial h_t} \, \frac{\partial h_t}{\partial \theta_{\text{RNN}}},
 \qquad \theta_{\text{RNN}} \in \{\theta_{\text{LSTM}},\theta_{\text{GRU}}\}.
 \end{equation}
-For a batch, these gradients are averaged over the $B$ users. Finally, AdamW uses them to update every weight.
+
+\subsection{Approach 3: Behaviour Forecaster}
+
+The forecaster uses the same encoder, but it reads only days 0--82 and its head predicts the next 7 days instead of a single probability.
+
+\paragraph{From day 83 onwards.} After reading day 82, the last hidden state $h_{83} \in \R^{H}$ summarises everything the model knows about the customer. A single linear layer turns it into the whole next week at once:
+\begin{equation}
+\hat{Y}_i = \operatorname{reshape}\big(W \operatorname{BN}(h_{i,83}) + b,\; 7 \times 11\big), \qquad W \in \R^{77 \times H},
+\end{equation}
+that is, one row per future day (83 to 89) and one column per target (Table~\ref{tab:w2_targets}). This is a \emph{direct multi-horizon} forecast: the model does not predict day 83, feed it back and then predict day 84. Feeding predictions back (an autoregressive decoder) would accumulate errors over the week, and with only 7 days ahead it brings no clear benefit. The model is therefore not ``continuing'' the sequence day by day; it emits the 7 days from the same summary $h_{83}$.
 
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-    op/.style={draw, rounded corners=2pt, minimum height=1.2cm, minimum width=1.6cm, align=center, font=\footnotesize, fill=#1},
-    op/.default={gray!10},
-    fwd/.style={->, >=stealth, thick},
-    bwd/.style={->, >=stealth, thick, red!70!black, dashed},
-    grad/.style={font=\scriptsize, red!70!black},
-    node distance=0.55cm
+    box/.style={draw, rounded corners=2pt, minimum height=1.1cm, align=center, font=\small, fill=#1},
+    box/.default={gray!10},
+    >=stealth, node distance=0.45cm
 ]
-    % Forward pass
-    \node[op] (x) {Input\\$x_1, \dots, x_{90}$};
-    \node[op=blue!12, right=of x, minimum width=2.6cm] (rnn) {LSTM or GRU\\$h_1 \to \cdots \to h_{90}$};
-    \node[op=orange!15, right=of rnn] (bn) {BatchNorm\\$\tilde h_{90}$};
-    \node[op=green!12, right=of bn] (fc) {Linear\\$z = w^\top \tilde h_{90} + b$};
-    \node[op=violet!12, right=of fc] (sig) {Sigmoid\\$\hat p = \sigma(z)$};
-    \node[op=red!10, right=of sig] (loss) {BCE\\$\mathcal{L}(\hat p, y)$};
-    \node[above=0.5cm of loss, font=\footnotesize] (y) {label $y$};
-
-    \draw[fwd] (x) -- (rnn);
-    \draw[fwd] (rnn) -- (bn);
-    \draw[fwd] (bn) -- (fc);
-    \draw[fwd] (fc) -- (sig);
-    \draw[fwd] (sig) -- (loss);
-    \draw[fwd] (y) -- (loss);
-    \node[font=\footnotesize, anchor=south] at ($(x.north)!0.5!(sig.north) + (0,0.55)$) {forward pass $\longrightarrow$};
-
-    % Backward pass: one arc per step, from right to left, labelled with the gradient it carries
-    \draw[bwd] (loss.south) to[bend left=45] node[grad, below=1pt] {$\partial \mathcal{L} / \partial \hat p$} (sig.south);
-    \draw[bwd] (sig.south) to[bend left=45] node[grad, below=1pt] {$\hat p - y$} (fc.south);
-    \draw[bwd] (fc.south) to[bend left=45] node[grad, below=1pt] {$(\hat p - y)\, w$} (bn.south);
-    \draw[bwd] (bn.south) to[bend left=45] node[grad, below=1pt] {$\partial \mathcal{L} / \partial h_{90}$} ([xshift=0.9cm]rnn.south);
-    \draw[bwd] ([xshift=0.9cm]rnn.south) to[bend left=50] node[grad, below=1pt, align=center] {through time\\day $90 \to 1$} ([xshift=-0.9cm]rnn.south);
-    \node[font=\footnotesize, red!70!black, anchor=north] at ($(x.south)!0.5!(sig.south) + (0,-1.9)$) {$\longleftarrow$ backward pass (chain rule)};
+    \node[box] (in) {Days 0--82\\$(B, 83, 14)$};
+    \node[box=blue!12, right=of in] (rnn) {LSTM or GRU\\$\times$ \texttt{layer\_dim}};
+    \node[box, right=of rnn] (last) {$h_{83}$\\$(B, H)$};
+    \node[box=orange!15, right=of last] (bn) {BatchNorm1d};
+    \node[box=green!12, right=of bn] (fc) {Linear\\$(B, 77)$};
+    \node[box=violet!12, right=1.1cm of fc] (out) {Days 83--89\\$(B, 7, 11)$};
+    \draw[->] (in) -- (rnn);
+    \draw[->] (rnn) -- (last);
+    \draw[->] (last) -- (bn);
+    \draw[->] (bn) -- (fc);
+    \draw[->] (fc) -- node[below=2pt, font=\scriptsize] {reshape} (out);
 \end{tikzpicture}
-\caption{Forward and backward passes shared by LSTM and GRU. At the logit the gradient reduces to $\hat p-y$; inside the selected recurrent cell it travels back through the 90 days and its gates.}
-\label{fig:w2_backprop}
+\caption{Forecaster used in approach 3: the same encoder, with a head that emits the 7 future days at once.}
+\label{fig:w2_arch_traj}
 \end{figure}
 
-The weights are updated with the \textbf{AdamW} optimiser, which computes an adaptive step for each weight from the gradient and applies weight decay separately from that step. It receives two parameters:
-\begin{itemize}
-    \item \textbf{Learning rate} ($\eta$): how large each update step is.
-    \item \textbf{Weight decay} ($\lambda$): shrinks the weights towards zero at every step, which penalises large weights and reduces overfitting.
-\end{itemize}
-
-The function \texttt{\_optimizer\_step} (\path{workshops/w2/src/models/recurrent_models/train.py}) performs one update. It calls \texttt{loss.backward()}, clips the gradient norm to 1.0 to limit exploding gradients, and calls \texttt{optimizer.step()}. On GPU the forward pass runs in mixed precision (\texttt{float16}). Neither model uses dropout; overfitting is controlled with weight decay, batch normalisation and early stopping.
-
-\subsection{Hyperparameter Search}
-
-For each recurrent family, Optuna minimises log-loss on the \texttt{tune} partition using the same Tree-structured Parzen Estimator sampler, seed, five-trial budget and search space (Table~\ref{tab:w2_space}). This paired design makes the capacity search comparable rather than favouring one cell with a larger budget.
+\paragraph{Targets.} The forecaster predicts the \emph{events} of each day, the things a customer does (Table~\ref{tab:w2_targets}). The three state channels are not predicted: they are a deterministic consequence of the payments (for example, \texttt{tx\_days\_to\_expire} only changes when the customer pays), so they can be rebuilt from the predicted events. Every target comes from a channel the model also reads.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|l|l|}
+\begin{tabularx}{\textwidth}{|l|l|l|X|}
 \hline
-\textbf{Hyperparameter} & \textbf{Search space} \\ \hline
-\texttt{layer\_dim}    & Integer in $[2, 4]$ \\ \hline
-\texttt{hidden\_dim}   & $\{32, 64, 128\}$ \\ \hline
-Learning rate $\eta$   & $[10^{-4}, 10^{-2}]$, log scale \\ \hline
-Weight decay $\lambda$ & $[10^{-6}, 10^{-2}]$, log scale \\ \hline
-Batch size             & Fixed at 512 \\ \hline
-\end{tabular}
-\caption{Shared Optuna search space for LSTM and GRU.}
-\label{tab:w2_space}
+\textbf{Positions} & \textbf{Target} & \textbf{Type} & \textbf{Defined on} \\ \hline
+0--6  & \texttt{num\_25} \dots\ \texttt{total\_secs} & Amount (standardised) & Active days only \\ \hline
+7     & \texttt{active} & Binary & Every day \\ \hline
+8     & \texttt{pay} ($\texttt{tx\_count} > 0$) & Binary & Every day \\ \hline
+9--10 & \texttt{tx\_paid\_sum}, \texttt{tx\_plan\_days\_sum} & Amount (standardised) & Payment days only \\ \hline
+\end{tabularx}
+\caption{The 11 targets predicted for each of the 7 future days.}
+\label{tab:w2_targets}
 \end{table}
+
+\paragraph{Two-part targets.} Listening is predicted in two parts: \emph{does the customer listen on that day?} (\texttt{active}) and \emph{how much, if they do?} (the seven amounts). After standardisation, an inactive day and an average active day are both close to zero, so a single regression over all days would learn the average of the two and produce customers who listen a little every day, which never happens. The same applies to payments: \texttt{pay} says whether the customer pays, and the amount and plan days are only learned on payment days. The point forecast of listening is $\hat p(\text{active}) \times \widehat{\text{amount}}$.
+
+\paragraph{Composite loss.} The loss combines four terms, each on the days where its target is defined:
+\begin{equation}
+\begin{aligned}
+\mathcal{L} = {} & w_{\text{active}}\, \text{BCE}(\text{active})
++ w_{\text{listen}}\, \text{Huber}(\text{listening} \mid \text{active day}) \\
+& + w_{\text{pay}}\, \text{BCE}(\text{pay})
++ w_{\text{amount}}\, \text{Huber}(\text{amount, plan days} \mid \text{payment day}).
+\end{aligned}
+\end{equation}
+The terms have very different scales (a customer pays on only 2.5\,\% of the days), so each one is divided by the loss of a predictor that learns nothing (the prevalence or the mean), computed once on the training data. This is the inverse-scale weighting of Kendall et al.\ \cite{kendall2018}, with the scales fixed instead of learned: every term starts near 1, and the hyperparameter search cannot lower the objective by down-weighting the hard term. The resulting weights are $w_{\text{active}} = 1.53$, $w_{\text{listen}} = 2.32$, $w_{\text{pay}} = 9.89$ and $w_{\text{amount}} = 2.36$. No positive-class weight is used on \texttt{pay}, so that the predicted probabilities stay calibrated.
+
+\paragraph{How the forecast is used.} The model forecasts one week. Simulating a longer future would require sampling the events of that week, rebuilding the three state channels from the sampled payments, appending the 7 days to the input and forecasting again. That loop is not part of this workshop; here the forecast of the 7 days is evaluated directly.
+
+\subsection{Optimiser}
+
+The weights of all models are updated with \textbf{AdamW}, which computes an adaptive step for each weight and applies weight decay separately from that step. Its two parameters are the learning rate $\eta$ (size of each step) and the weight decay $\lambda$ (shrinks the weights towards zero at every step, reducing overfitting). Each update clips the gradient norm to 1.0 to limit exploding gradients; on GPU the forward pass runs in mixed precision. No model uses dropout; overfitting is controlled with weight decay, batch normalisation and early stopping.
 
 % ─────────────────────────────────────────────
 \section{Training}
@@ -480,220 +517,81 @@ Batch size             & Fixed at 512 \\ \hline
 
 \subsection{Data Split}
 
-The February cohort is divided into three disjoint partitions, and the March cohort is kept entirely for the final test (Table~\ref{tab:w2_split}):
+The February cohort of each tensor is divided into three disjoint partitions, and the March cohort is kept entirely for the final test (Table~\ref{tab:w2_split}):
 \begin{itemize}
     \item \textbf{Fit} (75\%): trains the model.
     \item \textbf{Stop} (12.5\%): validates the model after every epoch for early stopping.
-    \item \textbf{Tune} (12.5\%): evaluates each Optuna configuration and selects the decision threshold.
+    \item \textbf{Tune} (12.5\%): evaluates each Optuna configuration (and, for the classifiers, selects the decision threshold).
 \end{itemize}
-Each user is assigned to a partition by a stable hash of their \texttt{msno}, stratified by label, so the split is reproducible and the three partitions keep the same churn rate. Optuna trains each configuration on \texttt{fit}, controls overfitting with \texttt{stop} and evaluates it on \texttt{tune}. The \texttt{test} cohort takes part in no decision.
+Each customer is assigned to a partition by a stable hash of their \texttt{msno}, stratified by label, so the split is reproducible and the three partitions keep the same churn rate. Approach 3 reuses the partitions and scalers of approach 1. The \texttt{test} cohort takes part in no decision.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|l|l|r|r|r|}
+\begin{tabular}{|l|l|r|r|r|r|}
 \hline
-\textbf{Partition} & \textbf{Cohort} & \textbf{Users} & \textbf{Churners} & \textbf{Churn rate} \\ \hline
-\texttt{fit}  & February & 744{,}699 & 47{,}604 & 6.39\% \\ \hline
-\texttt{stop} & February & 124{,}117 & 7{,}934  & 6.39\% \\ \hline
-\texttt{tune} & February & 124{,}115 & 7{,}933  & 6.39\% \\ \hline
-\texttt{test} & March    & 970{,}960 & 87{,}330 & 8.99\% \\ \hline
+ & & \multicolumn{2}{c|}{\textbf{Calendar (1, 3)}} & \multicolumn{2}{c|}{\textbf{Per-cycle (2)}} \\ \hline
+\textbf{Partition} & \textbf{Cohort} & \textbf{Customers} & \textbf{Churn} & \textbf{Customers} & \textbf{Churn} \\ \hline
+\texttt{fit}  & February & 83{,}814  & 32.2\% & 78{,}723  & 29.3\% \\ \hline
+\texttt{stop} & February & 13{,}969  & 32.2\% & 13{,}121  & 29.3\% \\ \hline
+\texttt{tune} & February & 13{,}968  & 32.2\% & 13{,}120  & 29.3\% \\ \hline
+\texttt{test} & March    & 113{,}870 & 41.1\% & 104{,}322 & 38.3\% \\ \hline
 \end{tabular}
-\caption{Partitions used for training, tuning and testing.}
+\caption{Partitions of the two tensors.}
 \label{tab:w2_split}
 \end{table}
 
-Before training, the numeric channels are clipped at upper quantile limits and standardised with a mean and standard deviation computed only on the days where the channel is defined (active days for listening, payment days for events, days with a known state for states); the binary flags are left unchanged. During the search these parameters are fitted only on \texttt{fit}, so no information from \texttt{stop}, \texttt{tune} or \texttt{test} enters the scaling.
+Before training, the numeric channels are clipped at upper quantile limits and standardised with a mean and standard deviation computed only on the days where the channel is defined (active days for listening, payment days for events, days with a known state for states); the binary flags are left unchanged. During the search these parameters are fitted only on \texttt{fit}.
 
-\subsection{Training Procedure}
+\subsection{Training Procedure and Hyperparameter Search}
 
-Each Optuna trial trains one LSTM or GRU on \texttt{fit} with batches of 512 users for at most 40 epochs. After every epoch the loss is computed on \texttt{stop}; if it does not improve for 5 consecutive epochs (\emph{patience}), training stops and the weights of the best epoch are restored. The restored model then predicts \texttt{tune}, and its log-loss is returned to Optuna:
-\begin{equation}
-\text{log-loss} = -\frac{1}{N} \sum_{i=1}^{N} \Big[ y_i \log \hat{p}_i + (1 - y_i) \log(1 - \hat{p}_i) \Big].
-\end{equation}
-We use log-loss as the main criterion because it evaluates the quality of the predicted probabilities, not only the final decision.
-
-\subsection{Optuna Results}
-
-All five trials completed for both families. The same first configuration won both searches: two recurrent layers, 32 hidden units, learning rate $2.29\times10^{-3}$ and weight decay $5.37\times10^{-4}$. Table~\ref{tab:w2_best} reports the selected runs. The GRU obtained a slightly lower tuning log-loss (0.14653 versus 0.14674), converged one epoch earlier and required 3{,}840 fewer trainable parameters.
+Each model is trained with batches of 512 customers for at most 40 epochs. After every epoch the loss is computed on \texttt{stop}; if it does not improve for 5 consecutive epochs, training stops and the weights of the best epoch are restored. For each recurrent family, Optuna (Tree-structured Parzen Estimator, same seed, 10 trials) minimises the loss on \texttt{tune}: the log-loss for the classifiers and the weighted composite loss for the forecaster. Table~\ref{tab:w2_space} gives the search spaces; the forecaster uses wider hidden states because its head emits 77 values instead of one.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|l|c|c|c|c|r|c|c|}
+\begin{tabular}{|l|l|l|}
 \hline
-\textbf{Model} & \textbf{Layers} & \textbf{Hidden} & \textbf{$\eta$} & \textbf{$\lambda$} & \textbf{Params} & \textbf{Best ep.} & \textbf{Tune loss} \\ \hline
-LSTM & 2 & 32 & $2.29 \times 10^{-3}$ & $5.37 \times 10^{-4}$ & 15{,}457 & 11 & 0.14674 \\ \hline
-GRU  & 2 & 32 & $2.29 \times 10^{-3}$ & $5.37 \times 10^{-4}$ & 11{,}617 & 10 & \textbf{0.14653} \\ \hline
+\textbf{Hyperparameter} & \textbf{Approaches 1 and 2} & \textbf{Approach 3} \\ \hline
+\texttt{layer\_dim}    & Integer in $[2, 4]$ & Integer in $[2, 3]$ \\ \hline
+\texttt{hidden\_dim}   & $\{32, 64, 128\}$ & $\{64, 128, 256\}$ \\ \hline
+Learning rate $\eta$   & \multicolumn{2}{l|}{$[10^{-4}, 10^{-2}]$, log scale} \\ \hline
+Weight decay $\lambda$ & \multicolumn{2}{l|}{$[10^{-6}, 10^{-2}]$, log scale} \\ \hline
+Batch size             & \multicolumn{2}{l|}{Fixed at 512} \\ \hline
 \end{tabular}
-\caption{Best Optuna configuration for each recurrent family.}
-\label{tab:w2_best}
+\caption{Optuna search spaces, shared by LSTM and GRU.}
+\label{tab:w2_space}
 \end{table}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.8\textwidth]{../../workshops/w2/artifacts/sherlock_w2/comparison/training_history.png}
-\caption{Training and early-stopping loss histories of the selected LSTM and GRU trials.}
-\label{fig:w2_training_history}
-\end{figure}
+\paragraph{Final models.} Each selected architecture is retrained on the whole February cohort for its selected number of epochs, with the scalers refitted on all February data, and then predicts March once. The classifiers' decision threshold is selected on \texttt{tune}, in steps of 0.01, to maximise churn-class F1, and frozen before the test.
 
-\paragraph{Decision thresholds.} Each model's threshold is selected independently on \texttt{tune}, in steps of 0.01 from 0.01 to 0.99, to maximise churn-class F1. The selected thresholds are 0.27 for LSTM and 0.24 for GRU. Both are frozen before examining the test cohort.
-
-\paragraph{Final models.} Each selected architecture is retrained on the whole February cohort (992{,}931 users) for its selected number of epochs, with preprocessing refitted on all February data. Each final model then predicts March once.
+% TODO: Optuna results per approach (best configuration, epochs, tune loss).
+%   Approach 1: artifacts/sherlock_w2_v6_manual | Approach 2: artifacts/sherlock_w2_v6_manual_cycle_k7
+%   Approach 3: artifacts/sherlock_w2_v6_manual_traj
 
 % ─────────────────────────────────────────────
 \section{Test}
 % ─────────────────────────────────────────────
 
-\subsection{Metrics}
+\subsection{Approach 1: Calendar Cutoff}
+% TODO: test metrics (log-loss, Brier, ROC-AUC, AP, F1, MCC), confusion matrices, ROC/PR, calibration,
+%       LSTM vs GRU bootstrap / DeLong. Source: artifacts/sherlock_w2_v6_manual/comparison
 
-Both final models are evaluated on the same March cohort (970{,}960 users, 8.99\% churners). Probability metrics (log-loss and Brier score) measure probability quality; ranking metrics (ROC-AUC and average precision) measure ordering; threshold-dependent metrics describe the operating point selected on February. Table~\ref{tab:w2_test} reports the paired results.
+\subsection{Approach 2: Per-Customer Cutoff}
+% TODO: same metrics as approach 1. Source: artifacts/sherlock_w2_v6_manual_cycle_k7/comparison
 
-\begin{table}[H]
-\centering
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|l|c|c|}
-\hline
-\textbf{Metric} & \textbf{LSTM (thr. 0.27)} & \textbf{GRU (thr. 0.24)} \\ \hline
-Log-loss            & \textbf{0.20384} & 0.20707 \\ \hline
-Brier score         & \textbf{0.05412} & 0.05501 \\ \hline
-ROC-AUC             & \textbf{0.85030} & 0.84955 \\ \hline
-Average precision   & 0.58075 & \textbf{0.58081} \\ \hline
-Accuracy            & 0.92714 & \textbf{0.92991} \\ \hline
-Balanced accuracy   & \textbf{0.76268} & 0.75433 \\ \hline
-Precision (churn)   & 0.60162 & \textbf{0.62837} \\ \hline
-Recall (churn)      & \textbf{0.56216} & 0.54023 \\ \hline
-Specificity         & 0.96321 & \textbf{0.96842} \\ \hline
-F1 (churn)          & \textbf{0.58122} & 0.58097 \\ \hline
-F1 (macro)          & 0.77066 & \textbf{0.77137} \\ \hline
-MCC                 & 0.54174 & \textbf{0.54482} \\ \hline
-Predicted churn rate & 8.40\% & 7.73\% \\ \hline
-\end{tabular}
-\caption{Test metrics at the model-specific thresholds selected on February. Bold marks the better value for each metric.}
-\label{tab:w2_test}
-\end{table}
+\subsection{Approach 3: Behaviour Forecast}
+% TODO: event metrics, listening error, payment timing, LSTM vs GRU.
+%       Draft with tables and figures: docs/w2/trajectory_results_draft.tex
 
-The two models are practically tied in F1 and average precision. LSTM favours recall and probability quality, whereas GRU's lower threshold still produces fewer positive predictions and consequently higher precision, specificity, accuracy and MCC. The default 0.5 threshold is inappropriate for both imbalanced classifiers: it lowers churn F1 to 0.453 for LSTM and 0.402 for GRU.
-
-\subsection{Confusion Matrix}
-
-Figure~\ref{fig:w2_confusion} shows both confusion matrices. LSTM detects 49{,}093 churners (56.2\%) and misses 38{,}237; GRU detects 47{,}178 (54.0\%) and misses 40{,}152. GRU reduces false alarms among loyal users from 32{,}509 to 27{,}902, which explains its precision advantage. The operational choice is therefore explicit: LSTM finds 1{,}915 additional churners at the cost of 4{,}607 additional false positives.
-
-\begin{figure}[H]
-\centering
-\begin{minipage}{0.49\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2/lstm/evaluation/figures/confusion/confusion_LSTM_test.png}\\
-\small (a) LSTM, threshold 0.27
-\end{minipage}
-\hfill
-\begin{minipage}{0.49\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2/gru/evaluation/figures/confusion/confusion_GRU_test.png}\\
-\small (b) GRU, threshold 0.24
-\end{minipage}
-\caption{Confusion matrices on the March test cohort at the model-specific thresholds.}
-\label{fig:w2_confusion}
-\end{figure}
-
-\subsection{ROC and Precision-Recall Curves}
-
-Figure~\ref{fig:w2_rocpr} overlays the curves. They are almost indistinguishable: the LSTM has a 0.00075 advantage in ROC-AUC, while the GRU has a 0.00006 advantage in average precision. Both are far above the 8.99\% precision baseline of a random ranking.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2/comparison/roc_pr_comparison.png}
-\caption{ROC and precision-recall curves for LSTM and GRU on the March test cohort.}
-\label{fig:w2_rocpr}
-\end{figure}
-
-\subsection{Calibration}
-
-Figure~\ref{fig:w2_calibration} shows each reliability diagram and score distribution. Both models underestimate churn in March, consistent with the prevalence increase from 6.4\% in February to 9.0\% in March. LSTM nevertheless has the lower log-loss and Brier score, so its probabilities are better calibrated overall. Neither model was recalibrated after the temporal shift.
-
-\begin{figure}[H]
-\centering
-\begin{minipage}{0.49\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2/lstm/evaluation/figures/curves/calibration_hist.png}\\
-\small (a) LSTM
-\end{minipage}
-\hfill
-\begin{minipage}{0.49\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2/gru/evaluation/figures/curves/calibration_hist.png}\\
-\small (b) GRU
-\end{minipage}
-\caption{Reliability diagrams and predicted-probability distributions on the March test cohort.}
-\label{fig:w2_calibration}
-\end{figure}
-
-\subsection{Statistical and Operational Comparison}
-
-Because a dataset of almost one million users can make very small differences statistically detectable, we report paired 95\% bootstrap confidence intervals and interpret effect size as well as significance (Table~\ref{tab:w2_significance}). DeLong's paired test also detects the LSTM's ROC-AUC advantage ($\Delta=0.00075$, $z=2.47$, $p=0.0134$). However, the magnitude is operationally negligible. The bootstrap intervals show no reliable difference in average precision or F1. The clear difference is log-loss: LSTM improves it by 0.00323, although the practical gain remains modest.
-
-\begin{table}[H]
-\centering
-\small
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{|l|c|c|c|c|}
-\hline
-\textbf{Metric} & \textbf{LSTM (95\% CI)} & \textbf{GRU (95\% CI)} & \textbf{$\Delta$ LSTM--GRU (95\% CI)} & \textbf{Sig.} \\ \hline
-ROC-AUC & 0.8503 [0.8487, 0.8519] & 0.8495 [0.8480, 0.8511] & 0.00075 [0.0001, 0.0014] & Yes \\ \hline
-Average precision & 0.5808 [0.5774, 0.5840] & 0.5808 [0.5774, 0.5842] & $-0.00006$ [$-0.0009$, 0.0006] & No \\ \hline
-F1 (churn) & 0.5812 [0.5783, 0.5839] & 0.5810 [0.5780, 0.5837] & 0.00024 [$-0.0009$, 0.0014] & No \\ \hline
-Log-loss & 0.2038 [0.2026, 0.2051] & 0.2071 [0.2058, 0.2084] & $-0.00323$ [$-0.0034$, $-0.0030$] & Yes \\ \hline
-\end{tabular}
-\caption{Paired bootstrap comparison on March. For log-loss, a negative difference favours LSTM.}
-\label{tab:w2_significance}
-\end{table}
-
-The models also produce nearly identical ranked contact lists (Figure~\ref{fig:w2_gain}). If the retention team contacts the top 5\% of users, LSTM captures 39.82\% of all churners (lift 7.96) and GRU captures 40.14\% (lift 8.03). At 10\%, they capture 60.17\% and 60.32\%, respectively. LSTM becomes slightly better at 20\% and 30\% contact budgets. Thus GRU is marginally preferable for a very narrow campaign, but the difference is less than 0.4 percentage points.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.9\textwidth]{../../workshops/w2/artifacts/sherlock_w2/comparison/gain_lift_comparison.png}
-\caption{Cumulative gain and lift for ranked retention campaigns.}
-\label{fig:w2_gain}
-\end{figure}
-
-\paragraph{Efficiency.} At the selected architecture, GRU uses 11{,}617 parameters versus 15{,}457 for LSTM, a 24.8\% reduction, and takes 16.62 versus 18.11 seconds per epoch, an 8.2\% reduction in the recorded run. Given their virtually equal ranking and classification performance, GRU offers the better efficiency--performance trade-off; LSTM is preferable when probability quality or maximum recall is the priority.
-
-\subsection{Comparison with Workshop 1}
-
-Table~\ref{tab:w2_vs_w1} adds both recurrent models to the three tabular models from Workshop~1. All are evaluated on March after choosing thresholds on February. The tabular models use 59 engineered features, demographics and complete transaction history; LSTM and GRU use only the 90-day sequence.
-
-\begin{table}[H]
-\centering
-\small
-\setlength{\tabcolsep}{3pt}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabular}{|l|c|c|c|c|c|c|c|c|c|}
-\hline
-\textbf{Model} & \textbf{Thr.} & \textbf{Log-loss} & \textbf{Brier} & \textbf{AUC} & \textbf{AP} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{MCC} \\ \hline
-Logistic reg. (W1) & 0.28 & 0.2126 & 0.0564 & 0.8445 & 0.5553 & 0.5811 & 0.5343 & 0.5567 & 0.5155 \\ \hline
-Random forest (W1)       & 0.26 & \textbf{0.2032} & 0.0548 & \textbf{0.8632} & \textbf{0.5933} & \textbf{0.6379} & 0.5385 & \textbf{0.5840} & \textbf{0.5490} \\ \hline
-XGBoost (W1)             & 0.88 & 0.4886 & 0.1498 & 0.8520 & 0.5882 & 0.6094 & \textbf{0.5424} & 0.5740 & 0.5356 \\ \hline
-LSTM (W2)                & 0.27 & 0.2038 & \textbf{0.0541} & 0.8503 & 0.5808 & 0.6016 & \textbf{0.5622} & 0.5812 & 0.5417 \\ \hline
-GRU (W2)                 & 0.24 & 0.2071 & 0.0550 & 0.8495 & 0.5808 & 0.6284 & 0.5402 & 0.5810 & 0.5448 \\ \hline
-\end{tabular}
-\caption{Test metrics on March for Workshop~1 tabular models and Workshop~2 recurrent models. Best value per column is bold.}
-\label{tab:w2_vs_w1}
-\end{table}
-
-Random forest retains the best ROC-AUC, average precision, F1 and MCC, but LSTM now has the best Brier score and recall and is only 0.0006 worse in log-loss. Both recurrent models outperform logistic regression in ranking and F1, and greatly outperform the poorly calibrated Workshop~1 XGBoost in log-loss. The comparison also shows that cell choice is much less important than representation: LSTM and GRU differ from each other far less than either differs from the tabular models.
+\subsection{Comparison of the Approaches}
+% TODO: approach 1 vs 2 on the same customers; comparison with Workshop 1.
 
 % ─────────────────────────────────────────────
 \section{Conclusions}
 % ─────────────────────────────────────────────
 
-\paragraph{LSTM versus GRU.} Both gated recurrent cells extract almost the same predictive signal from the daily sequence: F1 differs by only 0.00024 and average precision by 0.00006. LSTM yields better probabilities and detects more churners, while GRU produces fewer false alarms, uses 24.8\% fewer parameters and trains 8.2\% faster per epoch. Therefore there is no universally superior cell: LSTM is the choice for probability quality and recall, whereas GRU is the parsimonious choice when compute, model size or contact precision matters.
-
-\paragraph{Relation with Workshop 1.} Workshop~1 summarises each subscriber into 59 hand-crafted features, while both recurrent models learn from a $90\times20$ daily sequence. Under the same temporal protocol, LSTM and GRU approach the random forest (F1 0.581 versus 0.584) without demographics or full-history aggregates. This supports the value of temporal order, but the remaining ranking gap suggests that tenure, demographics and older payment history still add information beyond the 90-day window.
-
-\paragraph{How the sequence captures behaviour.} The daily tensor preserves patterns compressed by monthly aggregates: a user who stops listening during the last two weeks, cancellation followed by inactivity, or expiry without renewal. Both cells can preserve or discard earlier information through gates; LSTM uses separate memory and hidden states, whereas GRU performs the same role with a single state. We did not attribute predictions to individual days or channels, so claims about which pattern each network actually uses require a future interpretability analysis.
-
-\paragraph{Why no further experiments are possible.} The main limitation is the dataset itself. The competition publishes official churn labels for only two months: February 2017 (\texttt{train.csv}) and March 2017 (\texttt{train\_v2.csv}). A user is labelled as churn when their membership expires in the target month and they do not subscribe again within the following 30 days, so labelling a month requires the transactions of the next 30 days. Since the published transactions and logs end on 2017-03-31, no later month (April 2017 onwards) can be labelled. Earlier months, such as January 2017 or December 2016, could in principle be labelled by applying the official labelling rule to the transactions, and the listening history before the window is available since 2015. However, our reconstruction of that rule, a port of the official \texttt{WSDMChurnLabeller.scala}, agrees with the official labels for only 98.8\% of the February users and 97.0\% of the March users, and about 137{,}000 official users per month cannot be reconstructed from the published transactions. Labels for other months would therefore be noisier than the official ones and would not define the same cohorts, so a model trained or tested on them would not be comparable with the results reported here. For this reason the evaluation is limited to one training month and one test month, and we cannot measure how stable the model is across several months.
+% TODO
 
 \begin{thebibliography}{9}
 
@@ -701,6 +599,11 @@ Random forest retains the best ROC-AUC, average precision, F1 and MCC, but LSTM 
 Chung, J., Gulcehre, C., Cho, K., \& Bengio, Y. (2014).
 \textit{Empirical evaluation of gated recurrent neural networks on sequence modeling}.
 arXiv:1412.3555. \url{https://doi.org/10.48550/arXiv.1412.3555}
+
+\bibitem{kendall2018}
+Kendall, A., Gal, Y., \& Cipolla, R. (2018).
+\textit{Multi-task learning using uncertainty to weigh losses for scene geometry and semantics}.
+In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR). arXiv:1705.07115.
 
 \bibitem{kkbox2017}
 KKBOX. (2017).
