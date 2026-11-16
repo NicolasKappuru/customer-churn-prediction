@@ -1,0 +1,7 @@
+{
+  "layer_dim": 3,
+  "hidden_dim": 64,
+  "lr": 0.006136429685583964,
+  "weight_decay": 0.00527003088718073,
+  "batch_size": 512
+}

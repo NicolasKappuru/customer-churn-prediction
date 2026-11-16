@@ -3,12 +3,36 @@ from w2.src.data_processing.constants import _TXN_KEYS, LOG_COLS, TX_CHANNELS, L
 import numpy as np
 import polars as pl
 
-def sequence_channel_specs():
+def sequence_channel_specs(channels=None):
     """Describe each channel in tensor order without transforming the data.
 
     ``mask`` identifies the channel that indicates whether information is available.
     ``fixed_limits`` documents the bounds applied when building the tensor.
+    ``channels`` (optional) keeps only those channels, in that order. A mask that
+    is not kept is replaced: ``tx_expiry_known`` -> ``tx_state_known`` (they are
+    equal whenever the expiry date is valid, which is every manual-segment day).
     """
+    specs = _all_channel_specs()
+    if channels is None:
+        return specs
+    by_name = {item["name"]: item for item in specs}
+    missing = [c for c in channels if c not in by_name]
+    if missing:
+        raise ValueError(f"Unknown channels: {missing}")
+    out = []
+    for name in channels:
+        item = dict(by_name[name])
+        if item["mask"] is not None and item["mask"] not in channels:
+            if item["mask"] == "tx_expiry_known" and "tx_state_known" in channels:
+                item["mask"] = "tx_state_known"
+            else:
+                raise ValueError(f"{name}: its mask {item['mask']!r} is not among the channels.")
+        out.append(item)
+    return out
+
+
+def _all_channel_specs():
+    """Specs of the 20 channels computed by the builder."""
     flag_channels = {
         "active", "tx_state_known", "tx_last_is_cancel",
         "tx_last_is_auto_renew", "tx_expiry_known", "tx_state_ambiguous",

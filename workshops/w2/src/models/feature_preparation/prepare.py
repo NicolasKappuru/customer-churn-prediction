@@ -159,12 +159,12 @@ def main():
     parser.add_argument(
         "--input-dir",
         default=None,
-        help="Sequence export directory (default: export-sequential-v5).",
+        help="Sequence export directory (default: EXPORT_NAME of constants.py).",
     )
     parser.add_argument(
         "--out-dir",
         default=None,
-        help="Artifact directory (default: artifacts/sherlock_w2/feature_preparation).",
+        help="Artifact directory (default: artifacts/<ARTIFACTS_NAME>/feature_preparation).",
     )
     args = parser.parse_args()
     prepare(input_dir=args.input_dir, out_dir=args.out_dir)

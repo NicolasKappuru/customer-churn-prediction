@@ -8,7 +8,13 @@ and resolves the input/output paths.
 from pathlib import Path
 
 from ..constants import (
+    ALIGNMENT,
+    ARTIFACTS_NAME,
     BLOCK_ROWS,
+    CYCLE_K,
+    EXPORT_NAME,
+    MODEL_CHANNELS,
+    SEGMENT,
     DATASET_VERSION,
     DEV_COHORT,
     EXPECTED_CUTOFFS,
@@ -38,12 +44,13 @@ def run_config():
         "quantile_sample": QUANTILE_SAMPLE,
         "block_rows": BLOCK_ROWS,
         "phases": list(PHASES),
-        "expected_full_sizes": {
-            "fit": 744_699,
-            "stop": 124_117,
-            "tune": 124_115,
-            "test": 970_960,
-        },
+        "segment": SEGMENT,
+        "alignment": ALIGNMENT,
+        "cycle_k": CYCLE_K,
+        "model_channels": list(MODEL_CHANNELS),
+        # Full-cohort sizes are only known for the unfiltered calendar export.
+        # The exports hold one segment, so there are no fixed full-cohort sizes.
+        "expected_full_sizes": None,
     }
 
 
@@ -56,13 +63,13 @@ def run_paths(input_dir=None, out_dir=None):
     elif on_kaggle:
         source = Path("/kaggle/input/dataset-final")
     else:
-        source = Path("export-sequential-v5")
+        source = Path(EXPORT_NAME)
 
     if out_dir is not None:
         target = Path(out_dir)
     else:
         base = Path("/kaggle/working") if on_kaggle else Path("artifacts")
-        target = base / "sherlock_w2" / "feature_preparation"
+        target = base / ARTIFACTS_NAME / "feature_preparation"
 
     target.mkdir(parents=True, exist_ok=True)
     return on_kaggle, source, target
