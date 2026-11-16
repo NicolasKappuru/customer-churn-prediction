@@ -1,0 +1,30 @@
+{
+  "seed": 110,
+  "smoke_test": false,
+  "lr_c": 1.0,
+  "rf_n_estimators": 300,
+  "rf_max_depth": 10,
+  "rf_min_samples_leaf": 5,
+  "xgb_n_estimators": 3000,
+  "xgb_lr": 0.1,
+  "xgb_max_depth": 6,
+  "xgb_early_stop": 100,
+  "xgb_best_iteration": 83,
+  "winner": "M3",
+  "thresholds": {
+    "M1": 0.4723,
+    "M2": 0.45266,
+    "M3": 0.47155
+  },
+  "tune_log_loss": {
+    "M1": 0.60549,
+    "M2": 0.57983,
+    "M3": 0.56735
+  },
+  "env": {
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "sklearn": "1.9.1",
+    "xgboost": "3.4.1"
+  }
+}
