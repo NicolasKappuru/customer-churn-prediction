@@ -33,8 +33,6 @@ w2/
 │       └── w2_trajectory_models.ipynb             # Forecaster, event curves, churn from trajectories
 │
 ├── artifacts/
-│   ├── sherlock_w2/                        # Full-cohort run
-│   ├── sherlock_w2_manual*/                # Earlier manual-segment runs (pre-v6)
 │   ├── sherlock_w2_v6_manual/              # Approach 1 (reported)
 │   ├── sherlock_w2_v6_manual_cycle_k7/     # Approach 2 (reported)
 │   ├── sherlock_w2_v6_manual_traj/         # Approach 3 (reported): forecasts, event curves, calibration
@@ -55,12 +53,5 @@ w2/
 └── export-sequential-v6-cycle-k7-manual/   # Cycle sequences (+ cycle_index_*.parquet)
 ```
 
-Each run folder in `artifacts/` contains `feature_preparation/` (split and scalers), `lstm/` and `gru/` (checkpoints, Optuna study, evaluation figures) and `comparison/` (LSTM vs GRU metrics and figures).
-
-**Figures:** every figure in `artifacts/` is copied with the same relative path to `docs/w2/figures/`, which is where the report (`docs/w2/group2_workshop2.tex`) includes them from. After re-running a notebook, refresh the copy from `workshops/w2/artifacts`:
-
-```bash
-find . -type f \( -name '*.png' -o -name '*.svg' -o -name '*.pdf' \) -exec cp --parents {} ../../../docs/w2/figures/ \;
-```
 
 **Running:** paths in `src` are relative to `workshops/w2`; the first cell of every notebook switches the working directory there. The calendar/cycle choice is made with the environment variables `W2_ALIGNMENT` (`calendar` | `cycle`) and `W2_CYCLE_K` before the first `import src.models` (restart the kernel after changing them). Run the calendar notebooks first: the cycle and trajectory notebooks reuse its split and scalers.
