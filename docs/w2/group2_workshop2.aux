@@ -76,17 +76,52 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Data Split}{13}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Partitions of the two tensors.\relax }}{13}{}\protected@file@percent }
 \newlabel{tab:w2_split}{{11}{13}}
-\bibcite{chung2014}{1}
-\bibcite{kendall2018}{2}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Training Procedure and Hyperparameter Search}{14}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Optuna search spaces, shared by LSTM and GRU.\relax }}{14}{}\protected@file@percent }
 \newlabel{tab:w2_space}{{12}{14}}
 \@writefile{toc}{\contentsline {paragraph}{Final models.}{14}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5}Test}{14}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Approach 1: Calendar Cutoff}{14}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Approach 2: Per-Customer Cutoff}{14}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Approach 3: Behaviour Forecast}{14}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Comparison of the Approaches}{14}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusions}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Selected Configurations}{14}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Selected configurations. The tune loss is the log-loss on \texttt  {tune} for the classifiers; the forecaster's composite loss is on a different scale and is not shown.\relax }}{14}{}\protected@file@percent }
+\newlabel{tab:w2_best}{{13}{14}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Test}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Approach 1: Calendar Cutoff}{15}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Approach 1, March test (41.1\% churners). Bold marks the better value.\relax }}{15}{}\protected@file@percent }
+\newlabel{tab:w2_test_a1}{{14}{15}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Approach 1: ROC and precision-recall curves on March.\relax }}{16}{}\protected@file@percent }
+\newlabel{fig:w2_rocpr_a1}{{4}{16}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Approach 1: confusion matrices on March.\relax }}{16}{}\protected@file@percent }
+\newlabel{fig:w2_confusion_a1}{{5}{16}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Approach 2: Per-Customer Cutoff}{17}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Approach 2, March test (104{,}322 customers, 38.3\% churners). Bold marks the better value.\relax }}{17}{}\protected@file@percent }
+\newlabel{tab:w2_test_a2}{{15}{17}}
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Approaches 1 and 2 on the same 104{,}322 March customers (38.3\% churners), each model with its own February threshold.\relax }}{18}{}\protected@file@percent }
+\newlabel{tab:w2_same_customers}{{16}{18}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Approach 3: Behaviour Forecast}{18}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Metrics and baselines of the behaviour forecast.\relax }}{18}{}\protected@file@percent }
+\newlabel{tab:w2_traj_metrics}{{17}{18}}
+\@writefile{toc}{\contentsline {paragraph}{Listening amounts.}{18}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Listening error over every (customer, day, channel) of the March target week, in $\log (1+x)$ units. The last column is the share of customers whose mean error over their 49 cells exceeds 2.\relax }}{19}{}\protected@file@percent }
+\newlabel{tab:w2_traj_listen}{{18}{19}}
+\@writefile{toc}{\contentsline {paragraph}{Events.}{19}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Event targets on March. Daily targets are scored per (customer, day); the weekly payment once per customer.\relax }}{20}{}\protected@file@percent }
+\newlabel{tab:w2_traj_events}{{19}{20}}
+\@writefile{toc}{\contentsline {paragraph}{Paid amount.}{20}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LSTM and GRU.}{20}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Approach 3: ROC and precision-recall curves of the event targets against the baselines.\relax }}{21}{}\protected@file@percent }
+\newlabel{fig:w2_event_curves}{{6}{21}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Approach 3: daily payment rate aligned to each customer's expiry (known on day 82), real against the mean predicted probability.\relax }}{21}{}\protected@file@percent }
+\newlabel{fig:w2_pay_expiry}{{7}{21}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Approach 3: calibration of the event probabilities (deciles of the predicted probability).\relax }}{22}{}\protected@file@percent }
+\newlabel{fig:w2_event_calibration}{{8}{22}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Comparison with Workshop 1}{22}{}\protected@file@percent }
+\newlabel{sec:w2_vs_w1}{{5.4}{22}}
+\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Workshop~1 and Workshop~2 (approach 1) on the March manual customers. Bold marks the best value per column. The Workshop~1 models use a 0.5 threshold and the networks the threshold chosen on February, so precision, recall, F1 and MCC depend on that choice; log-loss, ROC-AUC and AP do not.\relax }}{22}{}\protected@file@percent }
+\newlabel{tab:w2_vs_w1}{{20}{22}}
+\bibcite{chung2014}{1}
+\bibcite{kendall2018}{2}
 \bibcite{kkbox2017}{3}
-\gdef \@abspage@last{15}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusions}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Churn classification.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Behaviour forecast.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Limitations.}{23}{}\protected@file@percent }
+\gdef \@abspage@last{23}

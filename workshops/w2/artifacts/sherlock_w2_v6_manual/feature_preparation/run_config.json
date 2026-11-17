@@ -44,7 +44,7 @@
     "expected_full_sizes": null
   },
   "environment": {
-    "python": "3.14.10",
+    "python": "3.13.16",
     "numpy": "2.5.3",
     "pandas": "3.0.6",
     "torch": "2.14.0+cu130"
@@ -102,5 +102,5 @@
     "development": "preprocessing/development.json"
   },
   "row_index": "row_index.parquet",
-  "generated_at": "2026-11-16T16:27:07"
+  "generated_at": "2026-11-16T16:33:02"
 }
