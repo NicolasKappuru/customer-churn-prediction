@@ -18,7 +18,7 @@ for _p in (str(W4_SRC), str(W1_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from constants import W1_EXPORT_DIR, W1_SPLIT_PATH
+from constants import W1_EXPORT_DIR, W1_MANUAL_SPLIT_PATH
 from src.models.feature_preparation.data import load_cohorts, load_metadata
 
 
@@ -42,7 +42,7 @@ def load_w1_data() -> tuple[
     meta, features, categorical, numeric = load_metadata(W1_EXPORT_DIR)
     df, y_all, _ = load_cohorts(W1_EXPORT_DIR, meta, features)
 
-    raw = np.load(W1_SPLIT_PATH, allow_pickle=False)
+    raw = np.load(W1_MANUAL_SPLIT_PATH, allow_pickle=False)
     split: SplitDict = {key: raw[key] for key in ("fit", "stop", "tune", "test", "development")}
 
     return df, y_all, features, categorical, numeric, split

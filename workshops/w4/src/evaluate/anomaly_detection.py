@@ -213,20 +213,26 @@ class CumulativeResults:
         return df[self._KEEP]
 
     def build(self, anomaly_rows: pd.DataFrame) -> pd.DataFrame:
-        """Combine W1 + W2 baselines with anomaly results, sorted by roc_auc desc."""
+        """Combine W1 + W2 manual-segment baselines with anomaly results, sorted by roc_auc desc."""
         w1_path = (
             PROJECT_ROOT / "workshops" / "w1" / "artifacts"
-            / "sherlock_w1" / "metrics" / "test_metrics.csv"
+            / "sherlock_w1_manual" / "metrics" / "test_metrics.csv"
         )
-        w2_path = (
+        w2_lstm_path = (
             PROJECT_ROOT / "workshops" / "w2" / "artifacts"
-            / "sherlock_w2" / "lstm" / "evaluation" / "metrics" / "test_metrics.csv"
+            / "sherlock_w2_manual" / "lstm" / "evaluation" / "metrics" / "test_metrics.csv"
+        )
+        w2_gru_path = (
+            PROJECT_ROOT / "workshops" / "w2" / "artifacts"
+            / "sherlock_w2_manual" / "gru" / "evaluation" / "metrics" / "test_metrics.csv"
         )
 
         frames: list[pd.DataFrame] = []
-        for loader, path in [(self.load_w1, w1_path), (self.load_w2, w2_path)]:
+        if Path(w1_path).is_file():
+            frames.append(self.load_w1(w1_path))
+        for path in (w2_lstm_path, w2_gru_path):
             if Path(path).is_file():
-                frames.append(loader(path))
+                frames.append(self.load_w2(path))
 
         frames.append(anomaly_rows[self._KEEP])
         combined = pd.concat(frames, ignore_index=True)
