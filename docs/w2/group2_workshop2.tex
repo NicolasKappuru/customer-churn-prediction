@@ -51,31 +51,32 @@
 \section{Problem Statement}
 % ─────────────────────────────────────────────
 
-In this workshop the churn problem is approached from a different angle from Workshop~1. Instead of summarising each subscriber into a single tabular row, we use the dates in the dataset to treat churn as a \textbf{time-series problem}: each subscriber is represented by the day-by-day evolution of their listening activity and subscription status, and the models are recurrent neural networks that read those days in order.
+The goal of this workshop is to predict customer behaviour trajectories. Instead of summarising each subscriber into a single tabular row, as in Workshop~1, we use the dates in the dataset to represent each subscriber by the day-by-day evolution of their listening activity and subscription status. Recurrent neural networks read those days in order and predict how the trajectory continues.
 
 \paragraph{Population: manual payers only.} We work only with customers whose last transaction before the cutoff is a \textbf{manual payment} (a payment, not a cancellation, without automatic renewal). The exploratory analysis showed that this is the segment where behaviour actually decides churn and where the label is most consistent. A manual customer has to pay again by hand, so whether they keep listening and paying is directly related to whether they renew: their churn rate is 32\,\% in February, and inside the segment it ranges from 27\,\% for customers who listened on the last day to 88\,\% for customers with no listening in 90 days. For the other customers the renewal is mostly decided by the billing system, churn is rare (2.1\,\% among automatic renewals) and the label contains more inconsistencies. Restricting the problem to manual payers removes that noise and keeps the customers for whom a retention action is meaningful.
 
-\paragraph{Three approaches.} The same data are used in three ways (Table~\ref{tab:w2_approaches}):
-\begin{enumerate}
-    \item \textbf{Calendar cutoff (classification).} The same protocol as Workshop~1: every customer is scored on the same date, the last day of the month before the label month. February is used for training and March for testing.
-    \item \textbf{Per-customer cutoff (classification).} The scoring date is not fixed. Each customer is scored $k = 7$ days before their own plan expires, so every sequence ends at the same point of the billing cycle.
-    \item \textbf{Behaviour forecast (sequence-to-sequence).} Instead of predicting churn, the model predicts what the customer will do during the next 7 days. It reads the first 83 days of the 90-day window and is evaluated on the remaining 7.
-\end{enumerate}
-Approaches 1 and 2 use the LSTM and GRU as classifiers; approach 3 uses them as forecasters of daily behaviour.
+\paragraph{Main approach: behaviour forecast.} The central model is a \textbf{forecaster} that predicts what each customer will do during the next 7 days: on which days they listen, how much, whether they pay and how much they pay. It reads the first 83 days of a 90-day window and is evaluated on the remaining 7. Most of this report is about it.
+
+\paragraph{Supporting approaches: churn classification.} The same sequences are also used to predict churn, the outcome the business cares about and the problem Workshop~1 solved with tabular features. Whether a customer renews is the next step of their trajectory after the window, so a classifier that reads the trajectory and predicts that step shows how a sequence model applies to the churn problem, and it can be compared directly with Workshop~1. Two versions are trained:
+\begin{itemize}
+    \item \textbf{Calendar classifier.} The same protocol as Workshop~1: every customer is scored on the same date, the last day of the month before the label month. February is used for training and March for testing.
+    \item \textbf{Per-customer classifier.} Each customer is scored $k = 7$ days before their own plan expires, so every sequence ends at the same point of the billing cycle.
+\end{itemize}
+Table~\ref{tab:w2_approaches} summarises the three models. Each one is trained twice, with an LSTM and with a GRU.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
 \begin{tabularx}{\textwidth}{|l|X|X|X|}
 \hline
- & \textbf{1. Calendar cutoff} & \textbf{2. Per-customer cutoff} & \textbf{3. Behaviour forecast} \\ \hline
-Task & Churn classification & Churn classification & Next 7 days of events \\ \hline
-Window end & Cohort cutoff (same for everyone) & $k = 7$ days before each customer's expiry & Day 82 of the calendar window \\ \hline
-Input & 90 days $\times$ 14 channels & 90 days $\times$ 14 channels & 83 days $\times$ 14 channels \\ \hline
-Target & \texttt{is\_churn} & \texttt{is\_churn} & Days 83--89 (11 targets per day) \\ \hline
-Tensor & Calendar tensor & Per-cycle tensor & Calendar tensor \\ \hline
+ & \textbf{Forecaster (main)} & \textbf{Calendar classifier} & \textbf{Per-customer classifier} \\ \hline
+Task & Next 7 days of behaviour & Churn & Churn \\ \hline
+Window end & Day 82 of the calendar window & Cohort cutoff (same for everyone) & $k = 7$ days before each customer's expiry \\ \hline
+Input & 83 days $\times$ 14 channels & 90 days $\times$ 14 channels & 90 days $\times$ 14 channels \\ \hline
+Target & Days 83--89 (11 targets per day) & \texttt{is\_churn} & \texttt{is\_churn} \\ \hline
+Tensor & Calendar tensor & Calendar tensor & Per-cycle tensor \\ \hline
 \end{tabularx}
-\caption{The three approaches.}
+\caption{The main model and the two supporting classifiers.}
 \label{tab:w2_approaches}
 \end{table}
 
@@ -160,9 +161,9 @@ where $R_{i,d}$ is the set of raw log rows of user $i$ on day $d$. The number of
 \subsection{Tensor Construction}
 % ─────────────────────────────────────────────
 
-Approaches 1 and 3 use the same \textbf{calendar tensor}; approach 2 uses a \textbf{per-cycle tensor}. Both have the same 14 channels, built by the same code; they differ only in the day on which each customer's 90-day window ends.
+The forecaster and the calendar classifier use the same \textbf{calendar tensor}; the per-customer classifier uses a \textbf{per-cycle tensor}. Both have the same 14 channels, built by the same code; they differ only in the day on which each customer's 90-day window ends.
 
-\subsubsection{Calendar Tensor (Approaches 1 and 3)}
+\subsubsection{Calendar Tensor (Forecaster and Calendar Classifier)}
 
 Each cohort $c$ is defined by a cutoff date $\tau_c$, the last day whose information may be used. Its sequence window contains the $L = 90$ consecutive calendar days that end on the cutoff:
 \begin{equation}
@@ -209,7 +210,7 @@ The two windows overlap by 62 days (2016-12-01 to 2017-01-31), as shown in Figur
 \label{fig:w2_overlap}
 \end{figure}
 
-\paragraph{Approach 3 uses the same tensor, cut in two.} For the behaviour forecast the 90 days of each customer are split into an input and a target part:
+\paragraph{The forecaster cuts the window in two.} For the behaviour forecast the 90 days of each customer are split into an input and a target part:
 \begin{center}
 \begin{tikzpicture}[x=0.11cm, y=1cm, font=\small]
     \fill[blue!25] (0,0) rectangle (83,0.5);
@@ -221,7 +222,7 @@ The two windows overlap by 62 days (2016-12-01 to 2017-01-31), as shown in Figur
 \end{center}
 For February the target week is 2017-01-25 to 2017-01-31 and for March 2017-02-22 to 2017-02-28. These days are in the future only relative to what the model reads, so no new export is needed.
 
-\subsubsection{Per-Cycle Tensor (Approach 2)}
+\subsubsection{Per-Cycle Tensor (Per-Customer Classifier)}
 
 In the calendar tensor every window ends on the same date, but each customer is at a different point of their billing cycle: one expires the next day, another in four weeks. The exploratory analysis showed that the behaviour of manual payers is anchored to their expiry date (they listen most right after paying and fade until the expiry). The per-cycle tensor therefore ends each customer's window $k$ days before their own expiry. The definitions are:
 \begin{itemize}
@@ -352,9 +353,9 @@ Stacking the $N_c$ customers gives $\mathcal{X}^{(c)} \in \R^{N_c \times 90 \tim
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|l|l|l|l|}
 \hline
-\textbf{Tensor} & \textbf{Approaches} & \textbf{February (train)} & \textbf{March (test)} \\ \hline
-Calendar  & 1, 3 & $111{,}751 \times 90 \times 14$ & $113{,}870 \times 90 \times 14$ \\ \hline
-Per-cycle & 2    & $104{,}964 \times 90 \times 14$ & $104{,}322 \times 90 \times 14$ \\ \hline
+\textbf{Tensor} & \textbf{Used by} & \textbf{February (train)} & \textbf{March (test)} \\ \hline
+Calendar  & forecaster, calendar classifier & $111{,}751 \times 90 \times 14$ & $113{,}870 \times 90 \times 14$ \\ \hline
+Per-cycle & per-customer classifier & $104{,}964 \times 90 \times 14$ & $104{,}322 \times 90 \times 14$ \\ \hline
 \end{tabular}
 \caption{Shapes of the two tensors.}
 \label{tab:w2_tensors}
@@ -364,11 +365,11 @@ Per-cycle & 2    & $104{,}964 \times 90 \times 14$ & $104{,}322 \times 90 \times
 \section{Architecture}
 % ─────────────────────────────────────────────
 
-Two gated recurrent neural networks are compared: a Long Short-Term Memory network (LSTM) and a Gated Recurrent Unit network (GRU). Both read the days in chronological order and maintain a hidden representation of the customer's behaviour. Prior empirical work found GRU performance comparable to LSTM on sequence-modelling tasks, while noting that the relative result depends on the dataset and task \cite{chung2014}. For every approach, both cells are evaluated under identical conditions: the input, preprocessing, data partitions, output head, loss, optimiser, search space and evaluation protocol are the same, and only the recurrent cell changes. The models are implemented in PyTorch under \path{workshops/w2/src/models/}.
+Two gated recurrent neural networks are compared: a Long Short-Term Memory network (LSTM) and a Gated Recurrent Unit network (GRU). Both read the days in chronological order and maintain a hidden representation of the customer's behaviour. Prior empirical work found GRU performance comparable to LSTM on sequence-modelling tasks, while noting that the relative result depends on the dataset and task \cite{chung2014}. For each of the three models, both cells are evaluated under identical conditions: the input, preprocessing, data partitions, output head, loss, optimiser, search space and evaluation protocol are the same, and only the recurrent cell changes. The models are implemented in PyTorch under \path{workshops/w2/src/models/}.
 
 \subsection{Recurrent Encoder}
 
-The encoder is shared by the three approaches. It is a stack of \texttt{layer\_dim} LSTM or GRU layers with \texttt{hidden\_dim} $= H$ units each: the first layer reads the 14 channels of each day and every following layer reads the hidden states of the layer below. The states start at zero.
+The encoder is shared by the three models. It is a stack of \texttt{layer\_dim} LSTM or GRU layers with \texttt{hidden\_dim} $= H$ units each: the first layer reads the 14 channels of each day and every following layer reads the hidden states of the layer below. The states start at zero.
 
 \paragraph{LSTM cell.} For each day, an LSTM cell updates a separate memory cell $c_t$ and hidden state $h_t$ with
 \begin{align}
@@ -390,59 +391,9 @@ h_t = (1-u_t) \odot n_t + u_t \odot h_{t-1}.
 \end{align}
 When $u_t$ is close to one the GRU keeps its previous memory; when it is close to zero it replaces it with the candidate. It uses three affine transformations instead of four and has no separate cell state, so it is smaller and faster for the same $H$ and number of layers.
 
-The output of the encoder is the hidden state of the last layer on the last day it reads: $h_{90}$ in approaches 1 and 2, and $h_{83}$ in approach 3. That vector summarises the customer's behaviour over the window, and only the head that follows it changes between approaches.
+The output of the encoder is the hidden state of the last layer on the last day it reads: $h_{83}$ in the forecaster and $h_{90}$ in the classifiers. That vector summarises the customer's behaviour over the window, and only the head that follows it changes between models.
 
-\subsection{Approaches 1 and 2: Churn Classifier}
-
-The classifier has the following layers (Figure~\ref{fig:w2_arch}):
-\begin{itemize}
-    \item \textbf{Input.} A batch of $B$ customers with shape $(B, 90, 14)$.
-    \item \textbf{Recurrent encoder.} LSTM or GRU layers, as above.
-    \item \textbf{Batch normalisation.} The last hidden state $h_{90} \in \R^{H}$ of each customer is normalised across the batch with \texttt{BatchNorm1d}, which stabilises training.
-    \item \textbf{Linear layer.} $z = w^\top \tilde{h}_{90} + b$ produces one value per customer, the \emph{logit} $z \in \R$.
-    \item \textbf{Sigmoid.} $\hat{p} = \sigma(z) = 1 / (1 + e^{-z})$ is the churn probability.
-\end{itemize}
-
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[
-    box/.style={draw, rounded corners=2pt, minimum height=1.1cm, align=center, font=\small, fill=#1},
-    box/.default={gray!10},
-    >=stealth, node distance=0.45cm
-]
-    \node[box] (in) {Input\\$(B, 90, 14)$};
-    \node[box=blue!12, right=of in] (rnn) {LSTM or GRU\\$\times$ \texttt{layer\_dim}};
-    \node[box, right=of rnn] (last) {Last day\\$h_{90}: (B, H)$};
-    \node[box=orange!15, right=of last] (bn) {BatchNorm1d\\$(B, H)$};
-    \node[box=green!12, right=of bn] (fc) {Linear\\$(B, 1)$};
-    \node[box=violet!12, right=of fc] (sig) {Sigmoid\\$\hat p$};
-    \draw[->] (in) -- (rnn);
-    \draw[->] (rnn) -- (last);
-    \draw[->] (last) -- (bn);
-    \draw[->] (bn) -- (fc);
-    \draw[->] (fc) -- (sig);
-\end{tikzpicture}
-\caption{Classifier used in approaches 1 and 2. Only the recurrent cell changes between models; $B$ is the batch size and $H$ the hidden dimension.}
-\label{fig:w2_arch}
-\end{figure}
-
-\paragraph{Loss.} Churn is a binary problem, so the loss is the binary cross-entropy. In PyTorch it is \texttt{nn.BCEWithLogitsLoss()}, which receives the logit and applies the sigmoid internally; combining both operations never evaluates $\log(0)$ when the sigmoid saturates. For a batch of $B$ customers
-\begin{equation}
-\mathcal{L} = -\frac{1}{B} \sum_{i=1}^{B} \Big[ y_i \log \sigma(z_i) + (1 - y_i) \log\big(1 - \sigma(z_i)\big) \Big].
-\end{equation}
-At prediction time the probability is obtained explicitly with \texttt{torch.sigmoid(logits)}.
-
-\paragraph{Backpropagation.} Using $\sigma'(z) = \sigma(z)\big(1 - \sigma(z)\big)$, the gradient of the loss with respect to the logit of one customer is
-\begin{equation}
-\frac{\partial \mathcal{L}}{\partial z} = \frac{\partial \mathcal{L}}{\partial \hat p} \cdot \sigma'(z) = \frac{\hat p - y}{\hat p (1 - \hat p)} \cdot \hat p (1 - \hat p) = \hat p - y .
-\end{equation}
-The error signal that enters the network is simply the difference between the predicted probability and the true label, and the saturation of the sigmoid cannot make it vanish while the prediction is wrong. From $z$ the gradient reaches the linear layer, $\partial \mathcal{L} / \partial w = (\hat p - y)\, \tilde h_{90}$, passes through batch normalisation to $h_{90}$ and travels from day 90 to day 1 through the recurrent connections (\emph{backpropagation through time}). Since the recurrent weights are shared across days, their gradient is the sum of the contributions of all days:
-\begin{equation}
-\frac{\partial \mathcal{L}}{\partial \theta_{\text{RNN}}} = \sum_{t=1}^{90} \frac{\partial \mathcal{L}}{\partial h_t} \, \frac{\partial h_t}{\partial \theta_{\text{RNN}}},
-\qquad \theta_{\text{RNN}} \in \{\theta_{\text{LSTM}},\theta_{\text{GRU}}\}.
-\end{equation}
-
-\subsection{Approach 3: Behaviour Forecaster}
+\subsection{Behaviour Forecaster}
 
 The forecaster uses the same encoder, but it reads only days 0--82 and its head predicts the next 7 days instead of a single probability.
 
@@ -471,7 +422,7 @@ that is, one row per future day (83 to 89) and one column per target (Table~\ref
     \draw[->] (bn) -- (fc);
     \draw[->] (fc) -- node[below=2pt, font=\scriptsize] {reshape} (out);
 \end{tikzpicture}
-\caption{Forecaster used in approach 3: the same encoder, with a head that emits the 7 future days at once.}
+\caption{The forecaster: the recurrent encoder followed by a head that emits the 7 future days at once.}
 \label{fig:w2_arch_traj}
 \end{figure}
 
@@ -507,6 +458,58 @@ The terms have very different scales (a customer pays on only 2.5\,\% of the day
 
 \paragraph{How the forecast is used.} The model forecasts one week. Simulating a longer future would require sampling the events of that week, rebuilding the three state channels from the sampled payments, appending the 7 days to the input and forecasting again. That loop is not part of this workshop; here the forecast of the 7 days is evaluated directly.
 
+\subsection{Churn Classifier}
+
+The two supporting models replace the forecasting head with a churn classifier.
+
+The classifier has the following layers (Figure~\ref{fig:w2_arch}):
+\begin{itemize}
+    \item \textbf{Input.} A batch of $B$ customers with shape $(B, 90, 14)$.
+    \item \textbf{Recurrent encoder.} LSTM or GRU layers, as above.
+    \item \textbf{Batch normalisation.} The last hidden state $h_{90} \in \R^{H}$ of each customer is normalised across the batch with \texttt{BatchNorm1d}, which stabilises training.
+    \item \textbf{Linear layer.} $z = w^\top \tilde{h}_{90} + b$ produces one value per customer, the \emph{logit} $z \in \R$.
+    \item \textbf{Sigmoid.} $\hat{p} = \sigma(z) = 1 / (1 + e^{-z})$ is the churn probability.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    box/.style={draw, rounded corners=2pt, minimum height=1.1cm, align=center, font=\small, fill=#1},
+    box/.default={gray!10},
+    >=stealth, node distance=0.45cm
+]
+    \node[box] (in) {Input\\$(B, 90, 14)$};
+    \node[box=blue!12, right=of in] (rnn) {LSTM or GRU\\$\times$ \texttt{layer\_dim}};
+    \node[box, right=of rnn] (last) {Last day\\$h_{90}: (B, H)$};
+    \node[box=orange!15, right=of last] (bn) {BatchNorm1d\\$(B, H)$};
+    \node[box=green!12, right=of bn] (fc) {Linear\\$(B, 1)$};
+    \node[box=violet!12, right=of fc] (sig) {Sigmoid\\$\hat p$};
+    \draw[->] (in) -- (rnn);
+    \draw[->] (rnn) -- (last);
+    \draw[->] (last) -- (bn);
+    \draw[->] (bn) -- (fc);
+    \draw[->] (fc) -- (sig);
+\end{tikzpicture}
+\caption{The churn classifier. Only the recurrent cell changes between models; $B$ is the batch size and $H$ the hidden dimension.}
+\label{fig:w2_arch}
+\end{figure}
+
+\paragraph{Loss.} Churn is a binary problem, so the loss is the binary cross-entropy. In PyTorch it is \texttt{nn.BCEWithLogitsLoss()}, which receives the logit and applies the sigmoid internally; combining both operations never evaluates $\log(0)$ when the sigmoid saturates. For a batch of $B$ customers
+\begin{equation}
+\mathcal{L} = -\frac{1}{B} \sum_{i=1}^{B} \Big[ y_i \log \sigma(z_i) + (1 - y_i) \log\big(1 - \sigma(z_i)\big) \Big].
+\end{equation}
+At prediction time the probability is obtained explicitly with \texttt{torch.sigmoid(logits)}.
+
+\paragraph{Backpropagation.} Using $\sigma'(z) = \sigma(z)\big(1 - \sigma(z)\big)$, the gradient of the loss with respect to the logit of one customer is
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial z} = \frac{\partial \mathcal{L}}{\partial \hat p} \cdot \sigma'(z) = \frac{\hat p - y}{\hat p (1 - \hat p)} \cdot \hat p (1 - \hat p) = \hat p - y .
+\end{equation}
+The error signal that enters the network is simply the difference between the predicted probability and the true label, and the saturation of the sigmoid cannot make it vanish while the prediction is wrong. From $z$ the gradient reaches the linear layer, $\partial \mathcal{L} / \partial w = (\hat p - y)\, \tilde h_{90}$, passes through batch normalisation to $h_{90}$ and travels from day 90 to day 1 through the recurrent connections (\emph{backpropagation through time}). Since the recurrent weights are shared across days, their gradient is the sum of the contributions of all days:
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \theta_{\text{RNN}}} = \sum_{t=1}^{90} \frac{\partial \mathcal{L}}{\partial h_t} \, \frac{\partial h_t}{\partial \theta_{\text{RNN}}},
+\qquad \theta_{\text{RNN}} \in \{\theta_{\text{LSTM}},\theta_{\text{GRU}}\}.
+\end{equation}
+
 \subsection{Optimiser}
 
 The weights of all models are updated with \textbf{AdamW}, which computes an adaptive step for each weight and applies weight decay separately from that step. Its two parameters are the learning rate $\eta$ (size of each step) and the weight decay $\lambda$ (shrinks the weights towards zero at every step, reducing overfitting). Each update clips the gradient norm to 1.0 to limit exploding gradients; on GPU the forward pass runs in mixed precision. No model uses dropout; overfitting is controlled with weight decay, batch normalisation and early stopping.
@@ -523,14 +526,14 @@ The February cohort of each tensor is divided into three disjoint partitions, an
     \item \textbf{Stop} (12.5\%): validates the model after every epoch for early stopping.
     \item \textbf{Tune} (12.5\%): evaluates each Optuna configuration (and, for the classifiers, selects the decision threshold).
 \end{itemize}
-Each customer is assigned to a partition by a stable hash of their \texttt{msno}, stratified by label, so the split is reproducible and the three partitions keep the same churn rate. Approach 3 reuses the partitions and scalers of approach 1. The \texttt{test} cohort takes part in no decision.
+Each customer is assigned to a partition by a stable hash of their \texttt{msno}, stratified by label, so the split is reproducible and the three partitions keep the same churn rate. The forecaster reuses the partitions and scalers of the calendar classifier. The \texttt{test} cohort takes part in no decision.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|l|l|r|r|r|r|}
 \hline
- & & \multicolumn{2}{c|}{\textbf{Calendar (1, 3)}} & \multicolumn{2}{c|}{\textbf{Per-cycle (2)}} \\ \hline
+ & & \multicolumn{2}{c|}{\textbf{Calendar tensor}} & \multicolumn{2}{c|}{\textbf{Per-cycle tensor}} \\ \hline
 \textbf{Partition} & \textbf{Cohort} & \textbf{Customers} & \textbf{Churn} & \textbf{Customers} & \textbf{Churn} \\ \hline
 \texttt{fit}  & February & 83{,}814  & 32.2\% & 78{,}723  & 29.3\% \\ \hline
 \texttt{stop} & February & 13{,}969  & 32.2\% & 13{,}121  & 29.3\% \\ \hline
@@ -552,9 +555,9 @@ Each model is trained with batches of 512 customers for at most 40 epochs. After
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|l|l|l|}
 \hline
-\textbf{Hyperparameter} & \textbf{Approaches 1 and 2} & \textbf{Approach 3} \\ \hline
-\texttt{layer\_dim}    & Integer in $[2, 4]$ & Integer in $[2, 3]$ \\ \hline
-\texttt{hidden\_dim}   & $\{32, 64, 128\}$ & $\{64, 128, 256\}$ \\ \hline
+\textbf{Hyperparameter} & \textbf{Forecaster} & \textbf{Classifiers} \\ \hline
+\texttt{layer\_dim}    & Integer in $[2, 3]$ & Integer in $[2, 4]$ \\ \hline
+\texttt{hidden\_dim}   & $\{64, 128, 256\}$ & $\{32, 64, 128\}$ \\ \hline
 Learning rate $\eta$   & \multicolumn{2}{l|}{$[10^{-4}, 10^{-2}]$, log scale} \\ \hline
 Weight decay $\lambda$ & \multicolumn{2}{l|}{$[10^{-6}, 10^{-2}]$, log scale} \\ \hline
 Batch size             & \multicolumn{2}{l|}{Fixed at 512} \\ \hline
@@ -567,20 +570,20 @@ Batch size             & \multicolumn{2}{l|}{Fixed at 512} \\ \hline
 
 \subsection{Selected Configurations}
 
-Table~\ref{tab:w2_best} lists the configuration Optuna selected for each model and approach. Every search ran 10 trials; one GRU trial of approach 2 failed and was not retried.
+Table~\ref{tab:w2_best} lists the configuration Optuna selected for each model. Every search ran 10 trials; one GRU trial of the per-customer classifier failed and was not retried.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
 \begin{tabular}{|l|l|c|c|r|c|c|}
 \hline
-\textbf{Approach} & \textbf{Model} & \textbf{Layers} & \textbf{Hidden} & \textbf{Parameters} & \textbf{Best epoch} & \textbf{Tune loss} \\ \hline
-1. Calendar cutoff  & LSTM & 2 & 64  & 53{,}953  & 10 & 0.5113 \\ \hline
-                    & GRU  & 2 & 64  & 40{,}513  & 7  & 0.5118 \\ \hline
-2. Per-customer cutoff & LSTM & 2 & 32 & 14{,}689 & 14 & 0.5107 \\ \hline
-                    & GRU  & 2 & 32  & 11{,}041  & 10 & 0.5090 \\ \hline
-3. Behaviour forecast & LSTM & 2 & 128 & 216{,}013 & -- & -- \\ \hline
+\textbf{Model} & \textbf{Cell} & \textbf{Layers} & \textbf{Hidden} & \textbf{Parameters} & \textbf{Best epoch} & \textbf{Tune loss} \\ \hline
+Forecaster          & LSTM & 2 & 128 & 216{,}013 & -- & -- \\ \hline
                     & GRU  & 2 & 64  & 45{,}453  & -- & -- \\ \hline
+Calendar classifier & LSTM & 2 & 64  & 53{,}953  & 10 & 0.5113 \\ \hline
+                    & GRU  & 2 & 64  & 40{,}513  & 7  & 0.5118 \\ \hline
+Per-customer classifier & LSTM & 2 & 32 & 14{,}689 & 14 & 0.5107 \\ \hline
+                    & GRU  & 2 & 32  & 11{,}041  & 10 & 0.5090 \\ \hline
 \end{tabular}
 \caption{Selected configurations. The tune loss is the log-loss on \texttt{tune} for the classifiers; the forecaster's composite loss is on a different scale and is not shown.}
 \label{tab:w2_best}
@@ -590,116 +593,11 @@ Table~\ref{tab:w2_best} lists the configuration Optuna selected for each model a
 \section{Test}
 % ─────────────────────────────────────────────
 
-All results are on March: 113{,}870 manual customers for approaches 1 and 3 and 104{,}322 for approach 2. The classifiers use the threshold chosen on February (\texttt{tune}) to maximise churn F1.
+All results are on March: 113{,}870 manual customers for the forecaster and the calendar classifier, and 104{,}322 for the per-customer classifier. The classifiers use the threshold chosen on February (\texttt{tune}) to maximise churn F1.
 
-\subsection{Approach 1: Calendar Cutoff}
+\subsection{Behaviour Forecast}
 
-\begin{table}[H]
-\centering
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{|l|c|c|}
-\hline
-\textbf{Metric} & \textbf{LSTM (thr.\ 0.30)} & \textbf{GRU (thr.\ 0.33)} \\ \hline
-Log-loss            & \textbf{0.5738} & 0.5799 \\ \hline
-Brier score         & \textbf{0.1954} & 0.1990 \\ \hline
-ROC-AUC             & \textbf{0.7766} & 0.7652 \\ \hline
-Average precision   & \textbf{0.7188} & 0.7005 \\ \hline
-Accuracy            & \textbf{0.7200} & 0.7138 \\ \hline
-Balanced accuracy   & \textbf{0.7206} & 0.7096 \\ \hline
-Precision (churn)   & 0.6410 & \textbf{0.6421} \\ \hline
-Recall (churn)      & \textbf{0.7242} & 0.6859 \\ \hline
-Specificity         & 0.7170 & \textbf{0.7332} \\ \hline
-F1 (churn)          & \textbf{0.6801} & 0.6633 \\ \hline
-F1 (macro)          & \textbf{0.7155} & 0.7072 \\ \hline
-MCC                 & \textbf{0.4353} & 0.4156 \\ \hline
-Predicted churn rate & 46.4\% & 43.9\% \\ \hline
-\end{tabular}
-\caption{Approach 1, March test (41.1\% churners). Bold marks the better value.}
-\label{tab:w2_test_a1}
-\end{table}
-
-The LSTM is better on almost every metric. The differences are small but consistent: in a paired bootstrap of the March customers the LSTM is ahead by 0.011 in ROC-AUC (95\% CI [0.010, 0.012]), 0.018 in average precision and 0.017 in F1, and DeLong's test gives $p < 10^{-100}$ for the AUC difference. With more than 100{,}000 test customers even small gaps are statistically clear, so the size of the gap matters more than the $p$-value: about one point of AUC. The GRU has fewer parameters (40{,}513 against 53{,}953), stopped earlier (7 epochs against 10) and takes 1.48 instead of 2.14 seconds per epoch.
-
-Both models make errors in both directions in similar proportions (Figure~\ref{fig:w2_confusion_a1}). The LSTM finds 72\% of the churners (33{,}891 of 46{,}800) and wrongly flags 28\% of the customers who stay (18{,}979 of 67{,}070); the GRU finds 69\% and flags 27\%. Both thresholds are low (0.30 and 0.33) because they maximise churn F1 on February, so the models flag slightly more customers than actually churn (44--46\% against 41\%). A retention team that prefers fewer false alarms would raise the threshold and lose recall.
-
-The probabilities are worse in March than in February: the log-loss rises from 0.511 on \texttt{tune} to 0.574 on test. Part of this is the change of month. The churn rate of the segment goes from 32.2\% to 41.1\%, and the official labels of the two months are not built in exactly the same way, so a model fitted on February underestimates March churn.
-
-With an AUC of 0.77 the models rank churners well above chance but leave many errors. The tabular models of Workshop~1, which see the whole payment history since 2015, reach the same level on this segment (Section~\ref{sec:w2_vs_w1}), so the limit does not come from the 90-day window.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/comparison/roc_pr_comparison.png}
-\caption{Approach 1: ROC and precision-recall curves on March.}
-\label{fig:w2_rocpr_a1}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\begin{minipage}{0.49\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/lstm/evaluation/figures/confusion/confusion_LSTM_test.png}\\
-\small (a) LSTM, threshold 0.30
-\end{minipage}
-\hfill
-\begin{minipage}{0.49\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/gru/evaluation/figures/confusion/confusion_GRU_test.png}\\
-\small (b) GRU, threshold 0.33
-\end{minipage}
-\caption{Approach 1: confusion matrices on March.}
-\label{fig:w2_confusion_a1}
-\end{figure}
-
-\subsection{Approach 2: Per-Customer Cutoff}
-
-\begin{table}[H]
-\centering
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{|l|c|c|}
-\hline
-\textbf{Metric} & \textbf{LSTM (thr.\ 0.28)} & \textbf{GRU (thr.\ 0.33)} \\ \hline
-Log-loss            & 0.5946 & \textbf{0.5630} \\ \hline
-Brier score         & 0.2046 & \textbf{0.1897} \\ \hline
-ROC-AUC             & 0.7654 & \textbf{0.7852} \\ \hline
-Average precision   & 0.6661 & \textbf{0.7057} \\ \hline
-Accuracy            & 0.7300 & \textbf{0.7490} \\ \hline
-Balanced accuracy   & 0.7212 & \textbf{0.7293} \\ \hline
-Precision (churn)   & 0.6377 & \textbf{0.6825} \\ \hline
-Recall (churn)      & \textbf{0.6835} & 0.6450 \\ \hline
-Specificity         & 0.7589 & \textbf{0.8136} \\ \hline
-F1 (churn)          & 0.6598 & \textbf{0.6632} \\ \hline
-F1 (macro)          & 0.7180 & \textbf{0.7316} \\ \hline
-MCC                 & 0.4371 & \textbf{0.4639} \\ \hline
-Predicted churn rate & 41.1\% & 36.2\% \\ \hline
-\end{tabular}
-\caption{Approach 2, March test (104{,}322 customers, 38.3\% churners). Bold marks the better value.}
-\label{tab:w2_test_a2}
-\end{table}
-
-Here the GRU wins, and with a clearer margin than the LSTM had in approach 1: 0.020 more ROC-AUC (95\% CI [0.019, 0.021]), 0.040 more average precision and 0.032 less log-loss. It is also the smallest model of the comparison (11{,}041 parameters). The LSTM keeps a higher recall, but with lower precision and specificity.
-
-Tables~\ref{tab:w2_test_a1} and~\ref{tab:w2_test_a2} cannot be compared directly, because approach 2 only includes customers whose plan expires in March, and that group has a different churn rate. Table~\ref{tab:w2_same_customers} scores the approach 1 models on exactly the 104{,}322 customers of approach 2. On the same people, ending the window 7 days before each customer's expiry improves both models, and the GRU gains the most: its ROC-AUC goes from 0.744 to 0.785 and its average precision from 0.622 to 0.706.
-
-\begin{table}[H]
-\centering
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{|l|l|c|c|c|c|}
-\hline
-\textbf{Model} & \textbf{Window ends} & \textbf{ROC-AUC} & \textbf{AP} & \textbf{F1} & \textbf{Log-loss} \\ \hline
-LSTM & cutoff (approach 1)     & 0.7575 & 0.6507 & 0.6476 & \textbf{0.5870} \\ \hline
-LSTM & expiry $-$ 7 (approach 2) & \textbf{0.7654} & \textbf{0.6661} & \textbf{0.6598} & 0.5946 \\ \hline
-GRU  & cutoff (approach 1)     & 0.7435 & 0.6219 & 0.6278 & 0.5943 \\ \hline
-GRU  & expiry $-$ 7 (approach 2) & \textbf{0.7852} & \textbf{0.7057} & \textbf{0.6632} & \textbf{0.5630} \\ \hline
-\end{tabular}
-\caption{Approaches 1 and 2 on the same 104{,}322 March customers (38.3\% churners), each model with its own February threshold.}
-\label{tab:w2_same_customers}
-\end{table}
-
-The largest gain is for the 1{,}743 customers who made another transaction between the cutoff and their scoring date, usually an early payment. Approach 2 sees that transaction and approach 1 does not; their average precision rises from 0.78--0.83 to about 0.94. For the other 102{,}579 customers the gain is smaller, but the GRU still improves its average precision from 0.619 to 0.692.
-
-\subsection{Approach 3: Behaviour Forecast}
-
-The forecaster predicts several targets of different kinds, so each one is evaluated with its own metric and compared with a predictor that learns nothing (Table~\ref{tab:w2_traj_metrics}).
+The forecaster predicts 11 targets per day for 7 days, and the targets are of different kinds, so each one is evaluated with its own metric and compared with a predictor that learns nothing (Table~\ref{tab:w2_traj_metrics}).
 
 \begin{table}[H]
 \centering
@@ -731,13 +629,31 @@ persistence   & 1.064 & 2.039 & 0.566 & 2.709 & 1.136 & 7.3\% \\ \hline
 mean\_7d      & \textbf{0.986} & 1.698 & \textbf{0.530} & \textbf{2.398} & 1.004 & 2.0\% \\ \hline
 previous\_week & 1.109 & 2.108 & 0.629 & 2.834 & 1.193 & 4.9\% \\ \hline
 \end{tabular}
-\caption{Listening error over every (customer, day, channel) of the March target week, in $\log(1+x)$ units. The last column is the share of customers whose mean error over their 49 cells exceeds 2.}
+\caption{Listening error of the expected-value forecast over every (customer, day, channel) of the March target week, in $\log(1+x)$ units. The last column is the share of customers whose mean error over their 49 cells exceeds 2.}
 \label{tab:w2_traj_listen}
 \end{table}
 
-No predictor forecasts the listening amounts well. The mean of the last seven days has the lowest MAE (0.986, against 1.019 for the GRU), so on a typical day it is as good as the networks. The networks have the lowest RMSE and almost never make a very large error: only 0.4\% of customers have a mean error above 2, against 2.0\% for the 7-day mean and 7.3\% for repeating the last day. The typical error is smaller than the MAE suggests. The median error of the GRU is 0.585, a factor of about 1.8, and the mean is pulled up by fewer, larger errors.
+The networks have the lowest RMSE and almost never make a very large error: only 0.4\% of customers have a mean error above 2, against 2.0\% for the 7-day mean and 7.3\% for repeating the last day. On MAE, however, the 7-day mean looks slightly better (0.986 against 1.019 for the GRU), and the reason is the single number we report for each day. The expected value $\hat p(\text{active}) \times \widehat{\text{amount}}$ is the best point forecast under squared error, but under absolute error the best one is the median. On a day the customer either listens or not, the median is the predicted amount when $\hat p(\text{active}) > 0.5$ and zero otherwise. With that rule the same networks, without retraining, reach the lowest MAE of all predictors (Table~\ref{tab:w2_point_forecasts}). Neither point forecast wins on both metrics, because the two metrics reward different things: the expected value avoids large errors, and the median rule gets more days exactly right.
 
-Two things explain most of the error. First, daily listening is close to all or nothing: a customer either listens a lot ($\log(1+\text{total\_secs}) \approx 6$--9) or not at all, and 34\% of the target days have no listening. The model's point forecast is $\hat p(\text{active}) \times \widehat{\text{amount}}$, an expected value that falls between the two and is never exactly right on a given day. Second, the error is concentrated in a few channels. The median error per channel is 0.25--0.33 for the partial-play counters \texttt{num\_50}, \texttt{num\_75} and \texttt{num\_985}, which take small values and are zero on many days, about 1.0 for \texttt{num\_100} and \texttt{num\_unq}, and 2.6--2.8 for \texttt{total\_secs}, the channel with the widest range. The repetition baselines reach a median error of exactly zero on the mostly-zero counters because they copy a zero, something an expected value never does.
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Point forecast} & \textbf{MAE} & \textbf{RMSE} \\ \hline
+LSTM, median rule      & \textbf{0.936} & 1.867 \\ \hline
+GRU, median rule       & 0.946 & 1.862 \\ \hline
+mean\_7d               & 0.986 & 1.698 \\ \hline
+GRU, expected value    & 1.019 & \textbf{1.575} \\ \hline
+LSTM, expected value   & 1.031 & 1.588 \\ \hline
+\end{tabular}
+\caption{The same forecasts summarised with the point forecast that suits each metric, against the best baseline.}
+\label{tab:w2_point_forecasts}
+\end{table}
+
+The typical error is also smaller than the MAE suggests: the median error of the GRU's expected value is 0.585, a factor of about 1.8, and the mean is pulled up by fewer, larger errors.
+
+Two things explain most of the error. First, daily listening is close to all or nothing: a customer either listens a lot ($\log(1+\text{total\_secs}) \approx 6$--9) or not at all, and 34\% of the target days have no listening. An expected value falls between the two and is never exactly right on a given day. Second, the error is concentrated in a few channels. The median error per channel is 0.25--0.33 for the partial-play counters \texttt{num\_50}, \texttt{num\_75} and \texttt{num\_985}, which take small values and are zero on many days, about 1.0 for \texttt{num\_100} and \texttt{num\_unq}, and 2.6--2.8 for \texttt{total\_secs}, the channel with the widest range. The repetition baselines reach a median error of exactly zero on the mostly-zero counters because they copy a zero, something an expected value never does.
 
 \paragraph{Events.} Predicting whether something happens works much better than predicting how much (Table~\ref{tab:w2_traj_events}, Figure~\ref{fig:w2_event_curves}).
 
@@ -764,7 +680,7 @@ Two things explain most of the error. First, daily listening is close to all or 
 
 Both networks predict whether a customer will listen on a given day with an AUC of 0.80, against 0.77 for the share of active days in the previous week, and the probabilities are well calibrated (Figure~\ref{fig:w2_event_calibration}). Payments are where the networks add the most. They find who will pay during the week with an average precision of 0.90, against 0.59 for the expiry rule.
 
-They are much less precise about the day. The daily average precision is 0.18: still seven times the 2.5\% prevalence, but far from the weekly 0.90. Figure~\ref{fig:w2_pay_expiry} shows why. Aligned to each customer's expiry, real payments peak sharply on the day after the expiry (37\% of the customers due that day pay then, against 12\% on the expiry day itself) and then trail off over the next ten days. The networks place the peak on the right day but flatten it (25--29\%) and move part of it to the expiry day (about 20\%). We read most of this as a limit of the data: the exact day someone pays depends on things the tensor does not record, such as when they notice the expiry or when they have the money, so the timing varies from person to person even for similar histories. Because each day gets an independent probability, the model also spreads one uncertain payment over several days. Combined as independent days, these probabilities underestimate the weekly rate: customers given 0.71--0.75 pay 93\% of the time. The ranking is unaffected, but a simulator built on this model should draw at most one payment per week.
+\label{sec:w2_pay_timing}They are much less precise about the day. The daily average precision is 0.18: still seven times the 2.5\% prevalence, but far from the weekly 0.90. Figure~\ref{fig:w2_pay_expiry} shows why. Aligned to each customer's expiry, real payments peak sharply on the day after the expiry (37\% of the customers due that day pay then, against 12\% on the expiry day itself) and then trail off over the next ten days. The networks place the peak on the right day but flatten it (25--29\%) and move part of it to the expiry day (about 20\%). We read most of this as a limit of the data: the exact day someone pays depends on things the tensor does not record, such as when they notice the expiry or when they have the money, so the timing varies from person to person even for similar histories. Because each day gets an independent probability, the model also spreads one uncertain payment over several days. Combined as independent days, these probabilities underestimate the weekly rate: customers given 0.71--0.75 pay 93\% of the time. The ranking is unaffected, but a simulator built on this model should draw at most one payment per week.
 
 \paragraph{Paid amount.} On the 19{,}593 real payment days, the networks predict the amount worse than simply repeating the last payment (MAE 57--59 NTD against 33 NTD; 8.8--9.1 plan days against 7.6).
 
@@ -773,30 +689,139 @@ They are much less precise about the day. The daily average precision is 0.18: s
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual_traj/comparison/event_curves.png}
-\caption{Approach 3: ROC and precision-recall curves of the event targets against the baselines.}
+\caption{Forecaster: ROC and precision-recall curves of the event targets against the baselines.}
 \label{fig:w2_event_curves}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual_traj/comparison/pay_by_expiry.png}
-\caption{Approach 3: daily payment rate aligned to each customer's expiry (known on day 82), real against the mean predicted probability.}
+\caption{Forecaster: daily payment rate aligned to each customer's expiry (known on day 82), real against the mean predicted probability.}
 \label{fig:w2_pay_expiry}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual_traj/comparison/event_calibration.png}
-\caption{Approach 3: calibration of the event probabilities (deciles of the predicted probability).}
+\caption{Forecaster: calibration of the event probabilities (deciles of the predicted probability).}
 \label{fig:w2_event_calibration}
 \end{figure}
+
+\subsection{Churn Classification}
+
+The two classifiers apply the same sequences and networks to the churn problem of Workshop~1.
+
+\subsubsection{Calendar Classifier}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Metric} & \textbf{LSTM (thr.\ 0.30)} & \textbf{GRU (thr.\ 0.33)} \\ \hline
+Log-loss            & \textbf{0.5738} & 0.5799 \\ \hline
+Brier score         & \textbf{0.1954} & 0.1990 \\ \hline
+ROC-AUC             & \textbf{0.7766} & 0.7652 \\ \hline
+Average precision   & \textbf{0.7188} & 0.7005 \\ \hline
+Accuracy            & \textbf{0.7200} & 0.7138 \\ \hline
+Balanced accuracy   & \textbf{0.7206} & 0.7096 \\ \hline
+Precision (churn)   & 0.6410 & \textbf{0.6421} \\ \hline
+Recall (churn)      & \textbf{0.7242} & 0.6859 \\ \hline
+Specificity         & 0.7170 & \textbf{0.7332} \\ \hline
+F1 (churn)          & \textbf{0.6801} & 0.6633 \\ \hline
+F1 (macro)          & \textbf{0.7155} & 0.7072 \\ \hline
+MCC                 & \textbf{0.4353} & 0.4156 \\ \hline
+Predicted churn rate & 46.4\% & 43.9\% \\ \hline
+\end{tabular}
+\caption{Calendar classifier, March test (41.1\% churners). Bold marks the better value.}
+\label{tab:w2_test_a1}
+\end{table}
+
+The LSTM is better on almost every metric. The differences are small but consistent: in a paired bootstrap of the March customers the LSTM is ahead by 0.011 in ROC-AUC (95\% CI [0.010, 0.012]), 0.018 in average precision and 0.017 in F1, and DeLong's test gives $p < 10^{-100}$ for the AUC difference. With more than 100{,}000 test customers even small gaps are statistically clear, so the size of the gap matters more than the $p$-value: about one point of AUC. The GRU has fewer parameters (40{,}513 against 53{,}953), stopped earlier (7 epochs against 10) and takes 1.48 instead of 2.14 seconds per epoch.
+
+Both models make errors in both directions in similar proportions (Figure~\ref{fig:w2_confusion_a1}). The LSTM finds 72\% of the churners (33{,}891 of 46{,}800) and wrongly flags 28\% of the customers who stay (18{,}979 of 67{,}070); the GRU finds 69\% and flags 27\%. Both thresholds are low (0.30 and 0.33) because they maximise churn F1 on February, so the models flag slightly more customers than actually churn (44--46\% against 41\%). A retention team that prefers fewer false alarms would raise the threshold and lose recall.
+
+The probabilities are worse in March than in February: the log-loss rises from 0.511 on \texttt{tune} to 0.574 on test. Part of this is the change of month. The churn rate of the segment goes from 32.2\% to 41.1\%, and the official labels of the two months are not built in exactly the same way, so a model fitted on February underestimates March churn.
+
+With an AUC of 0.77 the models rank churners well above chance but leave many errors. The tabular models of Workshop~1, which see the whole payment history since 2015, reach the same level on this segment (Section~\ref{sec:w2_vs_w1}), so the limit does not come from the 90-day window.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/comparison/roc_pr_comparison.png}
+\caption{Calendar classifier: ROC and precision-recall curves on March.}
+\label{fig:w2_rocpr_a1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.49\textwidth}
+\centering
+\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/lstm/evaluation/figures/confusion/confusion_LSTM_test.png}\\
+\small (a) LSTM, threshold 0.30
+\end{minipage}
+\hfill
+\begin{minipage}{0.49\textwidth}
+\centering
+\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/gru/evaluation/figures/confusion/confusion_GRU_test.png}\\
+\small (b) GRU, threshold 0.33
+\end{minipage}
+\caption{Calendar classifier: confusion matrices on March.}
+\label{fig:w2_confusion_a1}
+\end{figure}
+
+\subsubsection{Per-Customer Classifier}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Metric} & \textbf{LSTM (thr.\ 0.28)} & \textbf{GRU (thr.\ 0.33)} \\ \hline
+Log-loss            & 0.5946 & \textbf{0.5630} \\ \hline
+Brier score         & 0.2046 & \textbf{0.1897} \\ \hline
+ROC-AUC             & 0.7654 & \textbf{0.7852} \\ \hline
+Average precision   & 0.6661 & \textbf{0.7057} \\ \hline
+Accuracy            & 0.7300 & \textbf{0.7490} \\ \hline
+Balanced accuracy   & 0.7212 & \textbf{0.7293} \\ \hline
+Precision (churn)   & 0.6377 & \textbf{0.6825} \\ \hline
+Recall (churn)      & \textbf{0.6835} & 0.6450 \\ \hline
+Specificity         & 0.7589 & \textbf{0.8136} \\ \hline
+F1 (churn)          & 0.6598 & \textbf{0.6632} \\ \hline
+F1 (macro)          & 0.7180 & \textbf{0.7316} \\ \hline
+MCC                 & 0.4371 & \textbf{0.4639} \\ \hline
+Predicted churn rate & 41.1\% & 36.2\% \\ \hline
+\end{tabular}
+\caption{Per-customer classifier, March test (104{,}322 customers, 38.3\% churners). Bold marks the better value.}
+\label{tab:w2_test_a2}
+\end{table}
+
+Here the GRU wins, and with a clearer margin than the LSTM had with the calendar classifier: 0.020 more ROC-AUC (95\% CI [0.019, 0.021]), 0.040 more average precision and 0.032 less log-loss. It is also the smallest model of the comparison (11{,}041 parameters). The LSTM keeps a higher recall, but with lower precision and specificity.
+
+Tables~\ref{tab:w2_test_a1} and~\ref{tab:w2_test_a2} cannot be compared directly, because the per-customer classifier only includes customers whose plan expires in March, and that group has a different churn rate. Table~\ref{tab:w2_same_customers} scores the approach 1 models on exactly the 104{,}322 customers of approach 2. On the same people, ending the window 7 days before each customer's expiry improves both models, and the GRU gains the most: its ROC-AUC goes from 0.744 to 0.785 and its average precision from 0.622 to 0.706.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|l|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Window ends} & \textbf{ROC-AUC} & \textbf{AP} & \textbf{F1} & \textbf{Log-loss} \\ \hline
+LSTM & cutoff (calendar)     & 0.7575 & 0.6507 & 0.6476 & \textbf{0.5870} \\ \hline
+LSTM & expiry $-$ 7 (per-customer) & \textbf{0.7654} & \textbf{0.6661} & \textbf{0.6598} & 0.5946 \\ \hline
+GRU  & cutoff (calendar)     & 0.7435 & 0.6219 & 0.6278 & 0.5943 \\ \hline
+GRU  & expiry $-$ 7 (per-customer) & \textbf{0.7852} & \textbf{0.7057} & \textbf{0.6632} & \textbf{0.5630} \\ \hline
+\end{tabular}
+\caption{Calendar and per-customer classifiers on the same 104{,}322 March customers (38.3\% churners), each model with its own February threshold.}
+\label{tab:w2_same_customers}
+\end{table}
+
+The largest gain is for the 1{,}743 customers who made another transaction between the cutoff and their scoring date, usually an early payment. The per-customer classifier sees that transaction and the calendar classifier does not; their average precision rises from 0.78--0.83 to about 0.94. For the other 102{,}579 customers the gain is smaller, but the GRU still improves its average precision from 0.619 to 0.692.
 
 \subsection{Comparison with Workshop 1}
 \label{sec:w2_vs_w1}
 
-Table~\ref{tab:w2_vs_w1} puts the Workshop~1 models, trained and tested on the same manual segment, next to the approach 1 networks. Workshop~1 uses engineered features over the complete transaction history and listening aggregates; the networks only see the 14 daily channels of the last 90 days.
+Table~\ref{tab:w2_vs_w1} puts the Workshop~1 models, trained and tested on the same manual segment, next to the calendar classifier. Workshop~1 uses engineered features over the complete transaction history and listening aggregates; the networks only see the 14 daily channels of the last 90 days.
 
-% Assumes the Workshop 1 rows are scored on the 113,870 March manual customers, like approach 1.
+% Assumes the Workshop 1 rows are scored on the 113,870 March manual customers, like the calendar classifier.
 \begin{table}[H]
 \centering
 \small
@@ -808,14 +833,14 @@ Table~\ref{tab:w2_vs_w1} puts the Workshop~1 models, trained and tested on the s
 Logistic regression (W1) & 0.5877 & 0.7577 & 0.6910 & 0.50 & 0.625 & 0.673 & 0.648 & 0.391 \\ \hline
 Random forest (W1)       & 0.5689 & \textbf{0.7802} & 0.7162 & 0.50 & \textbf{0.667} & 0.692 & 0.679 & \textbf{0.452} \\ \hline
 XGBoost (W1)             & \textbf{0.5632} & 0.7784 & \textbf{0.7195} & 0.50 & 0.654 & 0.691 & 0.672 & 0.436 \\ \hline
-LSTM, approach 1 (W2)    & 0.5738 & 0.7766 & 0.7188 & 0.30 & 0.641 & \textbf{0.724} & \textbf{0.680} & 0.435 \\ \hline
-GRU, approach 1 (W2)     & 0.5799 & 0.7652 & 0.7005 & 0.33 & 0.642 & 0.686 & 0.663 & 0.416 \\ \hline
+LSTM, calendar (W2)      & 0.5738 & 0.7766 & 0.7188 & 0.30 & 0.641 & \textbf{0.724} & \textbf{0.680} & 0.435 \\ \hline
+GRU, calendar (W2)       & 0.5799 & 0.7652 & 0.7005 & 0.33 & 0.642 & 0.686 & 0.663 & 0.416 \\ \hline
 \end{tabular}
-\caption{Workshop~1 and Workshop~2 (approach 1) on the March manual customers. Bold marks the best value per column. The Workshop~1 models use a 0.5 threshold and the networks the threshold chosen on February, so precision, recall, F1 and MCC depend on that choice; log-loss, ROC-AUC and AP do not.}
+\caption{Workshop~1 and the Workshop~2 calendar classifier on the March manual customers. Bold marks the best value per column. The Workshop~1 models use a 0.5 threshold and the networks the threshold chosen on February, so precision, recall, F1 and MCC depend on that choice; log-loss, ROC-AUC and AP do not.}
 \label{tab:w2_vs_w1}
 \end{table}
 
-On the threshold-free metrics the LSTM is level with the two tree models of Workshop~1: its ROC-AUC is 0.004 below the random forest, its AP is between the random forest and XGBoost, and its log-loss is 0.011 above XGBoost. Both networks beat the logistic regression. The approach 2 GRU reaches a higher ROC-AUC (0.785), but on a different set of customers (only those whose plan expires in March), so it does not enter this table.
+On the threshold-free metrics the LSTM is level with the two tree models of Workshop~1: its ROC-AUC is 0.004 below the random forest, its AP is between the random forest and XGBoost, and its log-loss is 0.011 above XGBoost. Both networks beat the logistic regression. The per-customer GRU reaches a higher ROC-AUC (0.785), but on a different set of customers (only those whose plan expires in March), so it does not enter this table.
 
 The two workshops start from very different inputs and end at almost the same point. A model that only reads the last 90 days does as well as models that also know the customer's whole payment history, which suggests that for manual payers the older history adds little once recent behaviour is known, and that what limits all the models is the information in the data rather than how it is represented.
 
@@ -823,11 +848,15 @@ The two workshops start from very different inputs and end at almost the same po
 \section{Conclusions}
 % ─────────────────────────────────────────────
 
-\paragraph{Churn classification.} With only the 90-day sequence, both networks rank manual churners with an AUC of 0.77--0.79 and find about two thirds of them at the February threshold. This matches the best tabular models of Workshop~1 on the same segment, which use the complete payment history. Where the window ends matters more than which cell is used. Ending it 7 days before each customer's expiry improves both models on the same customers, and the GRU most of all (AUC 0.744 to 0.785), because every customer is then seen at the same point of the billing cycle, and early payments made after the calendar cutoff become visible. The best cell changes with the approach: the LSTM wins with the calendar cutoff and the GRU with the per-customer cutoff, in both cases by one to two points of AUC. Since the GRU is smaller and faster, and the best result of the workshop is the GRU of approach 2, it is the model we would keep.
+\paragraph{Behaviour trajectories.} The forecaster predicts the next week of a manual customer's behaviour, and it is much better at predicting events than amounts. It knows whether a customer will listen on a given day (ROC-AUC 0.80, against 0.77 for the share of active days in the previous week) and, above all, whether they will pay during the week (AP 0.90, against 0.59 for a rule that expects everyone to pay on their expiry day). It also learned when manual customers pay: mostly the day after the expiry, with a tail of late payments. It cannot name the exact day of payment, and it predicts how much a customer listens only moderately well. Even there the networks beat the simple baselines once the point forecast matches the metric: the expected value gives the lowest squared error, and the median rule the lowest absolute error.
 
-\paragraph{Behaviour forecast.} The forecaster is good at predicting events and poor at predicting amounts. It knows whether a customer will listen on a given day (AUC 0.80) and, above all, whether they will pay during the next week (AP 0.90 against 0.59 for the expiry rule), but the amount of listening is predicted no better than by the average of the previous week. Our hypothesis is that the data do not contain what decides these details. How much someone listens on a particular day, or the exact day they pay, depends on personal circumstances the dataset does not record, so even a well-trained model can only predict them on average. Behaviour that follows from the subscription itself, such as the payment that comes after an expiry, is predictable; day-to-day variation around it is not. This agrees with the exploratory analysis, which found that churners and stayers differ mostly in their level of listening throughout the window and that the weekly shape of the sequence adds nothing over a few summary features.
+Our hypothesis is that the data do not contain what decides these details. How much someone listens on a particular day, or the exact day they pay, depends on personal circumstances the dataset does not record, so a model can only predict them on average. Behaviour that follows from the subscription itself, such as paying after an expiry, is predictable; the day-to-day variation around it is not. This agrees with the exploratory analysis, which found that churners and stayers differ mostly in their level of listening throughout the window and that the weekly shape of the sequence adds nothing over a few summary features.
 
-\paragraph{Limitations.} Each approach was trained on one month and tested on the next, so we cannot say how stable the results are over time; the dataset only has official labels for February and March 2017. The test month also has a higher churn rate than the training month (41.1\% against 32.2\% in the manual segment), which affects the calibration of every model. Finally, the comparison with Workshop~1 assumes both were scored on the same March manual customers.
+\paragraph{Churn as one step of the trajectory.} Used as churn classifiers, the same networks rank manual churners with a ROC-AUC of 0.77--0.79 from the 90-day sequence alone. That is the level of the best tabular models of Workshop~1 on the same customers, which also see the complete payment history, so a sequence model is a valid way to approach the churn problem. Where the window ends matters more than which cell is used: ending it 7 days before each customer's expiry improves both networks on the same customers, the GRU most (ROC-AUC 0.744 to 0.785), because every customer is then seen at the same point of the billing cycle.
+
+\paragraph{LSTM or GRU.} The two cells give almost the same results. The LSTM is ahead on the calendar classifier and the GRU on the per-customer classifier, by one to two points of ROC-AUC, and they are tied on the forecast. The GRU is always the smaller and faster model, so it is the one we would keep.
+
+\paragraph{Limitations.} Every model was trained on one month and tested on the next, so we cannot say how stable the results are over time; the dataset only has official labels for February and March 2017. The test month also has a higher churn rate than the training month (41.1\% against 32.2\% in the manual segment), which affects the calibration of the classifiers. The forecaster covers one week; longer trajectories would need to roll it forward week by week, which accumulates error. Finally, the comparison with Workshop~1 assumes both were scored on the same March manual customers.
 
 \begin{thebibliography}{9}
 
