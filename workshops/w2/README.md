@@ -8,8 +8,6 @@ All reported experiments use the **manual renewal segment** (`state='manual'`), 
 2. **Cycle**: the sequence is aligned to each user's subscription expiry (`k = 7` days before expiry).
 3. **Trajectory**: the model forecasts the next days of listening and transactions, and churn is read from the forecast trajectory.
 
-A first run on the full cohort (all renewal states) is kept as a reference.
-
 ---
 
 ## Structure
@@ -53,5 +51,3 @@ w2/
 └── export-sequential-v6-cycle-k7-manual/   # Cycle sequences (+ cycle_index_*.parquet)
 ```
 
-
-**Running:** paths in `src` are relative to `workshops/w2`; the first cell of every notebook switches the working directory there. The calendar/cycle choice is made with the environment variables `W2_ALIGNMENT` (`calendar` | `cycle`) and `W2_CYCLE_K` before the first `import src.models` (restart the kernel after changing them). Run the calendar notebooks first: the cycle and trajectory notebooks reuse its split and scalers.
