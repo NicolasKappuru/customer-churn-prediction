@@ -491,3 +491,40 @@ def plot_example_events(preds, data, rows, examples, *, context_days=28, save_pa
     for ax in axes[-1]:
         ax.set_xlabel("day of the window (dotted line: start of the forecast)")
     return _save(fig, save_path)
+
+
+# ---------------------------------------------------------------------------
+# Point forecast per metric: expected value (RMSE) vs median rule (MAE)
+# ---------------------------------------------------------------------------
+
+def listening_point_forecasts(preds, data, rows, *, scaler_state, block_rows=20_000):
+    """MAE and RMSE of two point forecasts of listening, next to the 7-day mean.
+
+    - expected value ``p(active) x amount``: minimises the squared error (RMSE);
+    - median rule ``amount if p(active) > 0.5 else 0``: the median of a
+      listen-or-not day, which minimises the absolute error (MAE).
+    """
+    from .decode import unscale_listening
+
+    k = len(LISTEN_AMOUNT_CHANNELS)
+    rows = np.asarray(rows)
+    acc = {}
+
+    def add(key, err):
+        a = acc.setdefault(key, [0.0, 0.0, 0])
+        a[0] += np.abs(err).sum()
+        a[1] += (err ** 2).sum()
+        a[2] += err.size
+
+    for start in range(0, len(rows), block_rows):
+        pos = slice(start, min(start + block_rows, len(rows)))
+        raw = data.raw(rows[pos])
+        real = raw[:, INPUT_DAYS:, :k]
+        for name, pred in preds.items():
+            amount = unscale_listening(pred["listen"][pos], scaler_state)
+            p_active = pred["p_active"][pos][..., None]
+            add(f"{name.upper()}, expected value", p_active * amount - real)
+            add(f"{name.upper()}, median rule", np.where(p_active > 0.5, amount, 0.0) - real)
+        add("mean_7d", _listen_baselines(raw)["mean_7d"] - real)
+
+    return pd.DataFrame({key: {"MAE": a[0] / a[2], "RMSE": np.sqrt(a[1] / a[2])} for key, a in acc.items()}).T
