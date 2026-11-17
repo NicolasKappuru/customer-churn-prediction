@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+"""Load a random churned KKBox customer from the manual renewal segment."""
+=======
 """Load a random churned KKBox customer from the raw parquet files."""
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 from __future__ import annotations
 
@@ -12,12 +16,35 @@ DEFAULT_DATA_DIR = PROJECT_ROOT / "workshops" / "data" / "parquet"
 DEFAULT_POOL_DIR = PROJECT_ROOT / "workshops" / "data" / "pool_users"
 _CUTOFF_INT = 20170131
 
+<<<<<<< HEAD
+_LOG_DATE_MIN: int = 20161101
+=======
 _LOG_DATE_MIN: int = 20161101  # start of the 3-month window used by the preprocessor
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 _LOG_DATE_MAX: int = 20170131
 _LOG_FIELDS: tuple[str, ...] = (
     "msno", "date", "num_25", "num_50", "num_75", "num_985", "num_100", "num_unq", "total_secs"
 )
 
+<<<<<<< HEAD
+_TXN_KEYS = [
+    "payment_method_id", "payment_plan_days", "plan_list_price",
+    "actual_amount_paid", "is_auto_renew", "transaction_date",
+    "membership_expire_date", "is_cancel",
+]
+
+
+def _is_manual_segment(txn_records: list) -> bool:
+    """True if the user's last renewal was manual (not auto-renew) with at least one payment."""
+    if not txn_records:
+        return False
+    sorted_txns = sorted(txn_records, key=lambda t: int(t.get("transaction_date", 0)))
+    last = sorted_txns[-1]
+    has_payment = any(int(t.get("is_cancel", 1)) == 0 for t in sorted_txns)
+    return int(last.get("is_auto_renew", 1)) == 0 and has_payment
+
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 def build_log_map(data_dir: Path, msnos: set) -> dict:
     """Return {msno: [log_dict, ...]} for the 3-month window before cutoff.
@@ -45,6 +72,17 @@ def build_log_map(data_dir: Path, msnos: set) -> dict:
 
 
 class CustomerSelector:
+<<<<<<< HEAD
+    """Pick a random churned KKBox customer from the manual renewal segment.
+
+    Loads member data and transactions from parquet files. Only users whose last
+    transaction was a manual renewal (not auto-renew) are included in the pool.
+    User logs are omitted during pool construction because user_logs.parquet is
+    very large (6+ GB); the preprocessor handles their absence gracefully.
+
+    The customer pool is serialised to a pickle file so subsequent runs skip the
+    expensive I/O. Delete the cache file to force a fresh sample.
+=======
     """Pick a random churned KKBox user and return their raw source records.
 
     Loads member data and transactions from parquet files.  User logs are
@@ -55,6 +93,7 @@ class CustomerSelector:
     The customer pool is serialised to a pickle file alongside the parquet
     data after the first build so subsequent runs skip the expensive I/O.
     Delete the cache file to force a fresh sample from the raw data.
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     """
 
     def __init__(self, data_dir: Path = DEFAULT_DATA_DIR, sample_size: int = 1500) -> None:
@@ -66,7 +105,11 @@ class CustomerSelector:
         if cache_path.exists():
             with open(cache_path, "rb") as f:
                 self._pool: list[dict] = pickle.load(f)
+<<<<<<< HEAD
+            print(f"CustomerSelector ready: {len(self._pool)} manual churned users (cached)")
+=======
             print(f"CustomerSelector ready: {len(self._pool)} churned users (cached)")
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
             return
 
         train = pd.read_parquet(data_dir / "train.parquet")
@@ -79,6 +122,10 @@ class CustomerSelector:
         member_map = members.set_index("msno").to_dict("index")
 
         available = [m for m in churned_msno if m in member_map]
+<<<<<<< HEAD
+
+        # Load transactions for all available churned users to filter manual segment.
+=======
         sample = (
             pd.Series(available)
             .sample(min(sample_size, len(available)), replace=False)
@@ -91,16 +138,33 @@ class CustomerSelector:
             "actual_amount_paid", "is_auto_renew", "transaction_date",
             "membership_expire_date", "is_cancel",
         ]
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         txn = pd.concat([
             pd.read_parquet(data_dir / "transactions.parquet"),
             pd.read_parquet(data_dir / "transactions_v2.parquet"),
         ], ignore_index=True)
+<<<<<<< HEAD
+        txn = txn[txn["msno"].isin(set(available)) & (txn["transaction_date"] <= _CUTOFF_INT)]
+=======
         txn = txn[txn["transaction_date"] <= _CUTOFF_INT]
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         txn = txn.drop_duplicates(subset=["msno", *_TXN_KEYS], keep="first")
         txn_map = txn.groupby("msno").apply(
             lambda g: g.to_dict("records"), include_groups=False
         ).to_dict()
 
+<<<<<<< HEAD
+        # Keep only manual segment: last renewal was not auto-renew.
+        available_manual = [m for m in available if _is_manual_segment(txn_map.get(m, []))]
+
+        sample = (
+            pd.Series(available_manual)
+            .sample(min(sample_size, len(available_manual)), replace=False)
+            .tolist()
+        )
+
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         print("Loading user logs (one-time, may take a few minutes)...")
         log_map = build_log_map(data_dir, set(sample))
         print(f"  Listening logs loaded for {len(log_map)} / {len(sample)} customers")
@@ -114,7 +178,11 @@ class CustomerSelector:
 
         with open(cache_path, "wb") as f:
             pickle.dump(self._pool, f)
+<<<<<<< HEAD
+        print(f"CustomerSelector ready: {len(self._pool)} manual churned users")
+=======
         print(f"CustomerSelector ready: {len(self._pool)} churned users")
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
     def get_random_customer(self) -> dict:
         """Return one customer dict with member, transaction and log fields."""

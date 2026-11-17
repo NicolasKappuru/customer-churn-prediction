@@ -12,11 +12,10 @@ class RetentionAction:
 
 
 ACTION_DEFINITIONS = (
-    RetentionAction("Send auto-renewal reminder",           0.10, 0.60, 0.01),
-    RetentionAction("Offer loyalty renewal with discount",  0.15, 0.90, 0.15),
-    RetentionAction("Send content re-engagement",           0.10, 0.80, 0.05),
-    RetentionAction("Offer downgrade to 99 NTD plan",       0.15, 0.90, 0.10),
-    RetentionAction("Do nothing",                           1.00, None, 0.00),
+    RetentionAction("Reactivate dormant listener",    0.20, 0.70, 0.04),
+    RetentionAction("Send content re-engagement",     0.10, 0.70, 0.05),
+    RetentionAction("Manual renewal nudge",            0.30, 0.70, 0.07),
+    RetentionAction("Do nothing",                     1.00, None, 0.00),
 )
 
 # Raw customer data structure keys
@@ -58,20 +57,12 @@ DEFAULT_PAYMENT_METHOD_ID: int = 38
 DEFAULT_PLAN_DAYS: int = 30
 DEFAULT_PLAN_PRICE: float = 149.0
 
-# Action 1 — loyalty renewal: 30-day plan at 149 NTD with 20 NTD fixed discount + auto-renew
-# Valid for tenure_days > 365 with auto-renew on; last_discount=20 stays in the low-churn zone
-FIDELITY_PLAN_DAYS: int = 30
-FIDELITY_PLAN_PRICE: float = 149.0
-FIDELITY_DISCOUNT_NTD: float = 20.0         # fixed NTD discount → customer pays 129
-FIDELITY_TRANSACTION_DATE: int = 20170131   # cutoff date
-
-# Action 2 — content re-engagement: adds 2–8 scaled log entries + transaction with 50 NTD discount.
+# Action 2 — content re-engagement: adds 2-8 scaled log entries.
 # Valid when Jan activity < Dec activity; logs scaled to customer's Dec daily average.
 REENGAGEMENT_DISCOUNT_NTD: float = 50.0
-REENGAGEMENT_TRANSACTION_DATE: int = 20170131   # cutoff date
+REENGAGEMENT_TRANSACTION_DATE: int = 20170131
 
 # Pool of 8 log entries spread across January 2017.
-# ActionsManager randomly selects 2–8 of these to simulate re-engagement activity.
 REENGAGEMENT_LOG_POOL: tuple[dict, ...] = (
     {"date": 20170102, "num_25": 3, "num_50": 2, "num_75": 1, "num_985": 1, "num_100": 8,  "num_unq": 12, "total_secs": 2400.0},
     {"date": 20170105, "num_25": 4, "num_50": 2, "num_75": 2, "num_985": 1, "num_100": 10, "num_unq": 15, "total_secs": 2800.0},
@@ -83,38 +74,18 @@ REENGAGEMENT_LOG_POOL: tuple[dict, ...] = (
     {"date": 20170127, "num_25": 4, "num_50": 2, "num_75": 1, "num_985": 0, "num_100": 8,  "num_unq": 11, "total_secs": 2600.0},
 )
 
-# Action 3 — downgrade: switch to 99 NTD plan (no discount, last_discount=0)
-# Valid when current plan_list_price > 99; targets customers near expiry considering cancellation
-DOWNGRADE_PLAN_PRICE: float = 99.0
-DOWNGRADE_PLAN_DAYS: int = 30
-DOWNGRADE_TRANSACTION_DATE: int = 20170131   # cutoff date
+# Action 3 — renewal nudge: transaction date for the simulated renewal
+RENEWAL_TRANSACTION_DATE: int = 20170131
 
-# Action 4 — do nothing: no state change, no cost, always valid
-# acceptance and cost are unused — apply_action short-circuits for this action
-
+# Action 3 — do nothing: no state change, no cost, always valid
 
 
 # ── Cohort / cutoff configuration ─────────────────────────────────────────────
-# To retarget to a different evaluation window, update these six values together.
 
 CUTOFF_DATE: datetime.date = datetime.date(2017, 1, 31)
-# All features are computed up to this date; reference point for days_to_expire,
-# tenure_days, days_since_last_log, and new-transaction dates.
-
 CUTOFF_INT: int = 20170131
-# CUTOFF_DATE as YYYYMMDD int; used to filter raw transactions in the data pipeline.
-
 CUTOFF_MONTH: str = "201701"
-# YYYYMM prefix of the cutoff month; identifies "last month" log entries for
-# last_month_logins (Action 1 favorable) and the declining-activity check (Action 2).
-
 PREV_MONTH: str = "201612"
-# YYYYMM prefix of the month immediately before the cutoff; used as the comparison
-# baseline in the declining-activity check and as the reference for log scaling.
 
 LOG_WINDOW_START: int = 20161101
-# Earliest date (YYYYMMDD int) of the 3-month log window loaded for each customer.
-# Must equal the first day of the month that is 2 months before CUTOFF_MONTH.
-
 LOG_WINDOW_END: int = 20170131
-# Latest date (YYYYMMDD int) of the 3-month log window; should equal CUTOFF_INT.

@@ -38,9 +38,17 @@ ROLLOUT_EPISODES = 8
 LOG_INTERVAL = 100
 VALIDATION_SEED = 0
 TRAINING_CUSTOMER_FRACTION = 0.80
+<<<<<<< HEAD
+CHECKPOINT_PATH  = W3_ROOT / "checkpoints" / "agent_ppo.pt"
+RUNS_DIR         = W3_ROOT / "runs"
+CSV_DIR          = RUNS_DIR / "csv"
+DIAGNOSTIC_DIR   = PROJECT_ROOT / "workshops" / "w3" / "evaluations" / "csv"
+DIAGNOSTIC_SAMPLE_SIZE = 100  # episodes to sample per config
+=======
 CHECKPOINT_PATH = W3_ROOT / "checkpoints" / "agent_ppo.pt"
 RUNS_DIR        = W3_ROOT / "runs"
 CSV_DIR         = RUNS_DIR / "csv"
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 BASE_CONFIG = PPOConfig()
 CONFIGURATIONS = (
@@ -69,6 +77,10 @@ class _EpisodeResult:
     accepted_count: int
     action_cost: float
     action_frequency_update: Counter
+<<<<<<< HEAD
+    diagnostic_row: dict | None = None
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 
 def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
@@ -155,6 +167,10 @@ def _run_ppo_episode(
     env: KKBoxRetentionEnv,
     config_seed: int,
     episode: int,
+<<<<<<< HEAD
+    capture_diagnostic: bool = False,
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 ) -> _EpisodeResult:
     state, _ = _quiet_env_call(env.reset, seed=config_seed + episode)
     transitions: list[PPOTransition] = []
@@ -163,6 +179,10 @@ def _run_ppo_episode(
     accepted_count = 0
     action_cost = 0.0
     action_frequency_update: Counter[int] = Counter()
+<<<<<<< HEAD
+    diagnostic_row: dict | None = None
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     terminated = False
     truncated = False
 
@@ -171,7 +191,20 @@ def _run_ppo_episode(
             raise RuntimeError("Environment did not initialize a customer.")
         customer_before = env.customer_data
         valid_actions = env.action_manager.get_valid_actions(env.customer_data)
+<<<<<<< HEAD
+
+        if capture_diagnostic:
+            days_since_last_log = env.action_manager._days_since_last_log(customer_before)
+            n_valid = len(valid_actions)
+
         action, old_log_probability, value = agent.select_action(state, valid_actions)
+
+        if capture_diagnostic:
+            was_favorable = env.action_manager.is_favorable(action, customer_before)
+
+=======
+        action, old_log_probability, value = agent.select_action(state, valid_actions)
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         next_state, reward, terminated, truncated, info = _quiet_env_call(
             env.step, action,
         )
@@ -180,6 +213,29 @@ def _run_ppo_episode(
                 f"Episode {episode}: step observation does not match "
                 "the environment observation space."
             )
+<<<<<<< HEAD
+
+        if capture_diagnostic:
+            churn_before = float(info["probability_before"])
+            churn_after  = float(info["probability_after"])
+            diagnostic_row = {
+                "episode":            episode,
+                "action":             action,
+                "action_name":        ACTION_DEFINITIONS[action].name,
+                "n_valid_actions":    n_valid,
+                "valid_actions":      ",".join(str(a) for a in valid_actions),
+                "was_favorable":      was_favorable,
+                "was_accepted":       env.customer_data is not customer_before,
+                "churn_before":       f"{churn_before:.6f}",
+                "churn_after":        f"{churn_after:.6f}",
+                "churn_delta":        f"{churn_before - churn_after:.6f}",
+                "action_cost":        f"{float(info['action_cost']):.4f}",
+                "reward":             f"{float(reward):.6f}",
+                "days_since_last_log": days_since_last_log,
+            }
+
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         transitions.append(PPOTransition(
             state=state, action=action, reward=reward, next_state=next_state,
             terminated=terminated or truncated, valid_actions=valid_actions,
@@ -199,6 +255,10 @@ def _run_ppo_episode(
         accepted_count=accepted_count,
         action_cost=action_cost,
         action_frequency_update=action_frequency_update,
+<<<<<<< HEAD
+        diagnostic_row=diagnostic_row,
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     )
 
 
@@ -297,6 +357,34 @@ def _train_ppo_config(
 
     CSV_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = CSV_DIR / f"ppo_{config_name}.csv"
+<<<<<<< HEAD
+
+    DIAGNOSTIC_DIR.mkdir(parents=True, exist_ok=True)
+    diag_path = DIAGNOSTIC_DIR / f"ppo_{config_name}.csv"
+    _DIAG_FIELDS = [
+        "episode", "config", "action", "action_name", "n_valid_actions",
+        "valid_actions", "was_favorable", "was_accepted",
+        "churn_before", "churn_after", "churn_delta",
+        "action_cost", "reward", "days_since_last_log",
+    ]
+    sample_prob = DIAGNOSTIC_SAMPLE_SIZE / episodes_per_config
+
+    with open(csv_path, "w", newline="") as csv_file, \
+         open(diag_path, "w", newline="") as diag_file:
+        writer = csv.writer(csv_file)
+        writer.writerow(["episode", "return", "mean_return_100",
+                         "policy_loss", "value_loss", "entropy", "validation_return"])
+        diag_writer = csv.DictWriter(diag_file, fieldnames=_DIAG_FIELDS)
+        diag_writer.writeheader()
+
+        for episode in range(1, episodes_per_config + 1):
+            capture = random.random() < sample_prob
+            result = _run_ppo_episode(agent, training_env, config_seed, episode, capture_diagnostic=capture)
+            if result.diagnostic_row is not None:
+                result.diagnostic_row["config"] = config_name
+                diag_writer.writerow(result.diagnostic_row)
+                diag_file.flush()
+=======
     with open(csv_path, "w", newline="") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(["episode", "return", "mean_return_100",
@@ -304,6 +392,7 @@ def _train_ppo_config(
 
         for episode in range(1, episodes_per_config + 1):
             result = _run_ppo_episode(agent, training_env, config_seed, episode)
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
             rollout.extend(result.transitions)
             accepted_actions += result.accepted_count
             total_action_cost += result.action_cost

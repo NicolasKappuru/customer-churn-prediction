@@ -17,6 +17,10 @@ from constants import (
     DEFAULT_PAYMENT_METHOD_ID,
     DEFAULT_PLAN_DAYS,
     DEFAULT_PLAN_PRICE,
+<<<<<<< HEAD
+    REENGAGEMENT_LOG_POOL,
+    RENEWAL_TRANSACTION_DATE,
+=======
     FIDELITY_PLAN_DAYS,
     FIDELITY_PLAN_PRICE,
     FIDELITY_DISCOUNT_NTD,
@@ -25,10 +29,18 @@ from constants import (
     DOWNGRADE_PLAN_PRICE,
     DOWNGRADE_PLAN_DAYS,
     DOWNGRADE_TRANSACTION_DATE,
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 )
 
 _CUTOFF_DATE = CUTOFF_DATE
 
+<<<<<<< HEAD
+# Days-since-last-log threshold for "recently active" (Action 3 validity)
+_ACTIVE_WINDOW_DAYS: int = 7
+_DORMANT_WINDOW_DAYS: int = 30
+
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 def _date_from_int(d: int) -> datetime.date:
     return datetime.date(d // 10000, (d // 100) % 100, d % 100)
@@ -46,6 +58,13 @@ class ActionsManager:
     def is_favorable(self, action_index: int, customer: dict) -> bool:
         """Return True if the customer meets the high-acceptance condition for this action."""
         if action_index == 0:
+<<<<<<< HEAD
+            return self._tenure_days(customer) >= 365
+        if action_index == 1:
+            return self._days_since_last_log(customer) <= 30
+        if action_index == 2:
+            return self._last_month_logins(customer) >= 3
+=======
             return self._days_since_last_log(customer) <= 30
         if action_index == 1:
             return self._last_month_logins(customer) >= 15
@@ -53,10 +72,30 @@ class ActionsManager:
             return self._days_since_last_log(customer) <= 30
         if action_index == 3:
             return self._tenure_days(customer) < 365
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         return False
 
     def get_valid_actions(self, customer: dict) -> list[int]:
         """Return valid zero-based action indices for the customer's current state."""
+<<<<<<< HEAD
+        valid = []
+        logs = customer.get("user_logs") or []
+
+        # Action 0: reactivate dormant — no logs at all, or inactive for 30+ days
+        if not logs or self._days_since_last_log(customer) > _DORMANT_WINDOW_DAYS:
+            valid.append(0)
+
+        # Action 1: re-engagement — any customer with logs in the Nov-Jan window
+        if self._has_window_logs(customer):
+            valid.append(1)
+
+        # Action 2: renewal nudge — actively listening but subscription lapsed
+        if logs and self._days_since_last_log(customer) <= _ACTIVE_WINDOW_DAYS:
+            valid.append(2)
+
+        # Action 3: do nothing — always valid
+        valid.append(3)
+=======
         last_tx = self._get_last_transaction(customer)
         valid = []
 
@@ -80,6 +119,7 @@ class ActionsManager:
 
         # Action 4: do nothing — always valid
         valid.append(4)
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
         return valid
 
@@ -98,8 +138,12 @@ class ActionsManager:
                 "is not valid for this customer."
             )
 
+<<<<<<< HEAD
+        if action_index == 3:
+=======
         # Do nothing — no state change, no cost, skip stochastic acceptance
         if action_index == 4:
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
             return customer, 0.0
 
         action_definition = ACTION_DEFINITIONS[action_index]
@@ -109,10 +153,16 @@ class ActionsManager:
 
         updated = copy.deepcopy(customer)
         _dispatch = {
+<<<<<<< HEAD
+            0: self._apply_reactivate_dormant,
+            1: self._apply_content_reengagement,
+            2: self._apply_renewal_nudge,
+=======
             0: self._apply_reminder_autorenew,
             1: self._apply_fidelity_renewal,
             2: self._apply_content_reengagement,
             3: self._apply_downgrade,
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         }
         _dispatch[action_index](updated)
         return updated, action_definition.cost
@@ -121,6 +171,43 @@ class ActionsManager:
     # Action implementations
     # ------------------------------------------------------------------
 
+<<<<<<< HEAD
+    def _apply_reactivate_dormant(self, customer: dict) -> None:
+        """Add 2-3 January log entries for customers with no listening history in the window."""
+        n = random.randint(2, 3)
+        selected = random.sample(list(REENGAGEMENT_LOG_POOL), n)
+        customer["user_logs"].extend([dict(e) for e in selected])
+
+    def _apply_content_reengagement(self, customer: dict) -> None:
+        """Add 2-8 scaled log entries simulating a content re-engagement campaign."""
+        n = random.randint(2, len(REENGAGEMENT_LOG_POOL))
+        selected = random.sample(list(REENGAGEMENT_LOG_POOL), n)
+        customer["user_logs"].extend(self._scale_logs(selected, customer))
+
+    def _apply_renewal_nudge(self, customer: dict) -> None:
+        """Add a renewal transaction that changes last_is_cancel 1→0 without extending expiry.
+
+        Preserves days_to_expire by reusing the existing membership_expire_date.
+        """
+        last_tx = self._get_last_transaction(customer)
+        price = min(
+            float(last_tx["plan_list_price"]) if last_tx else DEFAULT_PLAN_PRICE,
+            DEFAULT_PLAN_PRICE,
+        )
+        expire_date = (
+            int(last_tx["membership_expire_date"]) if last_tx
+            else RENEWAL_TRANSACTION_DATE
+        )
+        customer["transactions"].append({
+            "payment_method_id": int(last_tx["payment_method_id"]) if last_tx else DEFAULT_PAYMENT_METHOD_ID,
+            "payment_plan_days": DEFAULT_PLAN_DAYS,
+            "plan_list_price": price,
+            "actual_amount_paid": price,
+            "is_auto_renew": 0,
+            "is_cancel": 0,
+            "transaction_date": RENEWAL_TRANSACTION_DATE,
+            "membership_expire_date": expire_date,
+=======
     def _apply_reminder_autorenew(self, customer: dict) -> None:
         """Activate auto-renew on the last transaction — no new transaction added."""
         last_tx = self._get_last_transaction(customer)
@@ -159,6 +246,7 @@ class ActionsManager:
             "is_cancel": 0,
             "transaction_date": DOWNGRADE_TRANSACTION_DATE,
             "membership_expire_date": self._compute_expire_date(last_tx, DOWNGRADE_PLAN_DAYS),
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         })
 
     # ------------------------------------------------------------------
@@ -171,6 +259,13 @@ class ActionsManager:
             return action_def.acceptance_probability
 
         if action_index == 0:
+<<<<<<< HEAD
+            high = self._tenure_days(customer) >= 365
+        elif action_index == 1:
+            high = self._days_since_last_log(customer) <= 30
+        elif action_index == 2:
+            high = self._last_month_logins(customer) >= 3
+=======
             high = self._days_since_last_log(customer) <= 30
         elif action_index == 1:
             high = self._last_month_logins(customer) >= 15
@@ -178,13 +273,18 @@ class ActionsManager:
             high = self._days_since_last_log(customer) <= 30
         elif action_index == 3:
             high = self._tenure_days(customer) < 365
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         else:
             high = False
 
         return action_def.acceptance_probability_high if high else action_def.acceptance_probability
 
     # ------------------------------------------------------------------
+<<<<<<< HEAD
+    # Condition helpers
+=======
     # Condition helpers (computed from raw customer dict, no preprocessor)
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     # ------------------------------------------------------------------
 
     def _days_since_last_log(self, customer: dict) -> int:
@@ -201,6 +301,14 @@ class ActionsManager:
         logs = customer.get("user_logs") or []
         return sum(1 for log in logs if str(int(log["date"]))[:6] == CUTOFF_MONTH)
 
+<<<<<<< HEAD
+    def _has_window_logs(self, customer: dict) -> bool:
+        """Return True if the customer has any log entries in the Nov–Jan window."""
+        logs = customer.get("user_logs") or []
+        return any(LOG_WINDOW_START <= int(log["date"]) <= LOG_WINDOW_END for log in logs)
+
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     def _is_declining_active(self, customer: dict) -> bool:
         logs = customer.get("user_logs") or []
         if not any(LOG_WINDOW_START <= int(log["date"]) <= LOG_WINDOW_END for log in logs):
@@ -215,6 +323,8 @@ class ActionsManager:
 
         return (_songs(CUTOFF_MONTH) / (_songs(PREV_MONTH) + 1)) < 1.0
 
+<<<<<<< HEAD
+=======
     def _avg_difference(self, customer: dict) -> float:
         """Return avg_actual_amount_paid - avg_plan_list_price across all transactions."""
         txns = customer.get("transactions") or []
@@ -231,6 +341,7 @@ class ActionsManager:
         days = (_date_from_int(int(last_tx["membership_expire_date"])) - _CUTOFF_DATE).days
         return -30 <= days <= 15
 
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------

@@ -20,7 +20,11 @@ for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
+<<<<<<< HEAD
+from environment.supervised_model.customer_selector import build_log_map, _is_manual_segment
+=======
 from environment.supervised_model.customer_selector import build_log_map
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 _CUTOFF_INT = 20170131
 _TXN_KEYS = (
@@ -86,7 +90,11 @@ def load_or_create_test_pools(
     """
     POOL_DIR.mkdir(parents=True, exist_ok=True)
     paths = [
+<<<<<<< HEAD
+        POOL_DIR / f"pool_mixed_{n_churn}c_{n_non_churn}nc_{i}_ex_manual.pkl"
+=======
         POOL_DIR / f"pool_mixed_{n_churn}c_{n_non_churn}nc_{i}_ex.pkl"
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         for i in range(n_pools)
     ]
     if all(p.exists() for p in paths):
@@ -118,16 +126,25 @@ def load_or_create_test_pools(
 
     available_churn     = [m for m in churned_msno     if m in member_map]
     available_non_churn = [m for m in non_churned_msno if m in member_map]
+<<<<<<< HEAD
+
+    all_available = set(available_churn) | set(available_non_churn)
+=======
     print(
         f"  Candidates before exclusion: "
         f"{len(available_churn)} churned, {len(available_non_churn)} non-churned"
     )
 
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     txn = pd.concat([
         pd.read_parquet(DATA_DIR / "transactions.parquet"),
         pd.read_parquet(DATA_DIR / "transactions_v2.parquet"),
     ], ignore_index=True)
+<<<<<<< HEAD
+    txn = txn[txn["msno"].isin(all_available) & (txn["transaction_date"] <= _CUTOFF_INT)]
+=======
     txn = txn[txn["transaction_date"] <= _CUTOFF_INT]
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     txn = txn.drop_duplicates(subset=["msno", *_TXN_KEYS], keep="first")
     txn_map = (
         txn.groupby("msno")
@@ -135,6 +152,17 @@ def load_or_create_test_pools(
         .to_dict()
     )
 
+<<<<<<< HEAD
+    # ── Manual segment filter ───────────────────────────────────────────────
+    available_churn     = [m for m in available_churn     if _is_manual_segment(txn_map.get(m, []))]
+    available_non_churn = [m for m in available_non_churn if _is_manual_segment(txn_map.get(m, []))]
+    print(
+        f"  Candidates (manual segment): "
+        f"{len(available_churn)} churned, {len(available_non_churn)} non-churned"
+    )
+
+=======
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     # ── Fingerprint exclusion (member + transactions only, no logs needed) ──
     def _keep(msno: str) -> bool:
         row = dict(member_map[msno])

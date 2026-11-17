@@ -1,0 +1,116 @@
+episode,config,action,action_name,n_valid_actions,valid_actions,was_favorable,was_accepted,churn_before,churn_after,churn_delta,action_cost,reward,days_since_last_log
+1,conservative,3,Do nothing,3,"1,2,3",False,False,0.976074,0.976074,0.000000,0.0000,0.000000,1
+4,conservative,1,Send content re-engagement,2,"1,3",True,False,0.881348,0.881348,0.000000,0.0000,0.000000,11
+26,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.580311,0.550444,0.029867,0.0500,0.056748,0
+68,conservative,3,Do nothing,2,"0,3",False,False,0.982593,0.982593,0.000000,0.0000,0.000000,9999
+69,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.529720,0.368304,0.161416,0.0700,0.300234,1
+82,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.811348,0.747982,0.063366,0.0500,0.120394,6
+164,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.991630,0.991630,0.000000,0.0000,0.000000,0
+175,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.994560,0.980297,0.014263,0.0700,0.026529,4
+221,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.406059,0.406059,0.000000,0.0000,0.000000,0
+247,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.450018,0.450018,0.000000,0.0000,0.000000,3
+250,conservative,0,Reactivate dormant listener,2,"0,3",True,True,0.982570,0.944631,0.037939,0.0400,0.072844,9999
+257,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.874109,0.313726,0.560383,0.0700,1.042312,0
+284,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.623861,0.474623,0.149238,0.0700,0.277583,0
+296,conservative,1,Send content re-engagement,2,"1,3",True,False,0.924661,0.924661,0.000000,0.0000,0.000000,9
+325,conservative,3,Do nothing,2,"1,3",False,False,0.956554,0.956554,0.000000,0.0000,0.000000,10
+339,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.681149,0.376556,0.304593,0.0700,0.566544,1
+352,conservative,1,Send content re-engagement,3,"0,1,3",False,False,0.823597,0.823597,0.000000,0.0000,0.000000,86
+353,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.584162,0.584162,0.000000,0.0000,0.000000,0
+358,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.370200,0.414297,-0.044098,0.0700,-0.082021,2
+359,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.774238,0.513011,0.261227,0.0700,0.485882,1
+386,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.830810,0.754043,0.076768,0.0700,0.142788,0
+453,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.699013,0.703792,-0.004779,0.0700,-0.008890,0
+464,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.540460,0.529343,0.011117,0.0500,0.021122,0
+510,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.644100,0.586592,0.057508,0.0500,0.109264,2
+524,conservative,0,Reactivate dormant listener,2,"0,3",True,True,0.922141,0.814967,0.107174,0.0400,0.205774,9999
+621,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.992502,0.973860,0.018642,0.0700,0.034674,0
+626,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.850006,0.834894,0.015111,0.0700,0.028107,1
+627,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.703286,0.713889,-0.010604,0.0700,-0.019723,0
+646,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.601116,0.601116,0.000000,0.0000,0.000000,1
+681,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.738745,0.422224,0.316521,0.0700,0.588728,0
+708,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.611626,0.449974,0.161651,0.0700,0.300672,2
+730,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.208089,0.225774,-0.017685,0.0700,-0.032894,0
+734,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.752506,0.596174,0.156331,0.0700,0.290777,1
+769,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.711267,0.665255,0.046012,0.0500,0.087422,0
+805,conservative,0,Reactivate dormant listener,3,"0,1,3",False,False,0.886561,0.886561,0.000000,0.0000,0.000000,84
+841,conservative,0,Reactivate dormant listener,2,"0,3",True,False,0.979792,0.979792,0.000000,0.0000,0.000000,9999
+844,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.516254,0.516254,0.000000,0.0000,0.000000,0
+849,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.652870,0.655655,-0.002785,0.0500,-0.005291,0
+931,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.422946,0.475476,-0.052530,0.0700,-0.097705,1
+941,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.501904,0.493308,0.008596,0.0700,0.015989,0
+980,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.512094,0.526522,-0.014428,0.0700,-0.026837,0
+1000,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.481987,0.439565,0.042423,0.0500,0.080603,0
+1078,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.457150,0.426230,0.030920,0.0700,0.057511,1
+1102,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.483070,0.470402,0.012667,0.0700,0.023561,0
+1115,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.349212,0.349212,0.000000,0.0700,0.000000,0
+1141,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.201748,0.234480,-0.032731,0.0700,-0.060880,0
+1162,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.231441,0.267761,-0.036321,0.0700,-0.067556,0
+1167,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.485464,0.505996,-0.020532,0.0700,-0.038190,0
+1197,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.696801,0.450336,0.246465,0.0700,0.458425,5
+1220,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.717432,0.605224,0.112208,0.0700,0.208707,1
+1252,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.332144,0.289824,0.042320,0.0700,0.078714,0
+1261,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.608961,0.608961,0.000000,0.0000,0.000000,0
+1299,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.977297,0.591532,0.385764,0.0700,0.717522,3
+1325,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.658371,0.658371,0.000000,0.0000,0.000000,1
+1335,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.450753,0.413384,0.037369,0.0500,0.071002,0
+1372,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.626386,0.361859,0.264527,0.0700,0.492020,0
+1373,conservative,3,Do nothing,3,"1,2,3",False,False,0.719026,0.719026,0.000000,0.0000,0.000000,3
+1380,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.584398,0.370670,0.213728,0.0700,0.397534,0
+1402,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.932825,0.819119,0.113706,0.0500,0.216041,0
+1509,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.393783,0.393783,0.000000,0.0000,0.000000,1
+1515,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.663386,0.663386,0.000000,0.0000,0.000000,1
+1526,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.344949,0.369227,-0.024278,0.0700,-0.045157,3
+1563,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.587535,0.587535,0.000000,0.0000,0.000000,1
+1630,conservative,1,Send content re-engagement,2,"1,3",True,True,0.609495,0.582755,0.026740,0.0500,0.050806,12
+1661,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.393804,0.418403,-0.024599,0.0700,-0.045754,1
+1720,conservative,2,Auto-renew reactivation,3,"1,2,3",False,False,0.848492,0.848492,0.000000,0.0000,0.000000,4
+1724,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.648075,0.648075,0.000000,0.0000,0.000000,5
+1784,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.939083,0.939083,0.000000,0.0000,0.000000,0
+1880,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.381098,0.341317,0.039781,0.0500,0.075584,0
+1901,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.188349,0.253646,-0.065297,0.0700,-0.121453,0
+1921,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.596570,0.541098,0.055472,0.0500,0.105397,0
+1922,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.738412,0.729454,0.008958,0.0500,0.017020,0
+1923,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.749028,0.749028,0.000000,0.0000,0.000000,0
+1930,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.742018,0.742018,0.000000,0.0000,0.000000,0
+1940,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.532233,0.532233,0.000000,0.0000,0.000000,0
+1947,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.996699,0.996699,0.000000,0.0000,0.000000,0
+1968,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.843284,0.843284,0.000000,0.0000,0.000000,5
+1973,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.769660,0.769660,0.000000,0.0000,0.000000,1
+1993,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.257105,0.297384,-0.040279,0.0700,-0.074918,0
+2002,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.989045,0.985041,0.004004,0.0700,0.007447,2
+2007,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.738745,0.729384,0.009361,0.0500,0.017787,0
+2032,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.323194,0.323194,0.000000,0.0000,0.000000,0
+2060,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.718429,0.671637,0.046792,0.0500,0.088905,1
+2077,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.406059,0.406059,0.000000,0.0000,0.000000,0
+2082,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.550800,0.546205,0.004595,0.0700,0.008547,6
+2083,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.810867,0.625362,0.185505,0.0700,0.345040,0
+2190,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.996752,0.980111,0.016642,0.0700,0.030953,1
+2199,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.520174,0.373628,0.146546,0.0700,0.272576,1
+2206,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.594476,0.594476,0.000000,0.0000,0.000000,1
+2219,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.745477,0.745477,0.000000,0.0000,0.000000,2
+2226,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.921060,0.921060,0.000000,0.0000,0.000000,1
+2263,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.959814,0.296451,0.663363,0.0700,1.233855,0
+2306,conservative,1,Send content re-engagement,3,"0,1,3",False,False,0.870634,0.870634,0.000000,0.0000,0.000000,37
+2354,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.663558,0.636636,0.026922,0.0500,0.051152,0
+2364,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.513805,0.387864,0.125940,0.0700,0.234249,0
+2387,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.623939,0.465819,0.158119,0.0700,0.294102,5
+2454,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.810550,0.763635,0.046916,0.0500,0.089140,3
+2455,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.567200,0.555250,0.011950,0.0500,0.022706,1
+2456,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.215222,0.215222,0.000000,0.0000,0.000000,0
+2479,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.661555,0.661555,0.000000,0.0000,0.000000,1
+2489,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.241536,0.241536,0.000000,0.0000,0.000000,0
+2494,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.381349,0.365647,0.015703,0.0700,0.029207,3
+2512,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.811672,0.780220,0.031452,0.0500,0.059759,2
+2544,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.579392,0.579392,0.000000,0.0000,0.000000,0
+2550,conservative,1,Send content re-engagement,3,"1,2,3",True,False,0.529720,0.529720,0.000000,0.0000,0.000000,1
+2590,conservative,0,Reactivate dormant listener,3,"0,1,3",True,True,0.921471,0.844427,0.077045,0.0400,0.147926,44
+2608,conservative,1,Send content re-engagement,2,"1,3",True,True,0.863765,0.843829,0.019937,0.0500,0.037880,13
+2699,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.559773,0.493949,0.065824,0.0500,0.125066,0
+2712,conservative,1,Send content re-engagement,2,"1,3",True,False,0.685952,0.685952,0.000000,0.0000,0.000000,9
+2863,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.500800,0.245638,0.255162,0.0700,0.474601,0
+2878,conservative,2,Auto-renew reactivation,3,"1,2,3",True,False,0.428018,0.428018,0.000000,0.0000,0.000000,0
+2897,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.614705,0.529652,0.085053,0.0500,0.161602,0
+2915,conservative,1,Send content re-engagement,3,"1,2,3",True,True,0.663386,0.595436,0.067950,0.0500,0.129104,1
+2935,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.708227,0.468057,0.240170,0.0700,0.446716,1
+2947,conservative,2,Auto-renew reactivation,3,"1,2,3",True,True,0.168554,0.192513,-0.023959,0.0700,-0.044563,0

@@ -34,7 +34,11 @@ class PPOConfig:
     weight_decay: float = 0.0
     gae_lambda: float = 0.95
     clip_epsilon: float = 0.2
+<<<<<<< HEAD
+    entropy_coefficient: float = 0.05
+=======
     entropy_coefficient: float = 0.01
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     value_coefficient: float = 0.5
     update_epochs: int = 4
     minibatch_size: int = 4

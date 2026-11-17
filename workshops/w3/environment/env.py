@@ -127,7 +127,11 @@ class KKBoxRetentionEnv(gym.Env):
         observation = observation_df.to_numpy(dtype=np.float32).flatten()
 
         churn_disminution = self.probability_churn_before - self.probability_churn_after
+<<<<<<< HEAD
+        reward = churn_disminution * (1 - action_cost) * 2.0
+=======
         reward = churn_disminution * (1 - action_cost)
+>>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
         terminated = True
         truncated = False
