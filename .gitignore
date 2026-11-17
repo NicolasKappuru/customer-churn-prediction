@@ -246,5 +246,6 @@ workshops/w3/runs/csv/
 
 # Evaluation results (reproducible by re-running dqn_vs_ppo.py)
 workshops/w3/evaluations/results/
+workshops/w3/evaluations/csv/
 # EDA cache (rebuilt from workshops/data/parquet)
 workshops/eda/cache/
