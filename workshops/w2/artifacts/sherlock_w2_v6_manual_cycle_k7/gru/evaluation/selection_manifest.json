@@ -1,0 +1,6 @@
+{
+  "model_id": "GRU",
+  "contract_hash": "8f5bd61ff57a",
+  "threshold": 0.33,
+  "tune_log_loss": 0.509046
+}
