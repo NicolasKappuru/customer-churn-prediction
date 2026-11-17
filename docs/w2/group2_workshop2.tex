@@ -688,21 +688,21 @@ Both networks predict whether a customer will listen on a given day with an AUC 
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual_traj/comparison/event_curves.png}
+\includegraphics[width=\textwidth]{figures/sherlock_w2_v6_manual_traj/comparison/event_curves.png}
 \caption{Forecaster: ROC and precision-recall curves of the event targets against the baselines.}
 \label{fig:w2_event_curves}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual_traj/comparison/pay_by_expiry.png}
+\includegraphics[width=0.85\textwidth]{figures/sherlock_w2_v6_manual_traj/comparison/pay_by_expiry.png}
 \caption{Forecaster: daily payment rate aligned to each customer's expiry (known on day 82), real against the mean predicted probability.}
 \label{fig:w2_pay_expiry}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual_traj/comparison/event_calibration.png}
+\includegraphics[width=\textwidth]{figures/sherlock_w2_v6_manual_traj/comparison/event_calibration.png}
 \caption{Forecaster: calibration of the event probabilities (deciles of the predicted probability).}
 \label{fig:w2_event_calibration}
 \end{figure}
@@ -747,7 +747,7 @@ With an AUC of 0.77 the models rank churners well above chance but leave many er
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/comparison/roc_pr_comparison.png}
+\includegraphics[width=\textwidth]{figures/sherlock_w2_v6_manual/comparison/roc_pr_comparison.png}
 \caption{Calendar classifier: ROC and precision-recall curves on March.}
 \label{fig:w2_rocpr_a1}
 \end{figure}
@@ -756,13 +756,13 @@ With an AUC of 0.77 the models rank churners well above chance but leave many er
 \centering
 \begin{minipage}{0.49\textwidth}
 \centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/lstm/evaluation/figures/confusion/confusion_LSTM_test.png}\\
+\includegraphics[width=\textwidth]{figures/sherlock_w2_v6_manual/lstm/evaluation/figures/confusion/confusion_LSTM_test.png}\\
 \small (a) LSTM, threshold 0.30
 \end{minipage}
 \hfill
 \begin{minipage}{0.49\textwidth}
 \centering
-\includegraphics[width=\textwidth]{../../workshops/w2/artifacts/sherlock_w2_v6_manual/gru/evaluation/figures/confusion/confusion_GRU_test.png}\\
+\includegraphics[width=\textwidth]{figures/sherlock_w2_v6_manual/gru/evaluation/figures/confusion/confusion_GRU_test.png}\\
 \small (b) GRU, threshold 0.33
 \end{minipage}
 \caption{Calendar classifier: confusion matrices on March.}
