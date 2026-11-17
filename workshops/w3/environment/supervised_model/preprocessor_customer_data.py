@@ -71,11 +71,7 @@ DEFAULT_PREPROCESSING_PATH = (
     / "workshops"
     / "w1"
     / "artifacts"
-<<<<<<< HEAD
-    / "sherlock_w1_manual"
-=======
     / "sherlock_w1"
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     / "preprocessing"
     / "development.json"
 )

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 """Load and use the trained KKBox churn model (M3 XGBoost, manual segment)."""
-=======
-"""Load and use the trained KKBox churn model (M3 XGBoost)."""
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 from __future__ import annotations
 
@@ -12,10 +8,7 @@ from typing import Any
 
 import joblib
 import numpy as np
-<<<<<<< HEAD
 import pandas as pd
-=======
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_MODEL_PATH = (
@@ -23,14 +16,8 @@ DEFAULT_MODEL_PATH = (
     / "workshops"
     / "w1"
     / "artifacts"
-<<<<<<< HEAD
     / "sherlock_w1_manual"
     / "models"
-=======
-    / "sherlock_w1"
-    / "models"
-    / "development"
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
     / "M3.joblib"
 )
 DEFAULT_CONFIG_PATH = (
@@ -38,17 +25,10 @@ DEFAULT_CONFIG_PATH = (
     / "workshops"
     / "w1"
     / "artifacts"
-<<<<<<< HEAD
     / "sherlock_w1_manual"
     / "run_config.json"
 )
 _FALLBACK_THRESHOLD = 0.47
-=======
-    / "sherlock_w1"
-    / "run_config.json"
-)
-_FALLBACK_THRESHOLD = 0.88
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
 
 class SupervisedModel:
@@ -65,7 +45,6 @@ class SupervisedModel:
         if not model_path.is_file():
             raise FileNotFoundError(f"Model artifact not found: {model_path}")
 
-<<<<<<< HEAD
         artifact = joblib.load(model_path)
         if isinstance(artifact, dict):
             # M3 format: {'preprocessor': ColumnTransformer, 'model': XGBClassifier}
@@ -81,12 +60,6 @@ class SupervisedModel:
             self.feature_names = tuple(
                 str(f) for f in artifact.feature_names_in_
             )
-=======
-        self.model = joblib.load(model_path)
-        self.feature_names: tuple[str, ...] = tuple(
-            str(f) for f in self.model.feature_names_in_
-        )
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
 
         config_path = Path(config_path).expanduser()
         if not config_path.is_absolute():
@@ -101,7 +74,6 @@ class SupervisedModel:
 
     def predict_probability(self, customer_data: Any) -> float:
         """Return the model's churn probability for one processed customer."""
-<<<<<<< HEAD
         df = self._to_dataframe(customer_data)
         if self._preprocessor is not None:
             X = self._preprocessor.transform(df)
@@ -113,14 +85,6 @@ class SupervisedModel:
             raise ValueError("The model must return probabilities for one customer.")
 
         classes = getattr(self._clf, "classes_", None)
-=======
-        features = self._prepare_input(customer_data)
-        probabilities = np.asarray(self.model.predict_proba(features))
-        if probabilities.ndim != 2 or probabilities.shape[0] != 1:
-            raise ValueError("The model must return probabilities for one customer.")
-
-        classes = getattr(self.model, "classes_", None)
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
         if classes is not None:
             churn_columns = np.flatnonzero(np.asarray(classes) == 1)
             if len(churn_columns) != 1:
@@ -138,7 +102,6 @@ class SupervisedModel:
         probability = self.predict_probability(customer_data)
         return "Churn" if probability >= self.threshold else "No churn"
 
-<<<<<<< HEAD
     def _to_dataframe(self, customer_data: Any) -> pd.DataFrame:
         if hasattr(customer_data, "columns") and hasattr(customer_data, "to_numpy"):
             if set(customer_data.columns) != set(self.feature_names):
@@ -151,24 +114,10 @@ class SupervisedModel:
         else:
             try:
                 arr = np.asarray(customer_data, dtype=np.float32)
-=======
-    def _prepare_input(self, customer_data: Any) -> np.ndarray:
-        if hasattr(customer_data, "columns") and hasattr(customer_data, "to_numpy"):
-            input_columns = list(customer_data.columns)
-            if set(input_columns) != set(self.feature_names):
-                raise ValueError(
-                    "Processed customer columns do not match the model feature names."
-                )
-            try:
-                features = customer_data.loc[:, list(self.feature_names)].to_numpy(
-                    dtype=np.float32
-                )
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
             except (TypeError, ValueError) as error:
                 raise ValueError(
                     "Processed customer features must be numeric."
                 ) from error
-<<<<<<< HEAD
             if arr.ndim == 1:
                 arr = arr.reshape(1, -1)
             if arr.ndim != 2 or arr.shape != (1, len(self.feature_names)):
@@ -181,23 +130,3 @@ class SupervisedModel:
         if not np.isfinite(df.to_numpy(dtype=np.float32)).all():
             raise ValueError("Processed customer features must all be finite.")
         return df
-=======
-        else:
-            try:
-                features = np.asarray(customer_data, dtype=np.float32)
-            except (TypeError, ValueError) as error:
-                raise ValueError(
-                    "Processed customer features must be numeric."
-                ) from error
-
-        if features.ndim == 1:
-            features = features.reshape(1, -1)
-        if features.ndim != 2 or features.shape != (1, len(self.feature_names)):
-            raise ValueError(
-                f"Expected one processed customer with {len(self.feature_names)} features; "
-                f"received shape {features.shape}."
-            )
-        if not np.isfinite(features).all():
-            raise ValueError("Processed customer features must all be finite.")
-        return features
->>>>>>> 6ab4a8f759c56beac43402964f7a82ffa919a760
