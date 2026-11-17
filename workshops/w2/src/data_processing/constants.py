@@ -21,4 +21,15 @@ TX_CHANNELS = [
 ]
 
 SEQ_CHANNELS = LOG_COLS + ["active"]
-LSTM_CHANNELS = SEQ_CHANNELS + TX_CHANNELS
+LSTM_CHANNELS = SEQ_CHANNELS + TX_CHANNELS   # 20 channels computed by the builder
+
+# Channels written to the w2 exports (contract v6) and read by the models: the 8
+# listening channels, 3 payment events and 3 payment states. The builder still
+# computes all 20 (the audit and the causality check need them); the other six
+# (cancel / auto-renew counters and flags, tx_expiry_known, tx_state_ambiguous)
+# are almost constant in the manual segment and are dropped when writing.
+EXPORT_CHANNELS = SEQ_CHANNELS + [
+    "tx_count", "tx_paid_sum", "tx_plan_days_sum",
+    "tx_state_known", "tx_days_since_last", "tx_days_to_expire",
+]
+DATASET_VERSION = 6   # v5 = 20 channels, every user; v6 = 14 channels, one segment

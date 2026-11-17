@@ -242,7 +242,7 @@ def predict_proba(
 ):
     """Return churn probabilities for ``rows`` in their original order."""
     device = resolve_device(device)
-    model.eval()
+    model.to(device).eval()
     probabilities = []
 
     for x, _ in data.iter_batches(

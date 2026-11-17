@@ -1,0 +1,106 @@
+{
+  "config": {
+    "seed": 110,
+    "dataset_version": 6,
+    "dev_cohort": "train_feb",
+    "test_cohort": "test",
+    "expected_cutoffs": {
+      "train_feb": "2017-01-31",
+      "test": "2017-02-28"
+    },
+    "n_days": 90,
+    "split_protocol": "cross_month_feb_to_mar",
+    "split_shares": {
+      "fit": 0.75,
+      "stop": 0.125,
+      "tune": 0.125
+    },
+    "split_hash_salt": "salt110:",
+    "quantile_sample": 2000000,
+    "block_rows": 4096,
+    "phases": [
+      "fit",
+      "development"
+    ],
+    "segment": "manual",
+    "alignment": "calendar",
+    "cycle_k": null,
+    "model_channels": [
+      "num_25",
+      "num_50",
+      "num_75",
+      "num_985",
+      "num_100",
+      "num_unq",
+      "total_secs",
+      "active",
+      "tx_count",
+      "tx_paid_sum",
+      "tx_plan_days_sum",
+      "tx_state_known",
+      "tx_days_since_last",
+      "tx_days_to_expire"
+    ],
+    "expected_full_sizes": null
+  },
+  "environment": {
+    "python": "3.13.16",
+    "numpy": "2.5.3",
+    "pandas": "3.0.6",
+    "torch": "2.14.0+cu130"
+  },
+  "contract": {
+    "dataset_version": 6,
+    "cutoffs": {
+      "train_feb": "2017-01-31",
+      "test": "2017-02-28"
+    },
+    "label_months": {
+      "train_feb": "2017-02",
+      "test": "2017-03"
+    },
+    "channels": [
+      "num_25",
+      "num_50",
+      "num_75",
+      "num_985",
+      "num_100",
+      "num_unq",
+      "total_secs",
+      "active",
+      "tx_count",
+      "tx_paid_sum",
+      "tx_plan_days_sum",
+      "tx_state_known",
+      "tx_days_since_last",
+      "tx_days_to_expire"
+    ],
+    "hash_train_feb": "a9ce4927b1499a95b83aadc05ea42f53f65b9f75",
+    "hash_test": "d82daa6296654a2ace0af35945f2a40d35fc93be",
+    "split_protocol": "cross_month_feb_to_mar",
+    "split_shares": {
+      "fit": 0.75,
+      "stop": 0.125,
+      "tune": 0.125
+    },
+    "split_sizes": {
+      "fit": 83814,
+      "stop": 13969,
+      "tune": 13968,
+      "test": 113870
+    },
+    "n_days": 90
+  },
+  "contract_hash": "192a1c0bfcba",
+  "fit_churn_rate": 0.3215095330135777,
+  "phase_rows": {
+    "fit": 83814,
+    "development": 111751
+  },
+  "preprocessing": {
+    "fit": "preprocessing/fit.json",
+    "development": "preprocessing/development.json"
+  },
+  "row_index": "row_index.parquet",
+  "generated_at": "2026-11-16T16:33:02"
+}
