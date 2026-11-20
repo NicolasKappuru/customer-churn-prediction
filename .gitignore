@@ -220,6 +220,15 @@ __marimo__/
 
 #Data
 data/
+**/data/
+exports/
+**/exports/
+export-*/
+**/export-*/
+**/export-*.zip
+
+# Gitignore cannot ignore files based on their size. Files larger than 100 MB
+# must be rejected with a pre-commit hook or stored with Git LFS.
 
 #Notebooks
 notebooks/
@@ -231,3 +240,12 @@ notebooks/*
 context_dataset.txt
 
 context.txt
+
+# Training run CSVs (large, reproducible from training scripts)
+workshops/w3/runs/csv/
+
+# Evaluation results (reproducible by re-running dqn_vs_ppo.py)
+workshops/w3/evaluations/results/
+workshops/w3/evaluations/csv/
+# EDA cache (rebuilt from workshops/data/parquet)
+workshops/eda/cache/

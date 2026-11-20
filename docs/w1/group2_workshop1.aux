@@ -1,0 +1,95 @@
+\relax 
+\providecommand \babel@aux [2]{\global \let \babel@toc \@gobbletwo }
+\@nameuse{bbl@beforestart}
+\babel@aux{english}{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Executive Summary}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Dataset Download and Integrity Verification}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Dataset Source and Acquisition}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Dataset Characteristics}{1}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces KKBox dataset files and their characteristics.}}{2}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:files}{{1}{2}{}{table.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Integrity Verification}{2}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces SHA-256 checksums of the raw \texttt  {.csv.7z} archives (first 16 hex characters shown).}}{3}{}\protected@file@percent }
+\newlabel{tab:integrity}{{2}{3}{}{table.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Exploratory Data Analysis}{3}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Schema of \texttt  {train.csv} and \texttt  {train\_v2.csv}}}{3}{}\protected@file@percent }
+\newlabel{tab:schema_train}{{3}{3}{}{table.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Schema of \texttt  {members\_v3.csv}}}{4}{}\protected@file@percent }
+\newlabel{tab:schema_members}{{4}{4}{}{table.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Schema of \texttt  {user\_logs.csv} and \texttt  {user\_logs\_v2.csv}}}{4}{}\protected@file@percent }
+\newlabel{tab:schema_logs}{{5}{4}{}{table.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Schema of \texttt  {transactions.csv} and \texttt  {transactions\_v2.csv}}}{5}{}\protected@file@percent }
+\newlabel{tab:schema_transactions}{{6}{5}{}{table.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Target Distribution}{5}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Class distribution in the full February development cohort (\texttt  {is\_churn}). Only 6.39\% of 992{,}931 users churn, yielding a 14.64:1 majority-to-minority ratio.}}{6}{}\protected@file@percent }
+\newlabel{fig:w1_target}{{1}{6}{}{figure.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Feature Statistics}{6}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Engineered features by source and type. The three nominal codes are \texttt  {city}, \texttt  {registered\_via} and \texttt  {last\_payment\_method\_id}.}}{6}{}\protected@file@percent }
+\newlabel{tab:w1_types}{{7}{6}{}{table.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Data Quality}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Manual Segment Approach}{8}{}\protected@file@percent }
+\newlabel{sec:enfoque_manual}{{3.4}{8}{}{subsection.3.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Class distribution in the manual segment of the February cohort (\texttt  {is\_churn}). The churn rate is 31.78\% (35{,}224 of 110{,}846 users), a 2.15:1 ratio --- far more balanced than the full dataset (14.64:1).}}{8}{}\protected@file@percent }
+\newlabel{fig:w1_target_manual}{{2}{8}{}{figure.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Challenges with the full dataset.}{8}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Motivation for the manual segment.}{8}{}\protected@file@percent }
+\citation{rizvi2018kkbox}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Churn rate by subscription state for February and March (left), share of total churners by state in February (centre), and volume plus churn rate per state (right). The manual segment concentrates 55.5\% of all churners with a stable and coherent signal across months.}}{9}{}\protected@file@percent }
+\newlabel{fig:why_manual}{{3}{9}{}{figure.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Decision.}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Preprocessing Pipeline}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Raw Extraction and Parquet Conversion}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Cohort Definition and User Index}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Member Features}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Transaction Features}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Listening Log Features}{10}{}\protected@file@percent }
+\gdef \LT@i {\LT@entry 
+    {5}{158.57806pt}\LT@entry 
+    {1}{225.79565pt}\LT@entry 
+    {5}{65.31679pt}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Final Assembly and Saved Outputs}{11}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Final feature set (59 features) with source table. Features marked with $\dagger $ become degenerate (constant or near-constant) in the manual segment and provide no useful signal.}}{14}{}\protected@file@percent }
+\newlabel{tab:features59}{{8}{14}{}{table.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Data Partitioning}{14}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Partition of the manual-segment data. February cohort (cutoff 2017-01-31) is split into fit/stop/tune using a stable hash of \texttt  {msno}; March manual (cutoff 2017-02-28) is the test set.}}{14}{}\protected@file@percent }
+\newlabel{tab:w1_split}{{9}{14}{}{table.9}{}}
+\citation{breiman2001random}
+\citation{chen2016xgboost}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Models and Configuration}{15}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Baseline Models}{15}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Model configuration for the manual segment experiment. No hyperparameter search is performed; XGBoost uses early stopping as its primary regularisation mechanism.}}{16}{}\protected@file@percent }
+\newlabel{tab:w1_config}{{10}{16}{}{table.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Decision Threshold and Model Selection}{16}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Model selection on the tune part. Because the manual segment is near-balanced (31.94\% churn on tune), the F1-optimal threshold for all three models is close to 0.5. M3 wins by tune log-loss.}}{16}{}\protected@file@percent }
+\newlabel{tab:w1_select}{{11}{16}{}{table.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Results}{17}{}\protected@file@percent }
+\newlabel{sec:results}{{7}{17}{}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Baseline: Full Dataset (All Subscription States)}{17}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Full-dataset results on March (970{,}960 users, 8.99\% churn) at tuned thresholds. Random Forest (M2) is the winner. The high threshold for M3 reflects un-calibrated XGBoost probabilities caused by class-weight inflation.}}{17}{}\protected@file@percent }
+\newlabel{tab:w1_results_full}{{12}{17}{}{table.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Manual Segment Results}{17}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Manual-segment results on March (113{,}048 users, 40.74\% churn) at threshold 0.5. M3 (XGBoost with early stopping) achieves the best log-loss and average precision; M2 (Random Forest) has the best F1 and MCC.}}{17}{}\protected@file@percent }
+\newlabel{tab:w1_results_manual}{{13}{17}{}{table.13}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Confusion matrices of M1--M3 on the March manual cohort at threshold 0.5.}}{18}{}\protected@file@percent }
+\newlabel{fig:w1_conf_manual}{{4}{18}{}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces ROC and precision--recall curves of M1--M3 on the March manual cohort.}}{18}{}\protected@file@percent }
+\newlabel{fig:w1_roc_pr_manual}{{5}{18}{}{figure.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Reliability diagrams of M1--M3 on the March manual cohort. Near-balanced prevalence (40.74\%) means scores close to 0.5 correspond to true probabilities without recalibration.}}{18}{}\protected@file@percent }
+\newlabel{fig:w1_calib_manual}{{6}{18}{}{figure.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Comparison: Full Dataset vs.\ Manual Segment}{18}{}\protected@file@percent }
+\newlabel{sec:comparison}{{7.3}{18}{}{subsection.7.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Best-model comparison between the full-dataset approach and the manual-segment approach. AP and F1 improve substantially in the manual segment; AUC and MCC decrease.}}{19}{}\protected@file@percent }
+\newlabel{tab:w1_compare}{{14}{19}{}{table.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Feature Degradation in the Manual Segment}{19}{}\protected@file@percent }
+\newlabel{sec:feature_degradation}{{7.4}{19}{}{subsection.7.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Features whose predictive value degrades in the manual segment. Spearman $|\rho |$ values are for the full dataset; manual values are smaller by construction.}}{19}{}\protected@file@percent }
+\newlabel{tab:feat_degrade}{{15}{19}{}{table.15}{}}
+\@writefile{toc}{\contentsline {paragraph}{Implications for future feature engineering.}{20}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.5}Model Comparison (Manual Segment)}{20}{}\protected@file@percent }
+\bibcite{rizvi2018kkbox}{1}
+\bibcite{breiman2001random}{2}
+\bibcite{chen2016xgboost}{3}
+\bibcite{akiba2019optuna}{4}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.6}Conclusions of Workshop 1}{21}{}\protected@file@percent }
+\gdef \@abspage@last{21}

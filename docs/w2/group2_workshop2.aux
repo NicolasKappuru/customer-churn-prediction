@@ -1,0 +1,133 @@
+\relax 
+\providecommand\babel@aux[2]{}
+\@nameuse{bbl@beforestart}
+\babel@aux{english}{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Problem Statement}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Population: manual payers only.}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Main approach: behaviour forecast.}{1}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Supporting approaches: churn classification.}{1}{}\protected@file@percent }
+\citation{kkbox2017}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces The main model and the two supporting classifiers.\relax }}{2}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:w2_approaches}{{1}{2}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Data Preparation}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Structure of the Raw Data}{2}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Schema of \texttt  {train.csv} (February cohort) and \texttt  {train\_v2.csv} (March cohort).\relax }}{2}{}\protected@file@percent }
+\newlabel{tab:w2_schema_train}{{2}{2}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Schema of \texttt  {user\_logs.csv} and \texttt  {user\_logs\_v2.csv}.\relax }}{3}{}\protected@file@percent }
+\newlabel{tab:w2_schema_logs}{{3}{3}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Schema of \texttt  {transactions.csv} and \texttt  {transactions\_v2.csv}.\relax }}{3}{}\protected@file@percent }
+\newlabel{tab:w2_schema_transactions}{{4}{3}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Cleaning}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Transactions.}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Listening logs.}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Tensor Construction}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.1}Calendar Tensor (Forecaster and Calendar Classifier)}{4}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Manual segment.}{4}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Manual-segment cohorts of the calendar tensor, their 90-day windows and churn targets.\relax }}{4}{}\protected@file@percent }
+\newlabel{tab:w2_cohorts}{{5}{4}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces 90-day windows of the two cohorts. Each window ends at its cutoff (2017-01-31 and 2017-02-28) and is followed by its target month.\relax }}{5}{}\protected@file@percent }
+\newlabel{fig:w2_overlap}{{1}{5}}
+\@writefile{toc}{\contentsline {paragraph}{The forecaster cuts the window in two.}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.2}Per-Cycle Tensor (Per-Customer Classifier)}{5}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Population of the per-cycle tensor ($k = 7$). The eligibility filter removes 6 February and 143 March customers.\relax }}{6}{}\protected@file@percent }
+\newlabel{tab:w2_cycle_pop}{{6}{6}}
+\@writefile{toc}{\contentsline {paragraph}{Construction by date shift.}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.3}Channels}{6}{}\protected@file@percent }
+\newlabel{sec:w2_channels}{{2.3.3}{6}}
+\@writefile{toc}{\contentsline {paragraph}{Listening (8 channels).}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Payments (6 channels): events and states.}{7}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Worked example.}{7}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Recency and expiry channels for a customer whose only payment (2016-11-20, expiring 2016-12-20) falls before the \texttt  {test} window.\relax }}{7}{}\protected@file@percent }
+\newlabel{tab:w2_example}{{7}{7}}
+\gdef \LT@i {\LT@entry 
+    {1}{41.27902pt}\LT@entry 
+    {5}{88.6446pt}\LT@entry 
+    {5}{52.59454pt}\LT@entry 
+    {1}{194.49745pt}\LT@entry 
+    {1}{59.40671pt}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces The 14 channels of both tensors.\relax }}{8}{}\protected@file@percent }
+\newlabel{tab:w2_channels}{{8}{8}}
+\citation{chung2014}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.3.4}Resulting Tensors}{9}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Shapes of the two tensors.\relax }}{9}{}\protected@file@percent }
+\newlabel{tab:w2_tensors}{{9}{9}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Architecture}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Recurrent Encoder}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LSTM cell.}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{GRU cell.}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Behaviour Forecaster}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{From day 83 onwards.}{10}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces The forecaster: the recurrent encoder followed by a head that emits the 7 future days at once.\relax }}{10}{}\protected@file@percent }
+\newlabel{fig:w2_arch_traj}{{2}{10}}
+\citation{kendall2018}
+\@writefile{toc}{\contentsline {paragraph}{Targets.}{11}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces The 11 targets predicted for each of the 7 future days.\relax }}{11}{}\protected@file@percent }
+\newlabel{tab:w2_targets}{{10}{11}}
+\@writefile{toc}{\contentsline {paragraph}{Two-part targets.}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Composite loss.}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{How the forecast is used.}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Churn Classifier}{11}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces The churn classifier. Only the recurrent cell changes between models; $B$ is the batch size and $H$ the hidden dimension.\relax }}{12}{}\protected@file@percent }
+\newlabel{fig:w2_arch}{{3}{12}}
+\@writefile{toc}{\contentsline {paragraph}{Loss.}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Backpropagation.}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Optimiser}{12}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Training}{13}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Data Split}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Partitions of the two tensors.\relax }}{13}{}\protected@file@percent }
+\newlabel{tab:w2_split}{{11}{13}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Training Procedure and Hyperparameter Search}{13}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Optuna search spaces, shared by LSTM and GRU.\relax }}{14}{}\protected@file@percent }
+\newlabel{tab:w2_space}{{12}{14}}
+\@writefile{toc}{\contentsline {paragraph}{Final models.}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Selected Configurations}{14}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Selected configurations. The tune loss is the log-loss on \texttt  {tune} for the classifiers; the forecaster's composite loss is on a different scale and is not shown.\relax }}{14}{}\protected@file@percent }
+\newlabel{tab:w2_best}{{13}{14}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Test}{14}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Behaviour Forecast}{15}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Metrics and baselines of the behaviour forecast.\relax }}{15}{}\protected@file@percent }
+\newlabel{tab:w2_traj_metrics}{{14}{15}}
+\@writefile{toc}{\contentsline {paragraph}{Listening amounts.}{15}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Listening error of the expected-value forecast over every (customer, day, channel) of the March target week, in $\log (1+x)$ units. The last column is the share of customers whose mean error over their 49 cells exceeds 2.\relax }}{15}{}\protected@file@percent }
+\newlabel{tab:w2_traj_listen}{{15}{15}}
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces The same forecasts summarised with the point forecast that suits each metric, against the best baseline.\relax }}{16}{}\protected@file@percent }
+\newlabel{tab:w2_point_forecasts}{{16}{16}}
+\@writefile{toc}{\contentsline {paragraph}{Events.}{16}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Event targets on March. Daily targets are scored per (customer, day); the weekly payment once per customer.\relax }}{17}{}\protected@file@percent }
+\newlabel{tab:w2_traj_events}{{17}{17}}
+\newlabel{sec:w2_pay_timing}{{5.1}{17}}
+\@writefile{toc}{\contentsline {paragraph}{Paid amount.}{17}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LSTM and GRU.}{17}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Forecaster: ROC and precision-recall curves of the event targets against the baselines.\relax }}{18}{}\protected@file@percent }
+\newlabel{fig:w2_event_curves}{{4}{18}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Forecaster: daily payment rate aligned to each customer's expiry (known on day 82), real against the mean predicted probability.\relax }}{18}{}\protected@file@percent }
+\newlabel{fig:w2_pay_expiry}{{5}{18}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Forecaster: calibration of the event probabilities (deciles of the predicted probability).\relax }}{19}{}\protected@file@percent }
+\newlabel{fig:w2_event_calibration}{{6}{19}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Churn Classification}{19}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.1}Calendar Classifier}{19}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Calendar classifier, March test (41.1\% churners). Bold marks the better value.\relax }}{19}{}\protected@file@percent }
+\newlabel{tab:w2_test_a1}{{18}{19}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Calendar classifier: ROC and precision-recall curves on March.\relax }}{20}{}\protected@file@percent }
+\newlabel{fig:w2_rocpr_a1}{{7}{20}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Calendar classifier: confusion matrices on March.\relax }}{20}{}\protected@file@percent }
+\newlabel{fig:w2_confusion_a1}{{8}{20}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.2.2}Per-Customer Classifier}{21}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Per-customer classifier, March test (104{,}322 customers, 38.3\% churners). Bold marks the better value.\relax }}{21}{}\protected@file@percent }
+\newlabel{tab:w2_test_a2}{{19}{21}}
+\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Calendar and per-customer classifiers on the same 104{,}322 March customers (38.3\% churners), each model with its own February threshold.\relax }}{22}{}\protected@file@percent }
+\newlabel{tab:w2_same_customers}{{20}{22}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Comparison with Workshop 1}{22}{}\protected@file@percent }
+\newlabel{sec:w2_vs_w1}{{5.3}{22}}
+\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Workshop~1 and the Workshop~2 calendar classifier on the March manual customers. Bold marks the best value per column. The Workshop~1 models use a 0.5 threshold and the networks the threshold chosen on February, so precision, recall, F1 and MCC depend on that choice; log-loss, ROC-AUC and AP do not.\relax }}{22}{}\protected@file@percent }
+\newlabel{tab:w2_vs_w1}{{21}{22}}
+\bibcite{chung2014}{1}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusions}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Behaviour trajectories.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Churn as one step of the trajectory.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LSTM or GRU.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Limitations.}{23}{}\protected@file@percent }
+\bibcite{kendall2018}{2}
+\bibcite{kkbox2017}{3}
+\gdef \@abspage@last{24}

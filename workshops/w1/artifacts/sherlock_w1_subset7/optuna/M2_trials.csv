@@ -1,0 +1,4 @@
+number,value,datetime_start,datetime_complete,duration,params_max_depth,params_max_features,params_min_samples_leaf,params_min_samples_split,params_n_estimators,system_attrs_fixed_params,system_attrs_tpe:relative_params:0,state
+0,0.1824731691586049,2026-11-14 13:17:31.823821,2026-11-14 13:18:08.005135,0 days 00:00:36.181314,12,sqrt,5,10,150,"{'n_estimators': 150, 'max_depth': 12, 'min_samples_leaf': 5, 'min_samples_split': 10, 'max_features': 'sqrt'}",,COMPLETE
+1,0.1828893272725631,2026-11-14 13:18:08.560351,2026-11-14 13:18:39.868400,0 days 00:00:31.308049,12,sqrt,24,27,150,,"{""max_depth"": 12, ""max_features"": ""sqrt"", ""min_samples_leaf"": 24, ""min_samples_split"": 27, ""n_estimators"": 150}",COMPLETE
+2,0.18323650390485455,2026-11-14 13:18:39.991939,2026-11-14 13:19:00.351248,0 days 00:00:20.359309,12,sqrt,53,11,100,,"{""max_depth"": 12, ""max_features"": ""sqrt"", ""min_samples_leaf"": 53, ""min_samples_split"": 11, ""n_estimators"": 100}",COMPLETE

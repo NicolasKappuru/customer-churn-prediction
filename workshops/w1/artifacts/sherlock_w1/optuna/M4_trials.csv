@@ -1,0 +1,4 @@
+number,value,datetime_start,datetime_complete,duration,params_max_depth,params_max_features,params_min_samples_leaf,params_min_samples_split,params_n_estimators,system_attrs_fixed_params,state
+0,0.14596004145390984,2026-10-15 05:07:18.287082,2026-10-15 05:08:38.325200,0 days 00:01:20.038118,12,sqrt,5,10,150,"{'n_estimators': 150, 'max_depth': 12, 'min_samples_leaf': 5, 'min_samples_split': 10, 'max_features': 'sqrt'}",COMPLETE
+1,0.14593366946495936,2026-10-15 05:08:38.424193,2026-10-15 05:09:58.574295,0 days 00:01:20.150102,12,sqrt,5,14,150,,COMPLETE
+2,0.14611649980266164,2026-10-15 05:09:58.725692,2026-10-15 05:11:06.645732,0 days 00:01:07.920040,24,sqrt,54,32,100,,COMPLETE

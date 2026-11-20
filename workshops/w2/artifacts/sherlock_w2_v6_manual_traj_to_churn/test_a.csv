@@ -1,0 +1,7 @@
+score,trained on churn,roc_auc,avg_precision
+"1 - P(pay next week), LSTM trajectory",no,0.5142349554426489,0.44642167755045725
+"1 - P(pay on/after expiry next week), LSTM trajectory",no,0.5006423969917895,0.41099747254738794
+"1 - P(pay next week), GRU trajectory",no,0.516126742662023,0.4532386376572451
+"1 - P(pay on/after expiry next week), GRU trajectory",no,0.5030140308186754,0.41164219394738033
+LSTM classifier (approach 1),yes,0.7648869356419303,0.703229676202435
+GRU classifier (approach 1),yes,0.7599602400668265,0.6885240333817874

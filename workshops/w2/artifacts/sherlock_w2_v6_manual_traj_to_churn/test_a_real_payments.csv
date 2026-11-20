@@ -1,0 +1,3 @@
+score,roc_auc,avg_precision
+did not pay next week (real),0.5225757102223854,0.42225819858962665
+did not pay on/after expiry next week (real),0.5400983011116082,0.4314156615639495
