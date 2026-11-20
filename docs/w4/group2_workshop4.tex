@@ -394,9 +394,9 @@ Table~\ref{tab:vae_train} summarises the results at the best checkpoint for each
 
 Higher $\beta$ penalises the KL term more strongly, forcing the posterior closer to
 $\mathcal{N}(\mathbf{0}, \mathbf{I})$ at the cost of reconstruction quality:
-$\beta{=}4.0$ achieves the lowest KL (3.15) but the worst reconstruction (16.36)
-and collapses 10 of the 16 latent dimensions. $\beta{=}0.5$ retains 15 active units
-and the best reconstruction (3.60) but with a less regular latent space. $\beta{=}1.0$
+$\beta{=}4.0$ achieves the lowest KL (2.51) but the worst reconstruction (23.21)
+and collapses 10 of the 16 latent dimensions. $\beta{=}0.5$ retains 14 active units
+and the best reconstruction (6.76) but with a less regular latent space. $\beta{=}1.0$
 was selected as the best trade-off. Figure~\ref{fig:vae_curves} shows the training
 and validation ELBO curves for all three runs.
 
@@ -448,21 +448,23 @@ against a most-frequent baseline.
     \end{tabular}
 \end{table}
 
-The AE achieves a $1.8\times$ lower global MSE than the VAE and near-perfect categorical
-accuracy, reflecting its deterministic bottleneck which preserves more input detail.
-The VAE's probabilistic latent space sacrifices some reconstruction fidelity for a
-more regularised representation. Both models maintain high Pearson correlations
-($r > 0.96$), indicating that the overall structure of continuous features is well
-preserved.
+The two models reach similar global MSE (0.198 for the AE vs.\ 0.189 for the VAE), but
+the AE reconstructs normal customers more accurately (0.155 vs.\ 0.162) and achieves
+near-perfect categorical accuracy ($\geq 99\%$), reflecting its deterministic bottleneck
+which preserves more input detail. The VAE's probabilistic latent space sacrifices
+categorical fidelity --- \texttt{city} accuracy (41.33\%) is only modestly above the
+most-frequent baseline --- in exchange for a more regularised representation. Both models
+maintain high Pearson correlations ($r > 0.90$), indicating that the overall structure
+of continuous features is well preserved.
 
 \subsection{Error patterns and analysis}
 
 \textbf{Churn customers are harder to reconstruct.} Both models were trained
 exclusively on normal customers, so churn customers represent out-of-distribution
-inputs. This is reflected in the MSE ratios: the AE makes $3.70\times$ larger errors
-on churners than on normal customers; the VAE $2.46\times$. The lower ratio for the
-VAE is not a sign of better churn modelling --- its overall MSE is higher --- but a
-consequence of the regularised prior smoothing all reconstructions toward the mean.
+inputs. This is reflected in the MSE ratios: the AE makes $1.68\times$ larger errors
+on churners than on normal customers; the VAE $1.41\times$. The lower ratio for the
+VAE is not a sign of better churn modelling --- its MSE on normal customers is higher ---
+but a consequence of the regularised prior smoothing all reconstructions toward the mean.
 Figure~\ref{fig:recon_class} shows the per-sample MSE distributions stratified by class
 for both models.
 
@@ -495,8 +497,8 @@ Temporal features --- \texttt{expire\_dayofweek}, \texttt{days\_to\_expire},
 \texttt{registration\_month} --- dominate the top positions. These features have
 irregular or multimodal distributions tied to billing cycles, which are difficult
 for the bottleneck to compress faithfully. The AE handles most of them better than
-the VAE, with the starkest gap on \texttt{registration\_month} (ratio 17.8) and
-\texttt{expire\_dayofweek} (ratio 5.3). Figure~\ref{fig:recon_top} shows the top-15
+the VAE, with the starkest gap on \texttt{registration\_month} (ratio 2.2), while
+the remaining top-5 features show ratios of about 1.2--1.3. Figure~\ref{fig:recon_top} shows the top-15
 hardest features for both models.
 
 \begin{table}[H]
@@ -743,8 +745,8 @@ $\approx$41\% churn) for separability metrics, and a balanced 10{,}000-point sam
 Figure~\ref{fig:latent_dim_stats} shows the standard deviation per latent dimension
 for both models. The AE dimensions have varied and generally large standard deviations
 with no collapsed dimensions. The VAE dimensions cluster near the unit Gaussian prior
-($\sigma\,=\,1$), with 3 of the 16 dimensions below the collapse threshold
-($\text{Var}(\boldsymbol{\mu}) < 0.01$), leaving 13 active dimensions.
+($\sigma\,=\,1$), with 6 of the 16 dimensions below the collapse threshold
+($\text{Var}(\boldsymbol{\mu}) < 0.01$), leaving 10 active dimensions.
 
 \begin{figure}[H]
     \centering
@@ -784,26 +786,27 @@ vectors) and linear probe AUC for both models.
         \toprule
         \textbf{Model} & \textbf{Dims} & \textbf{Silhouette (std)} & \textbf{Linear probe AUC} \\
         \midrule
-        AE (all dims)          & 16 & \textbf{0.252} & \textbf{0.848} \\
-        VAE (all dims)         & 16 & 0.156          & 0.847          \\
-        VAE (active dims only) & 13 & 0.152          & 0.846          \\
+        AE (all dims)          & 16 & 0.028          & 0.768          \\
+        VAE (all dims)         & 16 & 0.041          & \textbf{0.768} \\
+        VAE (active dims only) & 10 & \textbf{0.043} & 0.763          \\
         \bottomrule
     \end{tabular}
 \end{table}
 
 \subsection{Discussion}
 
-The AE achieves a higher Silhouette score (0.252 vs.\ 0.156), indicating more natural
-geometric separation between churn and normal customers. The VAE's KL regularisation
-pulls all codes toward the prior, reducing inter-class distance and lowering the
-Silhouette score. Despite this geometric difference, both models yield nearly identical
-linear probe AUC ($\approx$0.848).
+Silhouette scores are close to zero for both models (0.028 for the AE vs.\ 0.041 for
+the VAE), indicating that churn and normal customers are not geometrically separated
+into distinct clusters in either latent space. The VAE scores slightly higher, as its
+KL regularisation organises codes more uniformly around the prior. Despite this, both
+models yield nearly identical linear probe AUC ($\approx$0.768).
 
 This finding reveals an important property of these representations: even though the
 autoencoders were trained entirely without labels, their internal codes carry enough
-churn signal for a linear classifier to achieve competitive performance. Restricting
-the VAE to its 13 active dimensions produces no meaningful improvement in either
-metric, confirming that the 3 collapsed dimensions carry negligible information.
+churn signal for a linear classifier to approach supervised performance. Restricting
+the VAE to its 10 active dimensions produces no meaningful change in either metric
+(Silhouette 0.041\,→\,0.043, AUC 0.768\,→\,0.763), confirming that the 6 collapsed
+dimensions carry negligible information.
 
 \section{Analysis and Conclusions}
 
@@ -828,8 +831,9 @@ regions, reconstruction error cannot reliably distinguish them regardless of
 architecture or threshold choice.
 
 \textbf{Latent representations retain churn signal.} Despite the weak anomaly signal,
-linear probes on the latent codes achieve AUC\,$\approx$\,0.848, competitive with the
-Workshop~1 Random Forest (0.780). This suggests that the representations are
+linear probes on the latent codes achieve AUC\,$\approx$\,0.768, close to the
+Workshop~1 Random Forest (0.780) and well above the best reconstruction-based score
+(0.649). This suggests that the representations are
 informative, but that supervised fine-tuning --- rather than reconstruction-based
 scoring --- is the appropriate next step for this segment.
 
