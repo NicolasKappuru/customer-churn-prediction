@@ -1,0 +1,4 @@
+model,segment,n_users,churn_rate,roc_auc,average_precision,log_loss,f1_churn,precision_churn,recall_churn
+XGB_reweight_48,full Mar,113048,0.4074,0.79229,0.74627,0.56035,0.68518,0.63522,0.74368
+XGB_reweight_48,<=31d,89119,0.2947,0.71033,0.55013,0.591,0.51907,0.48363,0.56012
+XGB_reweight_48,>31d,23929,0.8272,0.66029,0.90488,0.44623,0.90264,0.83142,0.98722
