@@ -249,3 +249,6 @@ workshops/w3/evaluations/results/
 workshops/w3/evaluations/csv/
 # EDA cache (rebuilt from workshops/data/parquet)
 workshops/eda/cache/
+
+# TimeGAN synthetic tensors (large, reproducible with workshops/w5/train_timegan.py)
+workshops/w5/artifacts/**/*.npy

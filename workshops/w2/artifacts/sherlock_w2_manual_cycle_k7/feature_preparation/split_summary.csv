@@ -1,5 +1,0 @@
-part,cohort,label_month,n_users,share_of_cohort,churn_rate,n_churn,n_stay
-fit,train_feb,2017-02,78723,0.75,0.29309,23073,55650
-stop,train_feb,2017-02,13121,0.125005,0.29312,3846,9275
-tune,train_feb,2017-02,13120,0.124995,0.29306,3845,9275
-test,test,2017-03,104322,1.0,0.38313,39969,64353
