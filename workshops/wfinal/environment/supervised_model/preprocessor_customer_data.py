@@ -79,6 +79,14 @@ DEFAULT_CUTOFF = "2017-01-31"
 
 _LOG_COLS = ["num_25", "num_50", "num_75", "num_985", "num_100", "num_unq", "total_secs"]
 
+# 11 low-signal features excluded from the 48-feature set
+_DROP_FEATURES: frozenset[str] = frozenset({
+    "has_transactions", "last_is_cancel", "autorenew_not_cancel", "not_autorenew_cancel",
+    "last_is_auto_renew", "is_auto_renew_change_flag", "is_cancel_change_flag",
+    "last_discount", "bd_missing", "expire_dayofweek", "n_amounts_paid",
+})
+
+
 class PreprocessorCustomerData:
     """Compute all 59 M3 features from raw member + transaction + log records.
 
@@ -116,7 +124,9 @@ class PreprocessorCustomerData:
                 f"Preprocessing state is missing required keys: {', '.join(sorted(missing))}"
             )
 
-        self.feature_names: tuple[str, ...] = tuple(state["features"])
+        self.feature_names: tuple[str, ...] = tuple(
+            f for f in state["features"] if f not in _DROP_FEATURES
+        )
         self.source_params: dict = state["source_preprocess_params"]
         self.cutoff: pd.Timestamp = pd.Timestamp(cutoff)
 

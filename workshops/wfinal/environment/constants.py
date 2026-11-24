@@ -11,14 +11,16 @@ class RetentionAction:
     cost: float = 0.0
 
 
+# 5 log-based retention strategies + Do nothing.
+# All actions add user_log entries — no transactions added (transaction features
+# increase churn probability for the manual segment in the XGB model).
 ACTION_DEFINITIONS = (
-    RetentionAction("Send auto-renewal reminder",           0.10, 0.60, 0.01),
-    RetentionAction("Offer loyalty renewal with discount",  0.15, 0.90, 0.15),
-    RetentionAction("Send content re-engagement",           0.10, 0.80, 0.05),
-    RetentionAction("Offer downgrade to 99 NTD plan",       0.15, 0.90, 0.10),
-    RetentionAction("Recover cancelled subscription",       0.10, 0.50, 0.08),
-    RetentionAction("Win-back inactive listener",           0.05, 0.40, 0.03),
-    RetentionAction("Do nothing",                           1.00, None, 0.00),
+    RetentionAction("Send content re-engagement",   0.05, 0.50, 0.05),  # 0
+    RetentionAction("Reactivate dormant listener",  0.20, 0.55, 0.04),  # 1
+    RetentionAction("Trend recovery push",          0.15, 0.78, 0.06),  # 2
+    RetentionAction("Completion booster",           0.20, 0.60, 0.05),  # 3
+    RetentionAction("Listening intensifier",        0.30, 0.72, 0.04),  # 4
+    RetentionAction("Do nothing",                   1.00, None, 0.00),  # 5
 )
 
 # Raw customer data structure keys
@@ -51,29 +53,15 @@ LOG_FIELDS: tuple[str, ...] = (
     "total_secs",
 )
 
-# Observation space: 59 preprocessed XGBoost features + 1 churn probability
-N_MODEL_FEATURES: int = 59
+# Observation space: 48 preprocessed XGBoost features + 1 churn probability
+N_MODEL_FEATURES: int = 48
 N_OBSERVATION: int = N_MODEL_FEATURES + 1
 
-# Default transaction values for customers with no prior history
-DEFAULT_PAYMENT_METHOD_ID: int = 38
-DEFAULT_PLAN_DAYS: int = 30
-DEFAULT_PLAN_PRICE: float = 149.0
-
-# Action 1 — loyalty renewal: 30-day plan at 149 NTD with 20 NTD fixed discount + auto-renew
-# Valid for tenure_days > 730 with auto-renew on; last_discount=20 stays in the low-churn zone
-FIDELITY_PLAN_DAYS: int = 30
-FIDELITY_PLAN_PRICE: float = 149.0
-FIDELITY_DISCOUNT_NTD: float = 20.0         # fixed NTD discount → customer pays 129
-FIDELITY_TRANSACTION_DATE: int = 20170131   # cutoff date
-
-# Action 2 — content re-engagement: adds 2–8 scaled log entries + transaction with 50 NTD discount.
-# Valid when Jan activity < Dec activity; logs scaled to customer's Dec daily average.
-REENGAGEMENT_DISCOUNT_NTD: float = 50.0
-REENGAGEMENT_TRANSACTION_DATE: int = 20170131   # cutoff date
-
-# Pool of 8 log entries spread across January 2017.
-# ActionsManager randomly selects 2–8 of these to simulate re-engagement activity.
+# ── Action 0 — Send content re-engagement ─────────────────────────────────────
+# Adds 2–8 scaled log entries spread across January 2017.
+# Valid when customer has logs within the last 90 days (still reachable).
+# Favorable when January activity is already declining vs December.
+REENGAGEMENT_WINDOW_DAYS: int = 90
 REENGAGEMENT_LOG_POOL: tuple[dict, ...] = (
     {"date": 20170102, "num_25": 3, "num_50": 2, "num_75": 1, "num_985": 1, "num_100": 8,  "num_unq": 12, "total_secs": 2400.0},
     {"date": 20170105, "num_25": 4, "num_50": 2, "num_75": 2, "num_985": 1, "num_100": 10, "num_unq": 15, "total_secs": 2800.0},
@@ -85,53 +73,75 @@ REENGAGEMENT_LOG_POOL: tuple[dict, ...] = (
     {"date": 20170127, "num_25": 4, "num_50": 2, "num_75": 1, "num_985": 0, "num_100": 8,  "num_unq": 11, "total_secs": 2600.0},
 )
 
-# Action 3 — downgrade: switch to 99 NTD plan (no discount, last_discount=0)
-# Valid when current plan_list_price > 99; targets customers near expiry considering cancellation
-DOWNGRADE_PLAN_PRICE: float = 99.0
-DOWNGRADE_PLAN_DAYS: int = 30
-DOWNGRADE_TRANSACTION_DATE: int = 20170131   # cutoff date
+# ── Action 1 — Reactivate dormant listener ────────────────────────────────────
+# Adds 2–3 scaled log entries in mid-January for customers inactive >7 days.
+# Favorable when customer has long tenure (loyal user who lapsed).
+DORMANT_INACTIVE_DAYS: int = 7
+DORMANT_LOG_POOL: tuple[dict, ...] = (
+    {"date": 20170104, "num_25": 3, "num_50": 2, "num_75": 1, "num_985": 1, "num_100": 8,  "num_unq": 12, "total_secs": 2400.0},
+    {"date": 20170110, "num_25": 4, "num_50": 2, "num_75": 1, "num_985": 1, "num_100": 9,  "num_unq": 13, "total_secs": 2600.0},
+    {"date": 20170117, "num_25": 3, "num_50": 2, "num_75": 1, "num_985": 0, "num_100": 7,  "num_unq": 11, "total_secs": 2200.0},
+    {"date": 20170122, "num_25": 4, "num_50": 2, "num_75": 2, "num_985": 1, "num_100": 10, "num_unq": 14, "total_secs": 2800.0},
+)
+DORMANT_TENURE_DAYS: int = 365   # favorable if tenure >= this
 
-# Action 6 — do nothing: no state change, no cost, always valid
-# acceptance and cost are unused — apply_action short-circuits for this action
+# ── Action 2 — Trend recovery push ────────────────────────────────────────────
+# Adds 3–5 January logs scaled to 1.5× December daily average to reverse decline.
+# Valid when January activity is already below December (declining trend).
+# Favorable when customer had good December engagement (3+ logs = meaningful base).
+TREND_RECOVERY_LOG_POOL: tuple[dict, ...] = (
+    {"date": 20170106, "num_25": 5, "num_50": 4, "num_75": 3, "num_985": 2, "num_100": 14, "num_unq": 20, "total_secs": 3800.0},
+    {"date": 20170111, "num_25": 6, "num_50": 4, "num_75": 3, "num_985": 2, "num_100": 16, "num_unq": 22, "total_secs": 4200.0},
+    {"date": 20170116, "num_25": 5, "num_50": 3, "num_75": 3, "num_985": 2, "num_100": 13, "num_unq": 19, "total_secs": 3600.0},
+    {"date": 20170121, "num_25": 6, "num_50": 4, "num_75": 3, "num_985": 2, "num_100": 15, "num_unq": 21, "total_secs": 4000.0},
+    {"date": 20170126, "num_25": 5, "num_50": 4, "num_75": 2, "num_985": 2, "num_100": 14, "num_unq": 20, "total_secs": 3800.0},
+)
+TREND_RECOVERY_BOOST: float = 1.5   # scale logs to 150% of December daily average
+TREND_RECOVERY_MIN_DEC_LOGS: int = 3
 
+# ── Action 3 — Completion booster ─────────────────────────────────────────────
+# Adds 2–4 high-completion (num_100 heavy) log entries for active January customers
+# with low completion ratios. Targets last_ratio_100 and trend_ratio100.
+# Valid when customer has ≥1 January login and completion ratio < 50%.
+# Favorable when customer has ≥2 January logins (already re-engaged).
+COMPLETION_LOG_POOL: tuple[dict, ...] = (
+    {"date": 20170107, "num_25": 1, "num_50": 1, "num_75": 1, "num_985": 2, "num_100": 16, "num_unq": 16, "total_secs": 3800.0},
+    {"date": 20170114, "num_25": 1, "num_50": 1, "num_75": 1, "num_985": 1, "num_100": 14, "num_unq": 14, "total_secs": 3400.0},
+    {"date": 20170120, "num_25": 1, "num_50": 1, "num_75": 1, "num_985": 2, "num_100": 15, "num_unq": 15, "total_secs": 3600.0},
+    {"date": 20170128, "num_25": 1, "num_50": 1, "num_75": 1, "num_985": 1, "num_100": 13, "num_unq": 13, "total_secs": 3200.0},
+)
+LOW_COMPLETION_RATIO: float = 0.50   # valid when ratio_100 < this
+COMPLETION_MIN_LOGINS: int = 2       # favorable when January logins >= this
+
+# ── Action 4 — Listening intensifier ──────────────────────────────────────────
+# Adds 1–3 high-duration (high total_secs) log entries for active January customers
+# with short average sessions. Targets sum_last_month_total_secs.
+# Valid when customer has ≥1 January login and mean session < 2000 secs.
+# Favorable when customer has ≥2 January logins.
+INTENSIFIER_LOG_POOL: tuple[dict, ...] = (
+    {"date": 20170108, "num_25": 2, "num_50": 2, "num_75": 3, "num_985": 3, "num_100": 10, "num_unq": 15, "total_secs": 7200.0},
+    {"date": 20170113, "num_25": 2, "num_50": 2, "num_75": 3, "num_985": 2, "num_100": 9,  "num_unq": 14, "total_secs": 6800.0},
+    {"date": 20170124, "num_25": 2, "num_50": 2, "num_75": 2, "num_985": 3, "num_100": 10, "num_unq": 15, "total_secs": 7000.0},
+)
+LOW_INTENSITY_SECS: float = 2000.0   # valid when mean total_secs/login < this
+INTENSIFIER_MIN_LOGINS: int = 2      # favorable when January logins >= this
+
+# ── Misc ───────────────────────────────────────────────────────────────────────
 MAX_STEPS_PER_EPISODE: int = 1
-DO_NOTHING_ACTION: int = 6
-WINBACK_INACTIVE_DAYS: int = 14
-WINBACK_MIN_DEC_DAYS: int = 5
-REENGAGEMENT_WINDOW_DAYS: int = 90
-WINBACK_LOG_DATES: tuple[int, ...] = (20170125, 20170127, 20170129, 20170131)
-
-
+DO_NOTHING_ACTION: int = 5
 
 # ── Cohort / cutoff configuration ─────────────────────────────────────────────
-# To retarget to a different evaluation window, update these six values together.
-
 CUTOFF_DATE: datetime.date = datetime.date(2017, 1, 31)
-# All features are computed up to this date; reference point for days_to_expire,
-# tenure_days, days_since_last_log, and new-transaction dates.
-
 CUTOFF_INT: int = 20170131
-# CUTOFF_DATE as YYYYMMDD int; used to filter raw transactions in the data pipeline.
-
 CUTOFF_MONTH: str = "201701"
-# YYYYMM prefix of the cutoff month; identifies "last month" log entries for
-# last_month_logins (Action 1 favorable) and the declining-activity check (Action 2).
-
 PREV_MONTH: str = "201612"
-# YYYYMM prefix of the month immediately before the cutoff; used as the comparison
-# baseline in the declining-activity check and as the reference for log scaling.
-
 LOG_WINDOW_START: int = 20161101
-# Earliest date (YYYYMMDD int) of the 3-month log window loaded for each customer.
-# Must equal the first day of the month that is 2 months before CUTOFF_MONTH.
-
 LOG_WINDOW_END: int = 20170131
-# Latest date (YYYYMMDD int) of the 3-month log window; should equal CUTOFF_INT.
 
 NOISE_STD: float = 0.10
-CUSTOMER_GAIN: tuple[float, ...] = (0.3, 0.5, 0.3, 0.4, 0.5, 0.3)   # actions 0..5
-CUSTOMER_LOSS: tuple[float, ...] = (0.1, 0.4, 0.1, 0.3, 0.4, 0.1)
-REJECT_PENALTY: float = 0.10   # penalty for rejecting a favorable offer
-REJECT_BONUS: float  = 0.01    # small bonus for correctly rejecting an unfavorable offer
-CUSTOMER_N_ACTIONS: int = 2   # 0 = reject, 1 = accept
-CUSTOMER_OBS_SIZE: int = 71   # 59 features + 6 one-hot offer + 6 offer extras
+CUSTOMER_GAIN: tuple[float, ...] = (0.3, 0.4, 0.4, 0.3, 0.3)   # actions 0..4
+CUSTOMER_LOSS: tuple[float, ...] = (0.1, 0.2, 0.2, 0.1, 0.1)
+REJECT_PENALTY: float = 0.10
+REJECT_BONUS: float  = 0.01
+CUSTOMER_N_ACTIONS: int = 2
+CUSTOMER_OBS_SIZE: int = 71

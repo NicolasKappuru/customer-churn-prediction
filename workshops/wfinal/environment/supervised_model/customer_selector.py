@@ -9,7 +9,7 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_DATA_DIR = PROJECT_ROOT / "workshops" / "data" / "parquet"
-DEFAULT_POOL_DIR = PROJECT_ROOT / "workshops" / "data" / "pool_users"
+DEFAULT_POOL_DIR = PROJECT_ROOT / "workshops" / "wfinal" / "data" / "pool_users"
 _CUTOFF_INT = 20170131
 
 _LOG_DATE_MIN: int = 20161101  # start of the 3-month window used by the preprocessor
@@ -79,11 +79,6 @@ class CustomerSelector:
         member_map = members.set_index("msno").to_dict("index")
 
         available = [m for m in churned_msno if m in member_map]
-        sample = (
-            pd.Series(available)
-            .sample(min(sample_size, len(available)), replace=False)
-            .tolist()
-        )
 
         # Training combined both files and deduplicated — replicate that here.
         _TXN_KEYS = [
@@ -91,6 +86,7 @@ class CustomerSelector:
             "actual_amount_paid", "is_auto_renew", "transaction_date",
             "membership_expire_date", "is_cancel",
         ]
+        print("Loading transactions (one-time, may take a few minutes)...")
         txn = pd.concat([
             pd.read_parquet(data_dir / "transactions.parquet"),
             pd.read_parquet(data_dir / "transactions_v2.parquet"),
@@ -100,6 +96,22 @@ class CustomerSelector:
         txn_map = txn.groupby("msno").apply(
             lambda g: g.to_dict("records"), include_groups=False
         ).to_dict()
+
+        # Manual segment filter: keep only customers whose last payment was not auto-renewed.
+        last_ar = (
+            txn.sort_values("transaction_date")
+            .groupby("msno")["is_auto_renew"]
+            .last()
+        )
+        manual_msnos = frozenset(last_ar[last_ar == 0].index)
+        available = [m for m in available if m in manual_msnos]
+        print(f"  Manual segment: {len(available)} churned candidates")
+
+        sample = (
+            pd.Series(available)
+            .sample(min(sample_size, len(available)), replace=False)
+            .tolist()
+        )
 
         print("Loading user logs (one-time, may take a few minutes)...")
         log_map = build_log_map(data_dir, set(sample))

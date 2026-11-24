@@ -1,4 +1,4 @@
-﻿"""Shared test-pool builder that excludes training/validation customers by fingerprint."""
+"""Shared test-pool builder that excludes training/validation customers by fingerprint."""
 from __future__ import annotations
 
 import hashlib
@@ -13,7 +13,7 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 W3_ROOT      = PROJECT_ROOT / "workshops" / "wfinal"
-POOL_DIR     = PROJECT_ROOT / "workshops" / "data" / "pool_users"
+POOL_DIR     = PROJECT_ROOT / "workshops" / "wfinal" / "data" / "pool_users"
 DATA_DIR     = PROJECT_ROOT / "workshops" / "data" / "parquet"
 
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
@@ -101,7 +101,7 @@ def load_or_create_test_pools(
         )
         return pools
 
-    # â”€â”€ Build from scratch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Build from scratch â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     print("Building test pools with fingerprint exclusion (one-time)â€¦")
     training_fps = _load_training_fingerprints()
     print(f"  Training pool fingerprints: {len(training_fps)} customers")
@@ -135,7 +135,22 @@ def load_or_create_test_pools(
         .to_dict()
     )
 
-    # â”€â”€ Fingerprint exclusion (member + transactions only, no logs needed) â”€â”€
+    # -- Manual segment filter: last transaction is_auto_renew == 0 ----------
+    # Replicates state='manual' from w1 (non-auto-renewed last payment).
+    last_txn = (
+        txn.sort_values("transaction_date")
+        .groupby("msno")["is_auto_renew"]
+        .last()
+    )
+    manual_msnos = frozenset(last_txn[last_txn == 0].index)
+    available_churn     = [m for m in available_churn     if m in manual_msnos]
+    available_non_churn = [m for m in available_non_churn if m in manual_msnos]
+    print(
+        f"  After manual-segment filter: "
+        f"{len(available_churn)} churned, {len(available_non_churn)} non-churned"
+    )
+
+    # â"€â"€ Fingerprint exclusion (member + transactions only, no logs needed) â"€â"€
     def _keep(msno: str) -> bool:
         row = dict(member_map[msno])
         row["transactions"] = txn_map.get(msno, [])
@@ -155,7 +170,7 @@ def load_or_create_test_pools(
         f"{len(clean_churn)} churned, {len(clean_non_churn)} non-churned"
     )
 
-    # â”€â”€ Pre-select all customers for all pools (disjoint) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Pre-select all customers for all pools (disjoint) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     n_c_needed  = n_churn     * n_pools
     n_nc_needed = n_non_churn * n_pools
     if len(clean_churn) < n_c_needed:
@@ -173,13 +188,13 @@ def load_or_create_test_pools(
     selected_churn     = [clean_churn[i]     for i in rng.permutation(len(clean_churn))    [:n_c_needed]]
     selected_non_churn = [clean_non_churn[i] for i in rng.permutation(len(clean_non_churn))[:n_nc_needed]]
 
-    # â”€â”€ Load logs only for the selected customers (efficient) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Load logs only for the selected customers (efficient) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     all_selected = set(selected_churn) | set(selected_non_churn)
     print(f"  Loading user logs for {len(all_selected)} selected customersâ€¦")
     log_map = build_log_map(DATA_DIR, all_selected)
     print(f"  Logs loaded for {len(log_map)} customers")
 
-    # â”€â”€ Build, shuffle and save each pool â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Build, shuffle and save each pool â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     pools = []
     for i in range(n_pools):
         churn_batch = selected_churn    [i * n_churn     : (i + 1) * n_churn]

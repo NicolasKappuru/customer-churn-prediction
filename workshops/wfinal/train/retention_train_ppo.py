@@ -34,7 +34,7 @@ from environment.env import KKBoxRetentionEnv
 EPISODES_PER_CONFIG = 3_000
 VALIDATION_INTERVAL = 250
 VALIDATION_EPISODES = 100
-ROLLOUT_EPISODES = 8
+ROLLOUT_EPISODES = 16
 LOG_INTERVAL = 100
 VALIDATION_SEED = 0
 TRAINING_CUSTOMER_FRACTION = 0.80
@@ -44,12 +44,12 @@ CSV_DIR         = RUNS_DIR / "csv"
 
 BASE_CONFIG = RetentionPPOConfig()
 CONFIGURATIONS = (
-    # lr=1e-3 | weight_decay=0.0  â†’ fast policy updates, no regularization
-    ("exploratory",  replace(BASE_CONFIG, learning_rate=1e-3,  weight_decay=0.0)),
-    # lr=3e-4 | weight_decay=1e-5 â†’ default speed + light regularization
-    ("balanced",     replace(BASE_CONFIG, learning_rate=3e-4,  weight_decay=1e-5)),
-    # lr=1e-4 | weight_decay=1e-4 â†’ conservative updates + strong regularization
-    ("conservative", replace(BASE_CONFIG, learning_rate=1e-4,  weight_decay=1e-4)),
+    # entropy=0.05 -> strong exploration pressure, avoids Do Nothing collapse
+    ("exploratory",  replace(BASE_CONFIG, entropy_coefficient=0.05)),
+    # entropy=0.02 -> moderate exploration, balanced policy
+    ("balanced",     replace(BASE_CONFIG, entropy_coefficient=0.02)),
+    # entropy=0.01 -> original default, conservative
+    ("conservative", replace(BASE_CONFIG, entropy_coefficient=0.01)),
 )
 
 

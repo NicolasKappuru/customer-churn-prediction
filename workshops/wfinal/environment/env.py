@@ -38,8 +38,8 @@ class KKBoxRetentionEnv(gym.Env):
         5 — Win-back inactive listener
         6 — Do nothing
 
-    Observation space: Box(shape=(60,), dtype=float32)
-        59 preprocessed XGBoost features + 1 churn probability
+    Observation space: Box(shape=(49,), dtype=float32)
+        48 preprocessed XGBoost features + 1 churn probability
     """
 
     metadata = {"render_modes": ["human"]}

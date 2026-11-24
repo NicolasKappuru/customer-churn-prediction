@@ -35,7 +35,7 @@ def _quiet_env_call(function: Any, *args: Any, **kwargs: Any) -> Any:
 def run_random_policy(
     episodes: int = 100,
     seed: int = 42,
-    customer_mode: str = "agent",
+    customer_mode: str = "static",
     customer_checkpoint: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     """Run random valid actions and report episode diagnostics."""
@@ -166,7 +166,7 @@ def main() -> None:
     )
     parser.add_argument("--episodes", type=int, default=100)
     parser.add_argument("--seed",     type=int, default=42)
-    parser.add_argument("--customer", choices=["static", "agent"], default="agent")
+    parser.add_argument("--customer", choices=["static", "agent"], default="static")
     parser.add_argument(
         "--customer-checkpoint", type=str,
         default=str(W3_ROOT / "checkpoints" / "customer_agent_ppo.pt"),
