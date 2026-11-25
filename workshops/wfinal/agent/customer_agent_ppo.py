@@ -21,9 +21,8 @@ for _path in (str(W3_ROOT), str(W3_ROOT / "environment")):
 
 from constants import CUSTOMER_OBS_SIZE, CUSTOMER_N_ACTIONS
 
-# Index constants for two-branch split
-_CUSTOMER_FEAT_END = 59
-_OFFER_FEAT_START  = 59
+# Index constants for two-branch split (48 XGB features | 10 offer dims)
+_CUSTOMER_FEAT_END = 48
 
 # Irrationality floor: bounds pi(accept) to [IRRATIONALITY/2, 1 - IRRATIONALITY/2]
 IRRATIONALITY = 0.10
@@ -102,10 +101,10 @@ class CustomerTransition:
 
 
 class ActorCriticNetwork(nn.Module):
-    """Two-branch actor-critic with separate customer-feature and offer+episode branches.
+    """Two-branch actor-critic with separate customer-feature and offer branches.
 
-    Branch 1 (customer): input[:59]  -> Linear(64) -> ReLU -> Linear(32) -> ReLU
-    Branch 2 (offer+ep): input[59:]  -> Linear(16) -> ReLU
+    Branch 1 (customer): input[:48]  -> Linear(64) -> ReLU -> Linear(32) -> ReLU
+    Branch 2 (offer):    input[48:]  -> Linear(16) -> ReLU   (5 one-hot + 5 context = 10)
     Concat(32+16=48)                 -> Linear(32) -> ReLU
     Actor head: 32 -> Linear(2)
     Critic head: 32 -> Linear(1)
@@ -113,7 +112,7 @@ class ActorCriticNetwork(nn.Module):
 
     def __init__(self, state_size: int, action_size: int, hidden_size: int) -> None:
         super().__init__()
-        offer_feat_size = state_size - _CUSTOMER_FEAT_END   # 74 - 59 = 15
+        offer_feat_size = state_size - _CUSTOMER_FEAT_END   # 58 - 48 = 10
 
         self.customer_branch = nn.Sequential(
             nn.Linear(_CUSTOMER_FEAT_END, 64),
@@ -134,7 +133,7 @@ class ActorCriticNetwork(nn.Module):
 
     def forward(self, states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         cust = self.customer_branch(states[:, :_CUSTOMER_FEAT_END])
-        offer = self.offer_branch(states[:, _OFFER_FEAT_START:])
+        offer = self.offer_branch(states[:, _CUSTOMER_FEAT_END:])
         combined = self.shared(torch.cat([cust, offer], dim=-1))
         return self.policy_head(combined), self.value_head(combined).squeeze(-1)
 

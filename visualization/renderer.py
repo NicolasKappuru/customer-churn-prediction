@@ -43,6 +43,7 @@ class KKBoxRenderer:
         self.screen = pygame.display.set_mode((WIN_W, WIN_H))
         pygame.display.set_caption("KKBOX — RETENTION")
         self.clock  = pygame.time.Clock()
+        self._raise_window()
 
         self.customer_sprites  = load_customer_sprites((150, 200))
         self.robot_sprite      = load_robot_sprite((150, 200))
@@ -87,6 +88,21 @@ class KKBoxRenderer:
             elif event.key == pygame.K_ESCAPE: return False
         return True
 
+    @staticmethod
+    def _raise_window() -> None:
+        """Bring the pygame window to the foreground (Windows-only, no-op elsewhere)."""
+        try:
+            import sys
+            if sys.platform != "win32":
+                return
+            import ctypes
+            hwnd = pygame.display.get_wm_info().get("window")
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 9)       # SW_RESTORE
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+
     def close(self) -> None:
         pygame.quit()
 
@@ -123,7 +139,7 @@ class KKBoxRenderer:
         draw_churn_box( self.screen,          10, y + 8, model.churn_probability)
         draw_reward_box(self.screen, HALF_W + 10, y + 8, model.reward)
 
-        if model.action_accepted is not None and model.action_selected != 4:
+        if model.action_accepted is not None and model.action_selected != 5:
             icon = self.spr_accept if model.action_accepted else self.spr_reject
             icon_x = sp_x + sp.get_width()  - icon.get_width()  // 2
             icon_y = sp_y + 10

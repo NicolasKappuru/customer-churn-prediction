@@ -50,9 +50,10 @@ class KKBoxRetentionEnv(gym.Env):
         render_delay: float = 2.0,
         customer_mode: str = "static",
         customer_checkpoint: str | Path = "checkpoints/customer_agent_ppo.pt",
+        pool_size: int = 1500,
     ) -> None:
         super().__init__()
-        self.customer_selector = CustomerSelector()
+        self.customer_selector = CustomerSelector(sample_size=pool_size)
         self.preprocessor_customer_data = PreprocessorCustomerData()
         self.supervised_model = SupervisedModel()
         self.action_manager = ActionsManager()
@@ -77,24 +78,21 @@ class KKBoxRetentionEnv(gym.Env):
         if customer_mode == "static":
             self._acceptance_policy = StaticAcceptance(self.action_manager)
         elif customer_mode == "agent":
-            self._acceptance_policy = CustomerAgentAcceptance(customer_checkpoint)
+            self._acceptance_policy = CustomerAgentAcceptance(customer_checkpoint, self.action_manager)
         else:
             raise ValueError(f"customer_mode must be 'static' or 'agent', got '{customer_mode}'.")
 
         self.render_mode = render_mode
+        self._render_delay = render_delay
         self._bridge = None
-        if render_mode == "human":
-            if self._display_available():
-                from render.bridge import KKBoxRenderBridge
-                self._bridge = KKBoxRenderBridge(render_delay=render_delay)
-            else:
-                warnings.warn(
-                    "render_mode='human' requested but no display found "
-                    "(DISPLAY/WAYLAND_DISPLAY not set). Rendering disabled. "
-                    "Use 'export DISPLAY=:0' or 'ssh -X' to enable it.",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
+        if render_mode == "human" and not self._display_available():
+            warnings.warn(
+                "render_mode='human' requested but no display found "
+                "(DISPLAY/WAYLAND_DISPLAY not set). Rendering disabled. "
+                "Use 'export DISPLAY=:0' or 'ssh -X' to enable it.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
         self.action_space = spaces.Discrete(len(ACTION_DEFINITIONS))
         self.observation_space = spaces.Box(
@@ -110,6 +108,12 @@ class KKBoxRetentionEnv(gym.Env):
         pool = self.customer_selector._pool
         if self._obs_cache is None or len(self._obs_cache) != len(pool):
             self._build_obs_cache()
+
+        # Open window only after cache is ready — avoids a frozen black screen
+        # during the multi-minute preprocessing step that builds the cache.
+        if self._bridge is None and self.render_mode == "human" and self._display_available():
+            from render.bridge import KKBoxRenderBridge
+            self._bridge = KKBoxRenderBridge(render_delay=self._render_delay)
 
         idx = int(self.np_random.integers(0, len(pool)))
         self._current_pool_idx = idx
@@ -225,9 +229,15 @@ class KKBoxRetentionEnv(gym.Env):
             "customer_reward": customer_reward,
         }
 
-        if self._bridge is not None and new_features_for_bridge is not None:
+        if self._bridge is not None:
+            if new_features_for_bridge is not None:
+                display_features = dict(new_features_for_bridge.iloc[0])
+            elif self._features_series_cache is not None:
+                display_features = self._features_series_cache[self._current_pool_idx].to_dict()
+            else:
+                display_features = {}
             self._bridge.on_step(
-                new_features=dict(new_features_for_bridge.iloc[0]),
+                new_features=display_features,
                 new_churn=float(self.probability_churn_after),
                 action=action,
                 reward=float(reward),

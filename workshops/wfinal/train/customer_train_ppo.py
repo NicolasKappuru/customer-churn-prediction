@@ -143,8 +143,8 @@ def _debug_obs(env: CustomerEnv, agent: CustomerPPOAgent) -> None:
 
     print("\n--- DEBUG OBS ---")
     print(f"Offer: {offer1}")
-    print(f"One-hot (idx 59-64): {obs1[59:65].tolist()}")
-    print(f"Offer extras (idx 65-70): {obs1[65:71].tolist()}")
+    print(f"One-hot (idx 48-52): {obs1[48:53].tolist()}")
+    print(f"Context (idx 53-57): {obs1[53:58].tolist()}")
     print("--- END DEBUG OBS ---\n")
 
 
@@ -155,6 +155,7 @@ def train_customer_ppo(
     rollout_episodes: int = ROLLOUT_EPISODES,
     seed: int = 42,
     checkpoint_path: str | Path = CHECKPOINT_PATH,
+    pool_size: int = 10000,
     debug_obs: bool = False,
 ) -> None:
     """Train CustomerPPOAgent and save the best checkpoint by validation return."""
@@ -163,8 +164,8 @@ def train_customer_ppo(
 
     _seed_all(seed)
     agent = CustomerPPOAgent()
-    env = CustomerEnv()
-    val_env = CustomerEnv()
+    env = CustomerEnv(pool_size=pool_size)
+    val_env = CustomerEnv(pool_size=pool_size)
     checkpoint = Path(checkpoint_path)
 
     # --- Fit normalizer on pool features ---
@@ -305,8 +306,10 @@ def main() -> None:
     parser.add_argument("--rollout-episodes",   type=int,  default=ROLLOUT_EPISODES)
     parser.add_argument("--seed",               type=int,  default=42)
     parser.add_argument("--checkpoint",         type=Path, default=CHECKPOINT_PATH)
+    parser.add_argument("--pool-size",           type=int,  default=10000,
+                        help="Number of customers in the training pool (default: 5000).")
     parser.add_argument("--debug-obs",          action="store_true",
-                        help="Print sample obs showing one-hot, price ratios, episode block.")
+                        help="Print sample obs showing one-hot and context features.")
     args = parser.parse_args()
     train_customer_ppo(
         episodes=args.episodes,
@@ -315,6 +318,7 @@ def main() -> None:
         rollout_episodes=args.rollout_episodes,
         seed=args.seed,
         checkpoint_path=args.checkpoint,
+        pool_size=args.pool_size,
         debug_obs=args.debug_obs,
     )
 

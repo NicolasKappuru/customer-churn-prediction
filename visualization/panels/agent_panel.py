@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 import pygame
 
-_ENV_PATH = str(Path(__file__).resolve().parents[2] / "workshops" / "w3" / "environment")
+_ENV_PATH = str(Path(__file__).resolve().parents[2] / "workshops" / "wfinal" / "environment")
 if _ENV_PATH not in sys.path:
     sys.path.insert(0, _ENV_PATH)
 from constants import ACTION_DEFINITIONS
@@ -25,6 +25,7 @@ _SEL_THEMES = [
     (( 18,  44,  62), ( 60, 150, 210), ( 22,  85, 140), (140, 210, 255)),  # light blue
     (( 55,  50,  18), (200, 175,  50), (120, 100,  22), (255, 235, 120)),  # yellow
     (( 22,  48,  22), ( 70, 180,  70), ( 45, 130,  45), (180, 255, 180)),  # light green
+    (( 55,  38,  10), (220, 140,  40), (140,  85,  20), (255, 200, 130)),  # orange
     (( 48,  48,  58), (160, 160, 180), (100, 100, 118), (220, 220, 235)),  # slate grey
 ]
 _TEXT_COST   = (195, 185, 135)
@@ -32,10 +33,11 @@ _LABEL       = (120, 120, 145)
 
 # ── action definitions — display names are presentation-specific; costs come from constants ──
 _ACTION_DISPLAY_NAMES = [
-    "AUTO-RENEWAL REMINDER",
-    "LOYALTY RENEWAL",
     "CONTENT RE-ENGAGEMENT",
-    "DOWNGRADE TO 99 NTD",
+    "REACTIVATE DORMANT",
+    "TREND RECOVERY PUSH",
+    "COMPLETION BOOSTER",
+    "LISTENING INTENSIFIER",
     "DO NOTHING",
 ]
 
@@ -73,7 +75,7 @@ def draw_agent_panel(surface: pygame.Surface, rect: pygame.Rect,
     surface.blit(h_cost, (rect.right - h_cost.get_width() - 18, rect.y + 8))
 
     # rows
-    row_h = (rect.height - 32) // 5
+    row_h = (rect.height - 32) // 6
     for i, (num, label, cost) in enumerate(_ACTIONS):
         ry  = rect.y + 32 + i * row_h
         row = pygame.Rect(rect.x, ry, rect.width, row_h)
@@ -105,6 +107,6 @@ def draw_agent_panel(surface: pygame.Surface, rect: pygame.Rect,
                             ry + row_h // 2 - c_s.get_height() // 2))
 
         # divider
-        if i < 4:
+        if i < 5:
             pygame.draw.line(surface, _BORDER,
                              (row.x, row.bottom), (row.right, row.bottom), 1)

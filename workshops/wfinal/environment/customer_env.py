@@ -1,5 +1,6 @@
 """Customer-side Gym environment for training the customer acceptance agent."""
 from __future__ import annotations
+import datetime
 import io
 import sys
 from contextlib import redirect_stdout
@@ -19,31 +20,77 @@ from constants import (
     ACTION_DEFINITIONS, DO_NOTHING_ACTION, N_MODEL_FEATURES,
     CUSTOMER_N_ACTIONS, CUSTOMER_OBS_SIZE,
     REJECT_PENALTY, REJECT_BONUS,
+    CUTOFF_DATE, CUTOFF_MONTH, PREV_MONTH,
 )
 from env import KKBoxRetentionEnv
 from customer_utility import CustomerUtility
 
 
-_N_OFFERS = len(ACTION_DEFINITIONS) - 1   # 6: all except Do nothing
+_N_OFFERS = len(ACTION_DEFINITIONS) - 1   # 5: all except Do nothing
 
-# Price reference for normalization (NTD)
-_MAX_PRICE = 149.0
+# Normalization caps for context features
+_DAYS_SINCE_CAP = 90.0    # cap days_since_last_log at 90 for normalization
+_TENURE_CAP     = 1095.0  # cap tenure at ~3 years for normalization
 
-# Price mapping per action: what the customer would pay if accepting
-# Actions 0, 2, 4, 5 keep current price; action 1 = 129; action 3 = 99
-_OFFER_PRICE_MAP = {
-    0: None,       # non-commercial: price_offer_ratio = price_current_ratio
-    1: 129.0,      # loyalty discount
-    2: None,       # non-commercial
-    3: 99.0,       # downgrade
-    4: None,       # recover cancellation: commercial but same price
-    5: None,       # winback engage: non-commercial
-}
+_SONG_KEYS = ("num_25", "num_50", "num_75", "num_985", "num_100")
 
-# Flags per action
-_IS_COMMERCIAL  = {0: False, 1: True,  2: False, 3: True,  4: True,  5: False}
-_IS_ENGAGEMENT  = {0: True,  1: False, 2: True,  3: False, 4: False, 5: True}
-_EXTENDS_MEMBERSHIP = {0: False, 1: True, 2: False, 3: True, 4: False, 5: False}
+
+def _date_from_int(d: int) -> datetime.date:
+    d = int(d)
+    return datetime.date(d // 10000, (d // 100) % 100, d % 100)
+
+
+def build_customer_observation(action_manager, features_row, offer: int, customer_data=None) -> np.ndarray:
+    """Build the 58-dim customer observation (48 XGB features + 5 one-hot + 5 context).
+
+    Module-level function so both CustomerEnv and acceptance.py can call it
+    without needing a full CustomerEnv instance.
+    """
+    feat = np.array(list(features_row.values), dtype=np.float32)  # 48
+
+    one_hot = np.zeros(_N_OFFERS, dtype=np.float32)
+    if 0 <= offer < _N_OFFERS:
+        one_hot[offer] = 1.0
+
+    if customer_data is not None:
+        logs = customer_data.get("user_logs") or []
+
+        is_fav = float(action_manager.is_favorable(offer, customer_data))
+
+        if logs:
+            last_date = max(_date_from_int(int(log["date"])) for log in logs)
+            days_since = (CUTOFF_DATE - last_date).days
+        else:
+            days_since = int(_DAYS_SINCE_CAP)
+        days_norm = min(days_since / _DAYS_SINCE_CAP, 1.0)
+
+        has_jan = float(
+            any(str(int(log["date"]))[:6] == CUTOFF_MONTH for log in logs)
+        )
+
+        def _month_songs(prefix: str) -> int:
+            return sum(
+                sum(int(log.get(k, 0)) for k in _SONG_KEYS)
+                for log in logs if str(int(log["date"]))[:6] == prefix
+            )
+        is_declining = float(_month_songs(CUTOFF_MONTH) < _month_songs(PREV_MONTH)
+                             and _month_songs(PREV_MONTH) > 0)
+
+        rit = customer_data.get("registration_init_time")
+        if rit is not None:
+            tenure_days = (CUTOFF_DATE - _date_from_int(int(rit))).days
+            tenure_norm = min(tenure_days / _TENURE_CAP, 1.0)
+        else:
+            tenure_norm = 0.0
+    else:
+        is_fav = 0.0
+        days_norm = 0.5
+        has_jan = 0.0
+        is_declining = 0.0
+        tenure_norm = 0.0
+
+    context = np.array([is_fav, days_norm, has_jan, is_declining, tenure_norm], dtype=np.float32)
+    return np.concatenate([feat, one_hot, context])
 
 
 class CustomerEnv(gym.Env):
@@ -51,19 +98,20 @@ class CustomerEnv(gym.Env):
 
     Each episode = one customer, one offer, one accept/reject decision.
 
-    Observation (71 floats):
-        59 preprocessed features
-        + 6 one-hot offer encoding
-        + 6 offer extras (price_current_ratio, price_offer_ratio, saving_ratio,
-                          extends_membership, is_commercial, is_engagement)
+    Observation (58 floats):
+        48 preprocessed XGBoost features
+        + 5 one-hot offer encoding  (actions 0-4)
+        + 5 engagement context features:
+              is_favorable, days_since_last_log_norm,
+              has_jan_activity, is_declining, tenure_norm
     Action space: Discrete(2)  -- 0=reject, 1=accept
     """
 
     metadata = {"render_modes": []}
 
-    def __init__(self) -> None:
+    def __init__(self, pool_size: int = 10000) -> None:
         super().__init__()
-        self._inner = KKBoxRetentionEnv(customer_mode="static")
+        self._inner = KKBoxRetentionEnv(customer_mode="static", pool_size=pool_size)
         self._utility = CustomerUtility(self._inner.action_manager)
         self._rng = np.random.default_rng()
         self._current_offer: int = 0
@@ -106,53 +154,15 @@ class CustomerEnv(gym.Env):
             "accepted": accepted,
         }
 
-    @staticmethod
     def build_customer_observation(
-        features_row,   # pd.Series with 59 features
+        self,
+        features_row,
         offer: int,
         customer_data=None,
     ) -> np.ndarray:
-        """Build the 71-dim customer observation vector (59 features + 6 one-hot + 6 offer extras)."""
-        feat = np.array(list(features_row.values), dtype=np.float32)  # 59
-
-        # --- offer one-hot (6) ---
-        one_hot = np.zeros(_N_OFFERS, dtype=np.float32)
-        if 0 <= offer < _N_OFFERS:
-            one_hot[offer] = 1.0
-
-        # --- offer extras (6) ---
-        # price_current_ratio: last plan_list_price / 149
-        price_current = 149.0
-        if customer_data is not None:
-            try:
-                txns = customer_data.get("transactions", [])
-                if txns:
-                    last_txn = txns[-1] if isinstance(txns, list) else None
-                    if last_txn is not None and "plan_list_price" in last_txn:
-                        price_current = float(last_txn["plan_list_price"])
-            except Exception:
-                pass
-        price_current_ratio = price_current / _MAX_PRICE
-
-        # price_offer_ratio
-        mapped_price = _OFFER_PRICE_MAP.get(offer, None)
-        if mapped_price is not None:
-            price_offer_ratio = mapped_price / _MAX_PRICE
-        else:
-            price_offer_ratio = price_current_ratio
-
-        saving_ratio = (price_current_ratio - price_offer_ratio)
-        extends_membership = float(_EXTENDS_MEMBERSHIP.get(offer, False))
-        is_commercial = float(_IS_COMMERCIAL.get(offer, False))
-        is_engagement = float(_IS_ENGAGEMENT.get(offer, False))
-
-        offer_extras = np.array(
-            [price_current_ratio, price_offer_ratio, saving_ratio,
-             extends_membership, is_commercial, is_engagement],
-            dtype=np.float32,
+        return build_customer_observation(
+            self._utility._am, features_row, offer, customer_data
         )
-
-        return np.concatenate([feat, one_hot, offer_extras])
 
     def _get_features(self):
         inner = self._inner

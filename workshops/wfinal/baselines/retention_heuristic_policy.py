@@ -165,8 +165,14 @@ def main() -> None:
     )
     parser.add_argument("--episodes", type=int, default=100)
     parser.add_argument("--seed",     type=int, default=42)
+    parser.add_argument("--customer", choices=["static", "agent"], default="static",
+                        help="Acceptance mode: 'static' uses fixed probabilities, 'agent' uses trained CustomerPPOAgent.")
+    parser.add_argument("--customer-checkpoint", type=str,
+                        default=str(Path(__file__).resolve().parents[2] / "checkpoints" / "customer_agent_ppo.pt"))
     args = parser.parse_args()
-    run_heuristic_policy(episodes=args.episodes, seed=args.seed)
+    run_heuristic_policy(episodes=args.episodes, seed=args.seed,
+                         customer_mode=args.customer,
+                         customer_checkpoint=args.customer_checkpoint)
 
 
 if __name__ == "__main__":

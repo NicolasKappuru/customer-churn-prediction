@@ -1,70 +1,70 @@
 episode,s1_action,s1_prob,s1_accepted
-1,Trend recovery push,0.321,Yes
+1,Completion booster,0.321,Yes
 2,Send content re-engagement,0.754,No
 3,Send content re-engagement,0.691,No
 4,Completion booster,0.764,Yes
-5,Completion booster,0.71,No
+5,Completion booster,0.71,Yes
 6,Send content re-engagement,0.543,No
 7,Trend recovery push,0.651,No
-8,Trend recovery push,0.921,Yes
+8,Reactivate dormant listener,0.921,No
 9,Do nothing,0.986,No
-10,Trend recovery push,0.57,Yes
-11,Send content re-engagement,0.649,Yes
-12,Trend recovery push,0.829,Yes
+10,Completion booster,0.57,Yes
+11,Send content re-engagement,0.649,No
+12,Reactivate dormant listener,0.829,No
 13,Send content re-engagement,0.338,No
-14,Completion booster,0.253,Yes
-15,Trend recovery push,0.388,Yes
+14,Completion booster,0.253,No
+15,Trend recovery push,0.388,No
 16,Send content re-engagement,0.387,No
 17,Send content re-engagement,0.695,No
-18,Completion booster,0.697,No
+18,Completion booster,0.697,Yes
 19,Send content re-engagement,0.407,No
 20,Send content re-engagement,0.455,No
 21,Send content re-engagement,0.349,No
 22,Send content re-engagement,0.63,No
-23,Trend recovery push,0.368,Yes
-24,Trend recovery push,0.326,Yes
-25,Trend recovery push,0.721,Yes
-26,Listening intensifier,0.822,No
+23,Trend recovery push,0.368,No
+24,Trend recovery push,0.326,No
+25,Completion booster,0.721,Yes
+26,Completion booster,0.822,Yes
 27,Send content re-engagement,0.317,No
-28,Trend recovery push,0.614,Yes
-29,Trend recovery push,0.645,Yes
-30,Send content re-engagement,0.3,No
+28,Trend recovery push,0.614,No
+29,Completion booster,0.645,Yes
+30,Completion booster,0.3,Yes
 31,Trend recovery push,0.392,No
 32,Send content re-engagement,0.394,No
-33,Trend recovery push,0.965,Yes
+33,Completion booster,0.965,Yes
 34,Trend recovery push,0.476,Yes
 35,Send content re-engagement,0.702,No
-36,Trend recovery push,0.958,No
-37,Send content re-engagement,0.154,No
+36,Completion booster,0.958,Yes
+37,Send content re-engagement,0.154,Yes
 38,Send content re-engagement,0.976,No
 39,Trend recovery push,0.987,No
-40,Trend recovery push,0.781,No
-41,Trend recovery push,0.958,No
-42,Send content re-engagement,0.995,Yes
-43,Trend recovery push,0.835,Yes
-44,Trend recovery push,0.423,Yes
-45,Completion booster,0.644,No
-46,Send content re-engagement,0.722,No
-47,Trend recovery push,0.368,Yes
-48,Completion booster,0.461,No
+40,Reactivate dormant listener,0.781,No
+41,Completion booster,0.958,No
+42,Send content re-engagement,0.995,No
+43,Listening intensifier,0.835,Yes
+44,Reactivate dormant listener,0.423,Yes
+45,Completion booster,0.644,Yes
+46,Completion booster,0.722,Yes
+47,Trend recovery push,0.368,No
+48,Completion booster,0.461,Yes
 49,Trend recovery push,0.368,Yes
-50,Listening intensifier,0.793,No
+50,Listening intensifier,0.793,Yes
 51,Completion booster,0.764,Yes
-52,Trend recovery push,0.998,Yes
+52,Trend recovery push,0.998,No
 53,Trend recovery push,0.687,No
 54,Completion booster,0.559,Yes
 55,Send content re-engagement,0.996,No
-56,Send content re-engagement,0.704,No
-57,Trend recovery push,0.258,Yes
+56,Do nothing,0.704,No
+57,Trend recovery push,0.258,No
 58,Trend recovery push,0.998,No
 59,Send content re-engagement,0.184,No
 60,Send content re-engagement,0.297,No
 61,Trend recovery push,0.36,No
 62,Send content re-engagement,0.462,No
-63,Completion booster,0.335,No
+63,Completion booster,0.335,Yes
 64,Send content re-engagement,0.996,No
 65,Completion booster,0.979,Yes
-66,Trend recovery push,0.387,Yes
+66,Trend recovery push,0.387,No
 67,Send content re-engagement,0.71,No
 68,Send content re-engagement,0.408,No
 69,Send content re-engagement,0.619,No
@@ -76,25 +76,25 @@ episode,s1_action,s1_prob,s1_accepted
 75,Trend recovery push,0.415,No
 76,Send content re-engagement,0.72,No
 77,Send content re-engagement,0.662,No
-78,Trend recovery push,0.324,Yes
-79,Trend recovery push,0.534,Yes
+78,Trend recovery push,0.324,No
+79,Reactivate dormant listener,0.534,Yes
 80,Send content re-engagement,0.755,No
-81,Trend recovery push,0.476,No
-82,Trend recovery push,0.326,Yes
-83,Trend recovery push,0.796,Yes
+81,Trend recovery push,0.476,Yes
+82,Trend recovery push,0.326,No
+83,Trend recovery push,0.796,No
 84,Completion booster,0.688,Yes
-85,Listening intensifier,0.822,No
-86,Trend recovery push,0.998,Yes
-87,Send content re-engagement,0.26,No
+85,Completion booster,0.822,Yes
+86,Completion booster,0.998,Yes
+87,Send content re-engagement,0.26,Yes
 88,Send content re-engagement,0.702,No
 89,Trend recovery push,0.33,No
-90,Completion booster,0.621,No
+90,Completion booster,0.621,Yes
 91,Send content re-engagement,0.728,No
-92,Trend recovery push,0.522,Yes
-93,Send content re-engagement,0.705,Yes
+92,Trend recovery push,0.522,No
+93,Send content re-engagement,0.705,No
 94,Send content re-engagement,0.762,No
 95,Send content re-engagement,0.6,No
-96,Trend recovery push,0.644,Yes
+96,Trend recovery push,0.644,No
 97,Send content re-engagement,0.597,No
 98,Send content re-engagement,0.567,No
 99,Send content re-engagement,0.202,No

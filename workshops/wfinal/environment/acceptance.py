@@ -48,9 +48,9 @@ class StaticAcceptance(AcceptancePolicy):
 class CustomerAgentAcceptance(AcceptancePolicy):
     """Samples accept/reject from a trained CustomerPPOAgent policy."""
 
-    def __init__(self, checkpoint_path: str | Path) -> None:
-        from customer_env import CustomerEnv  # lazy import to avoid circular
+    def __init__(self, checkpoint_path: str | Path, action_manager: "ActionsManager") -> None:
         self._checkpoint_path = Path(checkpoint_path)
+        self._action_manager = action_manager
         self._agent = None  # loaded lazily
 
     def _load_agent(self) -> None:
@@ -63,9 +63,9 @@ class CustomerAgentAcceptance(AcceptancePolicy):
     def decide(self, customer, features_row, action, turn, n_rejections, rng,
                times_offered: int = 0, customer_data=None) -> bool:
         self._load_agent()
-        from customer_env import CustomerEnv
-        obs = CustomerEnv.build_customer_observation(
-            features_row, action,
+        from customer_env import build_customer_observation
+        obs = build_customer_observation(
+            self._action_manager, features_row, action,
             customer_data=customer_data,
         )
         p = self._agent.accept_probability(obs)

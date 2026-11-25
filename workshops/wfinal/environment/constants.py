@@ -144,4 +144,5 @@ CUSTOMER_LOSS: tuple[float, ...] = (0.1, 0.2, 0.2, 0.1, 0.1)
 REJECT_PENALTY: float = 0.10
 REJECT_BONUS: float  = 0.01
 CUSTOMER_N_ACTIONS: int = 2
-CUSTOMER_OBS_SIZE: int = 71
+# 48 XGB features + 5 one-hot (actions 0-4) + 5 engagement context features
+CUSTOMER_OBS_SIZE: int = 58

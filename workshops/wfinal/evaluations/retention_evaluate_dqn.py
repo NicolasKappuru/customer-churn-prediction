@@ -18,7 +18,7 @@ import torch
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / ".env", override=True)
 W3_ROOT  = PROJECT_ROOT / "workshops" / "wfinal"
 _EVAL_DIR = Path(__file__).resolve().parent
 for _path in (str(W3_ROOT), str(W3_ROOT / "environment"), str(_EVAL_DIR)):

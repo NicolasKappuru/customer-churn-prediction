@@ -1,6 +1,6 @@
-"""Customer data model — holds the 59 preprocessed features + churn prob.
+"""Customer data model — holds the 48 preprocessed features + churn prob.
 
-The 59 features are split across the three display tabs exactly as they appear
+The 48 features are split across the three display tabs exactly as they appear
 in the XGBoost feature set used by the supervised model.
 """
 
@@ -10,20 +10,18 @@ from dataclasses import dataclass, field
 # ── feature groupings (order = display order) ────────────────────────────────
 
 MEMBER_FEATURES: list[str] = [
-    "city", "registered_via", "bd", "bd_missing",
+    "city", "registered_via", "bd",
     "tenure_days", "registration_year", "registration_month", "has_member_record",
 ]
 
 TRANSACTION_FEATURES: list[str] = [
-    "is_cancel_change_flag", "is_auto_renew_change_flag", "transaction_count",
+    "transaction_count",
     "average_amount_paid", "average_amount_charged", "average_plan",
-    "n_payment_methods", "n_plans", "n_list_prices", "n_amounts_paid",
+    "n_payment_methods", "n_plans", "n_list_prices",
     "duration", "plan_coverage_ratio", "sum_plan_days", "sum_list_price",
-    "sum_amount_paid", "more_than_30", "autorenew_not_cancel", "not_autorenew_cancel",
-    "max_plan_days", "last_payment_method_id", "last_plan_days",
-    "last_is_auto_renew", "last_is_cancel", "last_discount",
-    "days_to_expire", "expire_dayofweek", "days_since_last_transaction",
-    "difference", "has_transactions",
+    "sum_amount_paid", "more_than_30", "max_plan_days",
+    "last_payment_method_id", "last_plan_days",
+    "days_to_expire", "days_since_last_transaction", "difference",
 ]
 
 LOG_FEATURES: list[str] = [
@@ -42,11 +40,12 @@ ALL_FEATURES: list[str] = MEMBER_FEATURES + TRANSACTION_FEATURES + LOG_FEATURES
 COL_DEFAULT = (208, 208, 208)
 
 ACTION_COLORS = [
-    (192, 160, 255),   # 0 — purple     (auto-renewal reminder)
-    (100, 200, 255),   # 1 — light blue (loyalty renewal)
-    (255, 220,  80),   # 2 — yellow     (content re-engagement)
-    (144, 238, 144),   # 3 — light green (downgrade to 99 NTD)
-    (200, 200, 215),   # 4 — slate grey  (do nothing)
+    (192, 160, 255),   # 0 — purple      (content re-engagement)
+    (100, 200, 255),   # 1 — light blue  (reactivate dormant)
+    (255, 220,  80),   # 2 — yellow      (trend recovery push)
+    (144, 238, 144),   # 3 — light green (completion booster)
+    (255, 165,  80),   # 4 — orange      (listening intensifier)
+    (200, 200, 215),   # 5 — slate grey  (do nothing)
 ]
 
 
@@ -80,7 +79,7 @@ def _fmt(name: str, val: float | int | None) -> str:
 
 @dataclass
 class CustomerDataModel:
-    features: dict[str, float | int]    # the 59 preprocessed features
+    features: dict[str, float | int]    # the 48 preprocessed features
     churn_probability: float = 0.0
     reward: float = 0.0
     action_selected: int | None = None
