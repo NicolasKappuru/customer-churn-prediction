@@ -1,0 +1,43 @@
+scenario,metric,Δ vs baseline,Δ IC95,significant
+timegan +50%,listening MAE (per user),0.00260278877545738,"[0.0022, 0.0030]",True
+timegan +50%,active AUC,-0.0025246469632788093,"[-0.0029, -0.0021]",True
+timegan +50%,active AP,-0.0025121475210765354,"[-0.0028, -0.0022]",True
+timegan +50%,pay AUC,-0.0040005711502104635,"[-0.0049, -0.0031]",True
+timegan +50%,pay AP,-0.007450414971454267,"[-0.0094, -0.0054]",True
+timegan +50%,pay_week AUC,0.000117055891771356,"[-0.0003, 0.0006]",False
+timegan +50%,pay_week AP,0.005753839660225246,"[0.0020, 0.0095]",True
+timegan +100%,listening MAE (per user),0.006904182715453135,"[0.0065, 0.0073]",True
+timegan +100%,active AUC,-0.005375944293171786,"[-0.0057, -0.0050]",True
+timegan +100%,active AP,-0.00427304983076604,"[-0.0046, -0.0040]",True
+timegan +100%,pay AUC,-0.01641438477657786,"[-0.0177, -0.0151]",True
+timegan +100%,pay AP,-0.009592755500345829,"[-0.0116, -0.0076]",True
+timegan +100%,pay_week AUC,-0.0012008368249358803,"[-0.0017, -0.0007]",True
+timegan +100%,pay_week AP,-0.0020573728477671915,"[-0.0057, 0.0015]",False
+timegan TSTR,listening MAE (per user),0.07140776096195735,"[0.0692, 0.0737]",True
+timegan TSTR,active AUC,-0.0787437866874795,"[-0.0801, -0.0772]",True
+timegan TSTR,active AP,-0.06425554075576789,"[-0.0655, -0.0630]",True
+timegan TSTR,pay AUC,-0.3813212390921237,"[-0.3853, -0.3767]",True
+timegan TSTR,pay AP,-0.15186029339262247,"[-0.1559, -0.1481]",True
+timegan TSTR,pay_week AUC,-0.4652196327092484,"[-0.4696, -0.4602]",True
+timegan TSTR,pay_week AP,-0.725254221713878,"[-0.7305, -0.7198]",True
+wtimegan +50%,listening MAE (per user),-0.004991173074169872,"[-0.0053, -0.0046]",True
+wtimegan +50%,active AUC,-0.0013307552230542585,"[-0.0016, -0.0010]",True
+wtimegan +50%,active AP,-0.0011201589687572788,"[-0.0014, -0.0009]",True
+wtimegan +50%,pay AUC,0.008915763738028604,"[0.0082, 0.0098]",True
+wtimegan +50%,pay AP,-0.001862695200388037,"[-0.0036, 0.0001]",False
+wtimegan +50%,pay_week AUC,-0.00023878421755307855,"[-0.0006, 0.0002]",False
+wtimegan +50%,pay_week AP,0.0022784073481010303,"[-0.0012, 0.0061]",False
+wtimegan +100%,listening MAE (per user),-0.0009389568137788917,"[-0.0013, -0.0005]",True
+wtimegan +100%,active AUC,-0.006524694829451172,"[-0.0069, -0.0062]",True
+wtimegan +100%,active AP,-0.005735271529993202,"[-0.0060, -0.0054]",True
+wtimegan +100%,pay AUC,0.004655621160897905,"[0.0039, 0.0054]",True
+wtimegan +100%,pay AP,-0.004307249073094016,"[-0.0062, -0.0024]",True
+wtimegan +100%,pay_week AUC,0.00023468045448105102,"[-0.0002, 0.0006]",False
+wtimegan +100%,pay_week AP,0.0022684947391289345,"[-0.0012, 0.0057]",False
+wtimegan TSTR,listening MAE (per user),0.22794013700834473,"[0.2252, 0.2301]",True
+wtimegan TSTR,active AUC,-0.11173882848726613,"[-0.1130, -0.1104]",True
+wtimegan TSTR,active AP,-0.06318702391862985,"[-0.0641, -0.0622]",True
+wtimegan TSTR,pay AUC,-0.5604448191360438,"[-0.5643, -0.5563]",True
+wtimegan TSTR,pay AP,-0.16095902744728752,"[-0.1650, -0.1571]",True
+wtimegan TSTR,pay_week AUC,-0.6814082374468584,"[-0.6854, -0.6777]",True
+wtimegan TSTR,pay_week AP,-0.79136612326502,"[-0.7963, -0.7868]",True

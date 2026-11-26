@@ -110,13 +110,18 @@ def timegan(ori_data, parameters):
     Args:
       ori_data: array (no, seq_len, dim) con las series originales.
       parameters: dict con hidden_dim, num_layer, iterations, batch_size,
-                  module ('gru' o 'lstm') y opcionalmente device, seed y
-                  n_samples (cuántas series generar; por defecto ``no``).
+                  module ('gru' o 'lstm') y opcionalmente device, seed,
+                  n_samples (cuántas series generar; por defecto ``no``),
+                  log_every (cada cuántas iteraciones guardar las pérdidas;
+                  por defecto 100) y return_artifacts.
 
     Returns:
       generated_data: lista de arrays (seq_len_i, dim) en la escala original.
       La salida es continua: para tensores de w2 aplica
       ``w2_sequences.postprocess`` (flags 0/1, máscaras por canal).
+      Con ``return_artifacts=True`` devuelve ``(generated_data, artifacts)``:
+      ``artifacts["history"]`` (lista de dicts con las pérdidas por fase) y
+      ``artifacts["checkpoint"]`` (pesos + escala, para ``generate_from_checkpoint``).
     """
     device = torch.device(parameters.get(
         "device", "cuda" if torch.cuda.is_available() else "cpu"))
@@ -137,6 +142,8 @@ def timegan(ori_data, parameters):
     module_name = parameters["module"]
     z_dim = dim
     gamma = 1
+    log_every = parameters.get("log_every", 100)
+    history = []   # una fila por log: fase, iteración y pérdidas (para graficar)
 
     model = TimeGAN(dim, hidden_dim, num_layers, module_name).to(device)
     emb, rec, gen, sup, disc = (model.embedder, model.recovery, model.generator,
@@ -185,6 +192,9 @@ def timegan(ori_data, parameters):
         X_tilde = rec(emb(X, T), T)
         E_loss_T0 = F.mse_loss(X_tilde, X)
         step(10 * torch.sqrt(E_loss_T0), E0_solver)
+        if itt % log_every == 0:
+            history.append({"phase": "embedding", "iteration": itt,
+                            "e_loss_t0": float(np.sqrt(E_loss_T0.item()))})
         if itt % 1000 == 0:
             print(f"step: {itt}/{iterations}, e_loss: {np.sqrt(E_loss_T0.item()):.4f}")
     print("Finish Embedding Network Training")
@@ -197,6 +207,9 @@ def timegan(ori_data, parameters):
             H = emb(X, T)  # en TF el embedder no se actualiza en esta fase
         G_loss_S = supervised_loss(H, T)
         step(G_loss_S, GS_solver)
+        if itt % log_every == 0:
+            history.append({"phase": "supervised", "iteration": itt,
+                            "g_loss_s": float(np.sqrt(G_loss_S.item()))})
         if itt % 1000 == 0:
             print(f"step: {itt}/{iterations}, s_loss: {np.sqrt(G_loss_S.item()):.4f}")
     print("Finish Training with Supervised Loss Only")
@@ -253,6 +266,15 @@ def timegan(ori_data, parameters):
             step(D_loss, D_solver)
             step_d_loss = D_loss.item()
 
+        if itt % log_every == 0:
+            history.append({
+                "phase": "joint", "iteration": itt,
+                "d_loss": D_loss.item(), "d_updated": D_loss.item() > 0.15,
+                "g_loss_u": G_loss_U.item(), "g_loss_u_e": G_loss_U_e.item(),
+                "g_loss_s": float(np.sqrt(G_loss_S.item())),
+                "g_loss_v": G_loss_V.item(),
+                "e_loss_t0": float(np.sqrt(E_loss_T0.item())),
+            })
         if itt % 1000 == 0:
             print(f"step: {itt}/{iterations}, d_loss: {step_d_loss:.4f}, "
                   f"g_loss_u: {G_loss_U.item():.4f}, "
@@ -262,24 +284,62 @@ def timegan(ori_data, parameters):
     print("Finish Joint Training")
 
     # --- Generación de datos sintéticos ------------------------------------
-    generated_data = []
     n_samples = parameters.get("n_samples", no)
     # Longitudes de las series sintéticas: muestreadas de las originales
     # (en w2 todas miden 90 días).
     gen_time = [ori_time[i] for i in np.random.randint(0, no, n_samples)]
+    generated_data = _generate(model, gen_time, z_dim, max_seq_len, batch_size,
+                               min_val, max_val, device)
+
+    if not parameters.get("return_artifacts", False):
+        return generated_data
+    checkpoint = {
+        "state_dict": {k: v.detach().cpu() for k, v in model.state_dict().items()},
+        "dim": dim, "hidden_dim": hidden_dim, "num_layer": num_layers,
+        "module": module_name, "min_val": min_val, "max_val": max_val,
+        "ori_time": ori_time, "max_seq_len": max_seq_len,
+    }
+    return generated_data, {"history": history, "checkpoint": checkpoint}
+
+
+def _generate(model, gen_time, z_dim, max_seq_len, batch_size, min_val, max_val, device):
+    """Z -> generator -> supervisor -> recovery, por bloques, en la escala original."""
+    generated_data = []
     model.eval()
     with torch.no_grad():
-        for start in range(0, n_samples, batch_size):  # por bloques para no saturar memoria
+        for start in range(0, len(gen_time), batch_size):  # por bloques para no saturar memoria
             t_chunk = gen_time[start:start + batch_size]
             Z = torch.from_numpy(
                 random_generator(len(t_chunk), z_dim, t_chunk, max_seq_len)).to(device)
             T = torch.tensor(t_chunk, dtype=torch.long)
-            X_hat = rec(sup(gen(Z, T), T), T).cpu().numpy()
+            X_hat = model.recovery(model.supervisor(model.generator(Z, T), T), T).cpu().numpy()
             for i, t_i in enumerate(t_chunk):
                 # Recortar padding y desnormalizar
                 generated_data.append(X_hat[i, :t_i, :] * max_val + min_val)
-
     return generated_data
+
+
+def generate_from_checkpoint(checkpoint, n_samples, seed=None, batch_size=1024, device=None):
+    """Genera ``n_samples`` series nuevas con un TimeGAN ya entrenado (sin reentrenar)."""
+    device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    if seed is not None:
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+    model = TimeGAN(checkpoint["dim"], checkpoint["hidden_dim"],
+                    checkpoint["num_layer"], checkpoint["module"])
+    # Generating does not use the discriminator/critic, whose architecture may
+    # differ (WTimeGAN with critic="tcn"): load everything else strictly.
+    state = {k: v for k, v in checkpoint["state_dict"].items()
+             if not k.startswith("discriminator.")}
+    missing, unexpected = model.load_state_dict(state, strict=False)
+    bad = [k for k in missing if not k.startswith("discriminator.")] + list(unexpected)
+    if bad:
+        raise RuntimeError(f"checkpoint does not match the TimeGAN networks: {bad[:5]}")
+    model.to(device)
+    ori_time = checkpoint["ori_time"]
+    gen_time = [ori_time[i] for i in np.random.randint(0, len(ori_time), n_samples)]
+    return _generate(model, gen_time, checkpoint["dim"], checkpoint["max_seq_len"],
+                     batch_size, checkpoint["min_val"], checkpoint["max_val"], device)
 
 
 # ---------------------------------------------------------------------------

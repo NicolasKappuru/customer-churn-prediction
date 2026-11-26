@@ -1,0 +1,13 @@
+scenario,metric,Δ vs baseline,Δ IC95,significant,DeLong p (AUC-ROC)
+wtimegan_tcn +50% churn,AUC-ROC,-0.007187725478801976,"[-0.0080, -0.0063]",True,3.613357667246474e-70
+wtimegan_tcn +50% churn,AUC-PR,-0.012268611728083023,"[-0.0134, -0.0110]",True,
+wtimegan_tcn +50% churn,F1,-0.003041007601244261,"[-0.0046, -0.0014]",True,
+wtimegan_tcn +50% churn,Log-loss,0.004077087306175509,"[0.0033, 0.0048]",True,
+wtimegan_tcn +100% churn,AUC-ROC,-0.003926122440006896,"[-0.0047, -0.0031]",True,2.610629474781914e-23
+wtimegan_tcn +100% churn,AUC-PR,-0.011009370473127555,"[-0.0122, -0.0098]",True,
+wtimegan_tcn +100% churn,F1,0.0008244110141835126,"[-0.0005, 0.0024]",False,
+wtimegan_tcn +100% churn,Log-loss,0.0023601231974881287,"[0.0015, 0.0032]",True,
+wtimegan_tcn TSTR,AUC-ROC,-0.1021152594113306,"[-0.1053, -0.0989]",True,0.0
+wtimegan_tcn TSTR,AUC-PR,-0.08483941477924739,"[-0.0889, -0.0807]",True,
+wtimegan_tcn TSTR,F1,-0.11247225968758312,"[-0.1164, -0.1086]",True,
+wtimegan_tcn TSTR,Log-loss,1.0462072607128081,"[1.0348, 1.0586]",True,
