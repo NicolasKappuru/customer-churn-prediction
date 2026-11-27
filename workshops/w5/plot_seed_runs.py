@@ -32,8 +32,8 @@ GANS = ("timegan", "wtimegan_tcn")
 SHORT = {"timegan": "TimeGAN", "wtimegan_tcn": "WTimeGAN v2"}
 CLASS = {1: "churners", 0: "non-churners"}
 # Single hand-set run of the notebooks (seed 110), Table tab:w5_quality of the report.
-SINGLE_RUN = {("timegan", 1): 0.936, ("wtimegan_tcn", 1): 0.247,
-              ("timegan", 0): 0.091, ("wtimegan_tcn", 0): 0.029}
+SINGLE_RUN = {("timegan", 1): 0.964, ("wtimegan_tcn", 1): 0.242,
+              ("timegan", 0): 0.087, ("wtimegan_tcn", 0): 0.027}
 INK, MUTED = "#262626", "#6b6b6b"
 
 

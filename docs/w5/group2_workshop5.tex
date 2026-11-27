@@ -63,7 +63,7 @@ We use two GAN architectures for sequences. The first is TimeGAN \cite{yoon2019}
     \item \textbf{Vanilla GAN.} Train TimeGAN, generate synthetic customers and inspect them visually (Sections~\ref{sec:w5_timegan} and~\ref{sec:w5_quality}).
     \item \textbf{Stable training with WGAN-GP.} Implement the Wasserstein TimeGAN and compare its convergence and generation quality with TimeGAN (Sections~\ref{sec:w5_wgan} and~\ref{sec:w5_training}).
     \item \textbf{Generation quality.} Measure realism with a Fréchet distance computed on the features of the Workshop~2 classifier, discriminative and predictive scores, marginals and domain checks, and assess it qualitatively (Section~\ref{sec:w5_quality}).
-    \item \textbf{Failure modes.} Diagnose mode collapse, the discriminator overpowering the generator and the cost of the first Wasserstein implementation (Section~\ref{sec:w5_failures}).
+    \item \textbf{Failure modes.} Diagnose mode collapse, the discriminator overpowering the generator and what the Wasserstein version still does not learn (Section~\ref{sec:w5_failures}).
     \item \textbf{Data augmentation.} Retrain the Workshop~2 models on real plus synthetic data and on synthetic data only, and compare them with the baseline trained on real data (Section~\ref{sec:w5_augmentation}).
 \end{enumerate}
 
@@ -224,7 +224,7 @@ The generator minimises $-\E[c(\hat{h})]$.
 
 In TimeGAN we change only the adversarial part of the joint phase (\path{models/WTimeGAN.py}). The embedder, recovery, generator, supervisor, the first two phases, $L_S$ and $L_V$ stay the same. The critic has no sigmoid and scores a customer with the mean of its per-day outputs. The critic loss uses $\hat{h}$ and $\hat{e}$, each with its own penalty, and the generator loss replaces the two cross-entropy terms with $-c(\hat{h}) - c(\hat{e})$. Following WGAN-GP, the critic takes $n_{\text{critic}} = 5$ steps per generator step, $\lambda_{gp} = 10$, and the rule that pauses the discriminator below a loss of 0.15 is removed.
 
-\paragraph{First approach: recurrent critic (v1).} The direct translation keeps the discriminator network of TimeGAN, a GRU, as the critic. The gradient penalty differentiates the critic twice (the gradient of the gradient norm), and cuDNN, the GPU library that runs recurrent networks efficiently in PyTorch, has no double backward for them. The penalty therefore runs the GRU with cuDNN disabled, one day at a time. On our GPU (RTX 3050) one critic step with the penalty takes 273\,ms, and about 83\,\% of the training time goes to the critic. To keep the run near one hour per class, v1 was trained with 2{,}000 joint iterations, which gives the critic as many updates as the TimeGAN discriminator, and with the WGAN-GP learning rate of $10^{-4}$. The generator then receives about 1\,\% of the TimeGAN update budget (Table~\ref{tab:w5_hparams}), and v1 was very inefficient: giving it a TimeGAN-sized budget with that critic would take about 9 hours per class.
+\paragraph{First approach: recurrent critic (v1).} The direct translation keeps the discriminator network of TimeGAN, a GRU, as the critic. The gradient penalty differentiates the critic twice (the gradient of the gradient norm), and cuDNN, the GPU library that runs recurrent networks efficiently in PyTorch, has no double backward for them. The penalty therefore runs the GRU with cuDNN disabled, one day at a time. On our GPU (RTX 3050) one critic step with the penalty takes 273\,ms, and about 83\,\% of the training time goes to the critic. To keep the run near one hour per class, v1 was trained with 2{,}000 joint iterations, which gives the critic as many updates as the TimeGAN discriminator, and with the WGAN-GP learning rate of $10^{-4}$. The generator then receives about 1\,\% of the TimeGAN update budget (ten times fewer updates at a ten times smaller learning rate), and v1 was very inefficient: giving it a TimeGAN-sized budget with that critic would take about 9 hours per class. Within that budget the critic stayed ahead. The estimated Wasserstein distance only grew during the joint phase, to about 22 for churners and 16 for non-churners, instead of coming down as the generator catches up; the norm of the generator weights barely moved (17.9 to 18.5); and the synthetic churners showed day-to-day noise (26 switches between active and inactive days against 14 for real churners), typical of a generator early in training. We therefore kept v1 as a first attempt only. From Section~\ref{sec:w5_training} on, the report compares TimeGAN with the second version.
 
 \paragraph{Second approach: convolutional critic (v2).} We replaced the recurrent critic with a temporal convolutional network (TCN): six one-dimensional convolutions over the 90 days, with kernel size 3, dilations $1, 2, 4, 8, 16, 32$, 64 channels and LeakyReLU activations. The receptive field is $1 + 2 \cdot 63 = 127$ days, so every output sees the whole sequence; the convolutions are not causal, so every day is judged with its past and its future, as in the bidirectional discriminator of the paper. There is no batch normalisation, because it mixes customers of the batch and breaks the per-sample penalty. Convolutions support the double backward with cuDNN enabled, and one critic step takes 24\,ms, 11 times faster than the GRU critic.
 
@@ -239,49 +239,40 @@ With the cheaper critic we gave the generator a full budget: 10{,}000 joint iter
 
 \subsection{Hyperparameters}
 
-Table~\ref{tab:w5_hparams} lists the configuration of the three models. It was set by hand, without a search, and it is the configuration used in the rest of the report; Section~\ref{sec:w5_robustness} repeats the comparison of TimeGAN and v2 with a small search and five seeds. TimeGAN uses the defaults of its paper and WGAN-GP the defaults of its paper. For v2 the generator learning rate and the length of the joint phase were set from the analysis of v1 and a short pilot run on churners (1{,}000 iterations in each of the first two phases and 600 joint iterations): with the TCN critic and a generator learning rate of $10^{-4}$, the norm of the generator weights went from 17.9 to 18.3 and the synthetic customers barely differed from each other, while with $10^{-3}$ the norm reached 21.5 and the moment loss $L_V$ fell from 0.31 to 0.07. All runs use the seed 110.
+Table~\ref{tab:w5_hparams} lists the configuration of the two models. It was set by hand, without a search, and it is the configuration used in the rest of the report; Section~\ref{sec:w5_robustness} repeats the comparison of TimeGAN and v2 with a small search and five seeds. TimeGAN uses the defaults of its paper and WGAN-GP the defaults of its paper. For v2 the generator learning rate and the length of the joint phase were set from the analysis of v1 and a short pilot run on churners (1{,}000 iterations in each of the first two phases and 600 joint iterations): with the TCN critic and a generator learning rate of $10^{-4}$, the norm of the generator weights went from 17.9 to 18.3 and the synthetic customers barely differed from each other, while with $10^{-3}$ the norm reached 21.5 and the moment loss $L_V$ fell from 0.31 to 0.07. All runs use the seed 110.
 
 \begin{table}[H]
 \centering
 \renewcommand{\arraystretch}{1.3}
-\begin{tabularx}{\textwidth}{|P{3.3cm}|Y|Y|Y|}
+\begin{tabularx}{\textwidth}{|P{3.3cm}|Y|Y|}
 \hline
- & \textbf{TimeGAN} & \textbf{Wasserstein TimeGAN v1} & \textbf{Wasserstein TimeGAN v2} \\ \hline
-Embedder, recovery, generator, supervisor & \multicolumn{3}{c|}{GRU, 3 layers (supervisor: 2), hidden size 56, sigmoid output} \\ \hline
-Discriminator / critic & GRU, 3 layers, sigmoid cross-entropy & GRU, 3 layers, raw score (cuDNN off in the penalty) & TCN, 6 dilated Conv1D layers, 64 channels, raw score \\ \hline
-Adversarial loss & Binary cross-entropy & WGAN-GP, $\lambda_{gp} = 10$ & WGAN-GP, $\lambda_{gp} = 10$ \\ \hline
-Batch size & \multicolumn{3}{c|}{128} \\ \hline
-Embedding and supervised phases & \multicolumn{3}{c|}{10{,}000 iterations each, Adam (lr $10^{-3}$)} \\ \hline
-Joint iterations & 10{,}000 & 2{,}000 & 10{,}000 \\ \hline
-Updates per joint iteration & 2 generator, 1 discriminator (if its loss $> 0.15$) & 1 generator, 5 critic & 1 generator, 5 critic \\ \hline
-Generator optimiser & Adam, lr $10^{-3}$ & Adam, lr $10^{-4}$, $\beta = (0.5, 0.9)$ & Adam, lr $10^{-3}$, $\beta = (0.5, 0.9)$ \\ \hline
-Critic optimiser & Adam, lr $10^{-3}$ & Adam, lr $10^{-4}$, $\beta = (0.5, 0.9)$ & Adam, lr $10^{-4}$, $\beta = (0.5, 0.9)$ \\ \hline
-Generator updates $\times$ lr (relative to TimeGAN) & 1 & 0.01 & 0.5 \\ \hline
-Critic step with penalty & -- & 273\,ms & 24\,ms \\ \hline
-Training time per class & 27.5\,min & 55\,min & 41.5\,min \\ \hline
+ & \textbf{TimeGAN} & \textbf{Wasserstein TimeGAN v2} \\ \hline
+Embedder, recovery, generator, supervisor & \multicolumn{2}{c|}{GRU, 3 layers (supervisor: 2), hidden size 56, sigmoid output} \\ \hline
+Discriminator / critic & GRU, 3 layers, sigmoid cross-entropy & TCN, 6 dilated Conv1D layers, 64 channels, raw score \\ \hline
+Adversarial loss & Binary cross-entropy & WGAN-GP, $\lambda_{gp} = 10$ \\ \hline
+Batch size & \multicolumn{2}{c|}{128} \\ \hline
+Embedding and supervised phases & \multicolumn{2}{c|}{10{,}000 iterations each, Adam (lr $10^{-3}$)} \\ \hline
+Joint iterations & 10{,}000 & 10{,}000 \\ \hline
+Updates per joint iteration & 2 generator, 1 discriminator (if its loss $> 0.15$) & 1 generator, 5 critic \\ \hline
+Generator optimiser & Adam, lr $10^{-3}$ & Adam, lr $10^{-3}$, $\beta = (0.5, 0.9)$ \\ \hline
+Critic optimiser & Adam, lr $10^{-3}$ & Adam, lr $10^{-4}$, $\beta = (0.5, 0.9)$ \\ \hline
+Generator updates $\times$ lr (relative to TimeGAN) & 1 & 0.5 \\ \hline
+Critic step with penalty & -- & 24\,ms \\ \hline
+Training time per class & 27.5\,min & 41.5\,min \\ \hline
 \end{tabularx}
-\caption{Configuration of the three GANs. Times measured on an RTX 3050; each class is a separate model.}
+\caption{Configuration of the two GANs. Times measured on an RTX 3050; each class is a separate model.}
 \label{tab:w5_hparams}
 \end{table}
 
-v2 trains five times more joint iterations than v1, each with five critic steps, and still takes 14 minutes less per class.
-
 \subsection{Convergence}
 
-Figures~\ref{fig:w5_hist_timegan} to~\ref{fig:w5_hist_v2} show the losses of the three models for the churners (the non-churner curves are in \path{docs/w5/figures/}). The first two phases behave the same in every model, because they are identical: the reconstruction loss falls from 0.42 to about 0.03 and the supervised loss settles around 0.12.
+Figures~\ref{fig:w5_hist_timegan} and~\ref{fig:w5_hist_v2} show the losses of the two models for the churners (the non-churner curves are in \path{docs/w5/figures/}). The first two phases behave the same in both models, because they are identical: the reconstruction loss falls from 0.42 to about 0.03 and the supervised loss settles around 0.12.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/gan_models/history/timegan_history_label1.png}
 \caption{TimeGAN, churners. In the joint phase the discriminator loss stays mostly below 1 while the generator adversarial losses $L_U$ and $L_U^{e}$ rise from 0.8 to between 3 and 7.}
 \label{fig:w5_hist_timegan}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{figures/gan_models/history/wtimegan_history_label1.png}
-\caption{Wasserstein TimeGAN v1, churners (2{,}000 joint iterations). The estimated Wasserstein distance rises from 0 to about 22 and is still rising at the end of the run.}
-\label{fig:w5_hist_v1}
 \end{figure}
 
 \begin{figure}[H]
@@ -312,7 +303,7 @@ Figures~\ref{fig:w5_hist_timegan} to~\ref{fig:w5_hist_v2} show the losses of the
 \label{tab:w5_timegan_dyn}
 \end{table}
 
-\paragraph{Wasserstein TimeGAN.} In a healthy WGAN-GP run the estimated distance rises while the critic learns and then comes down as the generator catches up. In v1 it only rises (Table~\ref{tab:w5_wdist}): within its 2{,}000 generator updates at $10^{-4}$ the generator does not catch up with the critic. In v2 the distance stays low for the whole run. The generator weights show the difference in progress: their norm moves from 17.9 to 18.5 in v1, and to about 40 (churners) and 36 (non-churners) in v2, comparable to the 48 to 50 of TimeGAN. The moment loss $L_V$ is also lower in v2 (about 0.05 against 0.12 to 0.14 at the end of v1).
+\paragraph{Wasserstein TimeGAN v2.} In a healthy WGAN-GP run the estimated distance rises while the critic learns and then comes down as the generator catches up. In v2 it peaks early and then stays low for the whole run (Table~\ref{tab:w5_wdist}): the critic keeps a small lead without running away from the generator. The generator keeps progressing: the norm of its weights grows from 17.9 to about 40 (churners) and 36 (non-churners), comparable to the 48 to 50 of TimeGAN, and the moment loss $L_V$ ends at about 0.05.
 
 \begin{table}[H]
 \centering
@@ -321,15 +312,13 @@ Figures~\ref{fig:w5_hist_timegan} to~\ref{fig:w5_hist_v2} show the losses of the
 \begin{tabular}{|l|r|r|r|r|r|}
 \hline
 \textbf{Model} & \multicolumn{5}{c|}{\textbf{Mean estimated Wasserstein distance per block of the joint phase}} \\ \hline
-\multirow{2}{*}{v1 (churners)} & it. 0--499 & 500--999 & 1{,}000--1{,}499 & 1{,}500--1{,}999 & \\ \cline{2-6}
- & 4.3 & 14.9 & 19.5 & 21.6 & \\ \hline
 \multirow{2}{*}{v2 (churners)} & it. 0--1{,}999 & 2{,}000--3{,}999 & 4{,}000--5{,}999 & 6{,}000--7{,}999 & 8{,}000--9{,}999 \\ \cline{2-6}
  & 1.9 & 1.1 & 1.2 & 2.0 & 1.8 \\ \hline
 \multirow{2}{*}{v2 (non-churners)} & it. 0--1{,}999 & 2{,}000--3{,}999 & 4{,}000--5{,}999 & 6{,}000--7{,}999 & 8{,}000--9{,}999 \\ \cline{2-6}
  & 2.5 & 1.0 & 0.9 & 1.7 & 1.6 \\ \hline
 \end{tabular}
 \end{adjustbox}
-\caption{Estimated Wasserstein distance between real and synthetic latents (one batch per logged step). v1 for non-churners behaves like v1 for churners, peaking at 16.}
+\caption{Estimated Wasserstein distance between real and synthetic latents in v2 (one batch per logged step).}
 \label{tab:w5_wdist}
 \end{table}
 
@@ -358,7 +347,7 @@ v2 & non-churners & 84 & 4 & $3.1\cdot10^{-4}$ & $3.1\cdot10^{-5}$ & 3 \\ \hline
 \label{tab:w5_optuna}
 \end{table}
 
-\paragraph{Seeds.} Each model was then retrained with its best configuration and the full budget of Table~\ref{tab:w5_hparams} with five seeds (0 to 4), and evaluated exactly as in Section~\ref{sec:w5_quality}. The 20 runs took about 13 hours in total.
+\paragraph{Seeds.} Each model was then retrained with its best configuration and the full budget of Table~\ref{tab:w5_hparams} with five seeds (0 to 4), and evaluated exactly as in Section~\ref{sec:w5_quality}, with the same subsample of real and synthetic customers, so the single run and the seeds are directly comparable. The 20 runs took about 13 hours in total.
 
 \begin{table}[H]
 \centering
@@ -367,10 +356,10 @@ v2 & non-churners & 84 & 4 & $3.1\cdot10^{-4}$ & $3.1\cdot10^{-5}$ & 3 \\ \hline
 \begin{tabular}{|c|l|r|r|r|r|r|}
 \hline
 \textbf{Class} & \textbf{GAN} & \textbf{Fréchet} & \textbf{Fréchet, single run} & \textbf{Discrim.} & \textbf{Predictive} & \textbf{Own class} \\ \hline
-\multirow{2}{*}{Churners} & TimeGAN & $0.454 \pm 0.078$ & 0.936 & $0.485 \pm 0.007$ & $0.093 \pm 0.015$ & 82\% \\ \cline{2-7}
- & Wasserstein v2 & $\mathbf{0.224 \pm 0.092}$ & 0.247 & $\mathbf{0.411 \pm 0.054}$ & $0.093 \pm 0.012$ & 87\% \\ \hline
-\multirow{2}{*}{Non-churners} & TimeGAN & $0.402 \pm 0.238$ & 0.091 & $0.494 \pm 0.004$ & $0.100 \pm 0.004$ & 30\% \\ \cline{2-7}
- & Wasserstein v2 & $\mathbf{0.194 \pm 0.214}$ & 0.029 & $\mathbf{0.472 \pm 0.014}$ & $0.092 \pm 0.006$ & 45\% \\ \hline
+\multirow{2}{*}{Churners} & TimeGAN & $0.454 \pm 0.078$ & 0.964 & $0.485 \pm 0.007$ & $0.093 \pm 0.015$ & 82\% \\ \cline{2-7}
+ & Wasserstein v2 & $\mathbf{0.224 \pm 0.092}$ & 0.242 & $\mathbf{0.411 \pm 0.054}$ & $0.093 \pm 0.012$ & 87\% \\ \hline
+\multirow{2}{*}{Non-churners} & TimeGAN & $0.402 \pm 0.238$ & 0.087 & $0.494 \pm 0.004$ & $0.100 \pm 0.004$ & 30\% \\ \cline{2-7}
+ & Wasserstein v2 & $\mathbf{0.194 \pm 0.214}$ & 0.027 & $\mathbf{0.472 \pm 0.014}$ & $0.092 \pm 0.006$ & 45\% \\ \hline
 \end{tabular}
 \end{adjustbox}
 \caption{Mean $\pm$ standard deviation over five seeds with the configurations of Table~\ref{tab:w5_optuna}. Single run: hand-set configuration, seed 110 (Table~\ref{tab:w5_quality}). Metrics as in Table~\ref{tab:w5_quality}.}
@@ -386,7 +375,7 @@ v2 & non-churners & 84 & 4 & $3.1\cdot10^{-4}$ & $3.1\cdot10^{-5}$ & 3 \\ \hline
 
 \paragraph{v2 against TimeGAN.} The advantage of v2 holds across seeds (Table~\ref{tab:w5_seeds}). Its mean Fréchet distance is about half that of TimeGAN in both classes, its discriminative score is lower in both, and in the comparison seed by seed v2 has the lower Fréchet distance in 9 of the 10 pairs (5 of 5 for churners, 4 of 5 for non-churners). The predictive score does not separate the two models. Neither model fools the post-hoc discriminator (scores between 0.41 and 0.49), so the conclusion is about relative quality, not about indistinguishable customers.
 
-\paragraph{Search against the hand-set configuration.} For the churners the search clearly helped TimeGAN: the mean Fréchet distance falls from 0.94 in the single run to 0.45, and all five seeds are below 0.52. For v2 it brought nothing: the mean of 0.22 matches the 0.25 of the single run, which therefore was not a lucky seed. For the non-churners the search did not carry over to the full budget. The tuned configurations give a worse Fréchet distance than the single hand-set run (TimeGAN 0.40 against 0.09; v2 0.19 against 0.03), with a large spread between seeds (TimeGAN from 0.15 to 0.71). The single run lies below all five tuned seeds for both models, which suggests that the hand-set configuration is better for this class. It is still one run against five, so we did not confirm it with several seeds of the hand-set configuration. The likely cause is the reduced budget of the search: a configuration that is best after 1{,}000 iterations need not be best after 10{,}000. The spread between seeds also shows that a single run is not enough to rank configurations, which is why this section reports means and standard deviations.
+\paragraph{Search against the hand-set configuration.} For the churners the search clearly helped TimeGAN: the mean Fréchet distance falls from 0.96 in the single run to 0.45, and all five seeds are below 0.52. For v2 it brought nothing: the mean of 0.22 matches the 0.24 of the single run, which therefore was not a lucky seed. For the non-churners the search did not carry over to the full budget. The tuned configurations give a worse Fréchet distance than the single hand-set run (TimeGAN 0.40 against 0.09; v2 0.19 against 0.03), with a large spread between seeds (TimeGAN from 0.15 to 0.71). The single run lies below all five tuned seeds for both models, which suggests that the hand-set configuration is better for this class. It is still one run against five, so we did not confirm it with several seeds of the hand-set configuration. The likely cause is the reduced budget of the search: a configuration that is best after 1{,}000 iterations need not be best after 10{,}000. The spread between seeds also shows that a single run is not enough to rank configurations, which is why this section reports means and standard deviations.
 
 % ─────────────────────────────────────────────
 \section{Generation Quality}
@@ -414,21 +403,19 @@ Every metric compares the synthetic customers of one class with the real \texttt
 \begin{tabular}{|c|l|r|r|r|r|r|}
 \hline
 \textbf{Class} & \textbf{Source} & \textbf{Fréchet} & \textbf{Discrim.} & \textbf{Predictive} & \textbf{Churn prob.} & \textbf{Own class} \\ \hline
-\multirow{4}{*}{Churners} & Real \texttt{tune} (reference) & 0.008 & 0.015 & 0.108 & 0.48 & 72\% \\ \cline{2-7}
- & TimeGAN & 0.936 & 0.457 & 0.093 & 0.75 & 91\% \\ \cline{2-7}
- & Wasserstein v1 & 0.837 & 0.496 & 0.130 & 0.31 & 47\% \\ \cline{2-7}
- & Wasserstein v2 & \textbf{0.247} & \textbf{0.390} & 0.073 & \textbf{0.52} & 80\% \\ \hline
-\multirow{4}{*}{Non-churners} & Real \texttt{tune} (reference) & 0.001 & 0.001 & 0.092 & 0.25 & 68\% \\ \cline{2-7}
- & TimeGAN & 0.091 & 0.478 & 0.105 & 0.33 & 60\% \\ \cline{2-7}
- & Wasserstein v1 & 0.066 & 0.423 & 0.121 & 0.27 & 56\% \\ \cline{2-7}
- & Wasserstein v2 & \textbf{0.029} & 0.429 & 0.107 & 0.29 & 57\% \\ \hline
+\multirow{3}{*}{Churners} & Real \texttt{tune} (reference) & 0.008 & 0.015 & 0.108 & 0.48 & 72\% \\ \cline{2-7}
+ & TimeGAN & 0.964 & 0.479 & 0.093 & 0.75 & 91\% \\ \cline{2-7}
+ & Wasserstein v2 & \textbf{0.242} & \textbf{0.355} & 0.073 & \textbf{0.51} & 79\% \\ \hline
+\multirow{3}{*}{Non-churners} & Real \texttt{tune} (reference) & 0.001 & 0.001 & 0.092 & 0.25 & 68\% \\ \cline{2-7}
+ & TimeGAN & 0.087 & 0.478 & 0.105 & 0.33 & 60\% \\ \cline{2-7}
+ & Wasserstein v2 & \textbf{0.027} & \textbf{0.426} & 0.107 & 0.29 & 57\% \\ \hline
 \end{tabular}
 \end{adjustbox}
 \caption{Quality metrics. Fréchet: distance to real \texttt{fit} in the feature space of the Workshop~2 LSTM. Discrim.: discriminative score. Predictive: next-day MAE on real \texttt{tune} of a model trained on each source. Churn prob.: mean churn probability given by the Workshop~2 LSTM. Own class: share classified into the customer's own class. Bold: best GAN where it is clearly ahead.}
 \label{tab:w5_quality}
 \end{table}
 
-v2 reduces the Fréchet distance of the churners from 0.94 (TimeGAN) to 0.25 and of the non-churners from 0.091 to 0.029. Its synthetic churners receive a mean churn probability of 0.52, close to the 0.48 of real churners, while TimeGAN churners receive 0.75: TimeGAN generated exaggerated churners, and v1 generated churners that the LSTM mostly reads as non-churners (0.31). The discriminative score improves only partly: a small GRU still separates real from v2 customers with about 89 to 93\,\% accuracy, so the synthetic customers are not indistinguishable. The predictive score of TimeGAN and v2 churners is lower than the real reference; smoother synthetic sequences teach a conservative next-day prediction that the MAE rewards, so we do not read it as better than real data.
+v2 reduces the Fréchet distance of the churners from 0.96 (TimeGAN) to 0.24 and of the non-churners from 0.087 to 0.027. Its synthetic churners receive a mean churn probability of 0.51, close to the 0.48 of real churners, while TimeGAN churners receive 0.75: TimeGAN generated exaggerated churners. The discriminative score improves only partly: a small GRU still separates real from v2 customers with about 86 to 93\,\% accuracy, so the synthetic customers are not indistinguishable. The predictive score of TimeGAN and v2 churners is lower than the real reference; smoother synthetic sequences teach a conservative next-day prediction that the MAE rewards, so we do not read it as better than real data.
 
 \begin{table}[H]
 \centering
@@ -437,13 +424,11 @@ v2 reduces the Fréchet distance of the churners from 0.94 (TimeGAN) to 0.25 and
 \begin{tabular}{|c|l|r|r|r|r|r|r|}
 \hline
 \textbf{Class} & \textbf{Source} & \textbf{0 days} & \textbf{$\ge$85 days} & \textbf{Switches} & \textbf{No pay} & \textbf{NN within} & \textbf{NN real$\to$synth.} \\ \hline
-\multirow{4}{*}{Churners} & Real \texttt{tune} & 4.5\% & 8.5\% & 14 & 28\% & 5.57 & 5.57 \\ \cline{2-8}
+\multirow{3}{*}{Churners} & Real \texttt{tune} & 4.5\% & 8.5\% & 14 & 28\% & 5.57 & 5.57 \\ \cline{2-8}
  & TimeGAN & 46.5\% & 26.6\% & 0 & 65\% & 0.16 & 7.13 \\ \cline{2-8}
- & Wasserstein v1 & 0.0\% & 0.0\% & 26 & 85\% & 1.09 & 9.08 \\ \cline{2-8}
  & Wasserstein v2 & 1.7\% & 5.8\% & 9 & 46\% & 5.08 & 5.80 \\ \hline
-\multirow{4}{*}{Non-churners} & Real \texttt{tune} & 0.2\% & 14.7\% & 17 & 15\% & 6.09 & 6.17 \\ \cline{2-8}
+\multirow{3}{*}{Non-churners} & Real \texttt{tune} & 0.2\% & 14.7\% & 17 & 15\% & 6.09 & 6.17 \\ \cline{2-8}
  & TimeGAN & 5.4\% & 8.5\% & 12 & 28\% & 5.94 & 7.16 \\ \cline{2-8}
- & Wasserstein v1 & 0.0\% & 55.9\% & 1 & 83\% & 0.46 & 7.57 \\ \cline{2-8}
  & Wasserstein v2 & 0.6\% & 46.3\% & 6 & 17\% & 4.63 & 6.93 \\ \hline
 \end{tabular}
 \end{adjustbox}
@@ -460,27 +445,25 @@ For the churners v2 is close to the real reference on most signals: synthetic ch
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/wgan_tcn/embedding_label1_timegan.png}\\[0.3em]
-\includegraphics[width=0.92\textwidth]{figures/wgan_tcn/embedding_label1_wtimegan.png}\\[0.3em]
 \includegraphics[width=0.92\textwidth]{figures/wgan_tcn/embedding_label1_wtimegan_tcn.png}
-\caption{Churners: real (blue) against TimeGAN (top), Wasserstein v1 (middle) and Wasserstein v2 (bottom). TimeGAN forms a long thin curve and separate filaments; v1 forms filaments in a region with no real customers; v2 mixes with the real cloud and covers most of it, with a few synthetic-only islands.}
+\caption{Churners: real (blue) against TimeGAN (top) and Wasserstein v2 (bottom). TimeGAN forms a long thin curve and separate filaments; v2 mixes with the real cloud and covers most of it, with a few synthetic-only islands.}
 \label{fig:w5_emb_1}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.92\textwidth]{figures/wgan_tcn/embedding_label0_timegan.png}\\[0.3em]
-\includegraphics[width=0.92\textwidth]{figures/wgan_tcn/embedding_label0_wtimegan.png}\\[0.3em]
 \includegraphics[width=0.92\textwidth]{figures/wgan_tcn/embedding_label0_wtimegan_tcn.png}
-\caption{Non-churners: real (blue) against TimeGAN (top), Wasserstein v1 (middle) and Wasserstein v2 (bottom).}
+\caption{Non-churners: real (blue) against TimeGAN (top) and Wasserstein v2 (bottom).}
 \label{fig:w5_emb_0}
 \end{figure}
 
-\paragraph{Daily profiles and aggregates.} Figure~\ref{fig:w5_profiles} shows the mean of each channel per day. v2 follows the real listening curves and the growth of \texttt{tx\_state\_known} over the window, which TimeGAN and v1 fix at 1 from the first days; TimeGAN churners pay on about four times as many days as real churners. Figure~\ref{fig:w5_aggregates} compares per-customer aggregates. For churners the distribution of active days of v2 is almost identical to the real one (Kolmogorov--Smirnov statistic 0.056 against 0.42 for TimeGAN); for non-churners v2 piles customers at 89 to 90 active days.
+\paragraph{Daily profiles and aggregates.} Figure~\ref{fig:w5_profiles} shows the mean of each channel per day. v2 follows the real listening curves and the growth of \texttt{tx\_state\_known} over the window, which TimeGAN fixes at 1 from the first days; TimeGAN churners pay on about four times as many days as real churners. Figure~\ref{fig:w5_aggregates} compares per-customer aggregates. For churners the distribution of active days of v2 is almost identical to the real one (Kolmogorov--Smirnov statistic 0.056 against 0.42 for TimeGAN); for non-churners v2 piles customers at 89 to 90 active days.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{figures/wgan_tcn/daily_profiles_label1.png}
-\caption{Mean and 25 to 75\% band of every channel per day, churners. Real \texttt{fit} in blue, TimeGAN in orange, v1 in green, v2 in gold.}
+\caption{Mean and 25 to 75\% band of every channel per day, churners. Real \texttt{fit} in blue, TimeGAN in orange, v2 in gold.}
 \label{fig:w5_profiles}
 \end{figure}
 
@@ -499,19 +482,12 @@ For the churners v2 is close to the real reference on most signals: synthetic ch
 \label{fig:w5_aggregates}
 \end{figure}
 
-\paragraph{Individual customers.} Figures~\ref{fig:w5_slices_old} and~\ref{fig:w5_slices} show single customers as heatmaps (rows are days, columns are channels). Real customers alternate active and inactive days and pay a few times. TimeGAN churners are often flat: inactive for the whole window, or active every day. v2 customers have long runs of activity with gaps, realistic listening levels and occasional payments, but fewer on/off switches than real ones.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.85\textwidth]{figures/gan_models/user_slices_label1.png}
-\caption{Real, TimeGAN and Wasserstein v1 churners, three customers each.}
-\label{fig:w5_slices_old}
-\end{figure}
+\paragraph{Individual customers.} Figure~\ref{fig:w5_slices} shows single customers as heatmaps (rows are days, columns are channels). Real customers alternate active and inactive days and pay a few times. TimeGAN churners are often flat: inactive for the whole window, or active every day. v2 customers have long runs of activity with gaps, realistic listening levels and occasional payments, but fewer on/off switches than real ones.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{figures/wgan_tcn/user_slices_label1.png}
-\caption{Real and Wasserstein v2 churners, three customers each. The equivalent figures for non-churners are \texttt{figures/gan\_models/user\_slices\_label0.png} and \texttt{figures/wgan\_tcn/user\_slices\_label0.png}.}
+\caption{Real, TimeGAN and Wasserstein v2 churners, three customers each. The equivalent figure for non-churners is \texttt{figures/wgan\_tcn/user\_slices\_label0.png}.}
 \label{fig:w5_slices}
 \end{figure}
 
@@ -527,13 +503,11 @@ The Workshop~2 trajectory model learns when a customer pays from the state chann
 \begin{tabular}{|c|l|r|r|r|r|r|}
 \hline
 \textbf{Class} & \textbf{Source} & \textbf{Pay days} & \textbf{Countdown} & \textbf{Reset} & \textbf{Near expiry (gen.)} & \textbf{Near expiry (rebuilt)} \\ \hline
-\multirow{4}{*}{Churners} & Real \texttt{fit} & 1.55\% & 100\% & 93\% & \multicolumn{2}{c|}{40\%} \\ \cline{2-7}
+\multirow{3}{*}{Churners} & Real \texttt{fit} & 1.55\% & 100\% & 93\% & \multicolumn{2}{c|}{40\%} \\ \cline{2-7}
  & TimeGAN & 6.45\% & 59\% & 21\% & 1.0\% & 0.3\% \\ \cline{2-7}
- & Wasserstein v1 & 0.19\% & 38\% & 14\% & 33\% & 5.6\% \\ \cline{2-7}
  & Wasserstein v2 & 2.57\% & 51\% & 5\% & 26\% & 5.5\% \\ \hline
-\multirow{4}{*}{Non-churners} & Real \texttt{fit} & 2.28\% & 100\% & 97\% & \multicolumn{2}{c|}{58\%} \\ \cline{2-7}
+\multirow{3}{*}{Non-churners} & Real \texttt{fit} & 2.28\% & 100\% & 97\% & \multicolumn{2}{c|}{58\%} \\ \cline{2-7}
  & TimeGAN & 2.65\% & 47\% & 13\% & 22\% & 11\% \\ \cline{2-7}
- & Wasserstein v1 & 0.20\% & 48\% & 4\% & 31\% & 9.0\% \\ \cline{2-7}
  & Wasserstein v2 & 2.42\% & 49\% & 26\% & 16\% & 9.6\% \\ \hline
 \end{tabular}
 \end{adjustbox}
@@ -541,12 +515,12 @@ The Workshop~2 trajectory model learns when a customer pays from the state chann
 \label{tab:w5_domain}
 \end{table}
 
-v2 generates payments at a plausible rate and amount (2.6\,\% of the days for churners, 27 plan days and 98\,NTD per payment against 41 days and 201\,NTD for real churners; TimeGAN gives 10 days and 20\,NTD). It does not learn when to pay. Its generated expiry counts down correctly on half of the days and resets on 5\,\% of the payment days, against 100\,\% and 93\,\% for real customers. With the state rebuilt from its own payments, only 5.5\,\% of its payments fall within 3 days of the expiry, against 40\,\% for real churners: v2 places payments at days that are nearly unrelated to the plan expiry. Figure~\ref{fig:w5_pay_expiry} shows the same problem for TimeGAN and v1, whose payment rates stay flat around the expiry, where real customers have a clear peak just after it.
+v2 generates payments at a plausible rate and amount (2.6\,\% of the days for churners, 27 plan days and 98\,NTD per payment against 41 days and 201\,NTD for real churners; TimeGAN gives 10 days and 20\,NTD). It does not learn when to pay. Its generated expiry counts down correctly on half of the days and resets on 5\,\% of the payment days, against 100\,\% and 93\,\% for real customers. With the state rebuilt from its own payments, only 5.5\,\% of its payments fall within 3 days of the expiry, against 40\,\% for real churners: v2 places payments at days that are nearly unrelated to the plan expiry. Figure~\ref{fig:w5_pay_expiry} shows the same problem for both GANs: their payment rates stay nearly flat around the expiry, where real customers have a clear peak just after it.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{figures/gan_models/pay_by_expiry_label1.png}
-\caption{Share of churners paying on each day relative to their known expiry. Real customers renew in the days right after the expiry; TimeGAN and v1 show no peak after it. The figure for non-churners is \texttt{figures/gan\_models/pay\_by\_expiry\_label0.png}.}
+\includegraphics[width=0.85\textwidth]{figures/wgan_tcn/pay_by_expiry_label1.png}
+\caption{Share of churners paying on each day relative to their known expiry. Real customers renew in the days right after the expiry; TimeGAN and v2 show no peak after it, with the state as generated (dotted) or rebuilt from the payments (dashed). The figure for non-churners is \texttt{figures/wgan\_tcn/pay\_by\_expiry\_label0.png}.}
 \label{fig:w5_pay_expiry}
 \end{figure}
 
@@ -600,8 +574,6 @@ We ruled out data problems first. The real \texttt{fit} and \texttt{tune} custom
 
 \paragraph{The discriminator overpowers the generator.} The joint-phase losses of TimeGAN (Table~\ref{tab:w5_timegan_dyn}) show the cross-entropy discriminator winning: its loss falls to 0.2 to 0.6 while the generator loss rises to 3 to 6. A confident discriminator labels every synthetic customer ``fake'' without saying how far it is from the real data, so the generator gets a weak, nearly flat signal and stays where it already deceives the discriminator a little. Nothing in the cross-entropy penalises the customer types that are missing. The Wasserstein loss addresses both points.
 
-\paragraph{Cost of the recurrent critic.} The first Wasserstein version was correct but very inefficient. The double backward of the gradient penalty forces the GRU critic to run without cuDNN, at 273\,ms per critic step, and the run that fits in about an hour per class leaves the generator with about 1\,\% of the TimeGAN update budget. Within that budget the critic stays ahead: the estimated distance grows to 22 (Figure~\ref{fig:w5_hist_v1}), the churners show day-to-day noise (26 switches against 14) and the non-churners concentrate on customers active almost every day. The convolutional critic removes the bottleneck and lets the generator train with a full budget in less time.
-
 \paragraph{What v2 still does not learn.} v2 removes the collapse of the churners, but three problems remain:
 \begin{itemize}
     \item \textbf{Payment timing.} Payments appear at a realistic rate and amount, but not around the expiry, and the expiry countdown does not follow its rule (Section~\ref{sec:w5_domain}). Payments occur on about 2\,\% of the days and follow exact arithmetic (count down by one, jump by the plan days). A GAN learns distributions of shapes and frequencies; the Wasserstein loss makes it cover more of the distribution, but it does not make rare, rule-driven events easier to learn.
@@ -648,9 +620,6 @@ Synthetic only (TSTR) & 83{,}814 synthetic customers, same size and churn rate a
 \multirow{3}{*}{TimeGAN} & +50\% & 0.767 & 0.699 & 0.675 & 0.761 & 0.691 & 0.676 \\
  & +100\% & 0.769 & 0.705 & 0.678 & 0.775 & 0.713 & 0.668 \\
  & Synthetic only & 0.587 & 0.475 & 0.274 & 0.647 & 0.564 & 0.441 \\ \hline
-\multirow{3}{*}{Wasserstein v1} & +50\% & 0.771 & 0.710 & 0.673 & 0.771 & 0.704 & 0.682 \\
- & +100\% & 0.767 & 0.698 & 0.674 & 0.776 & 0.716 & 0.677 \\
- & Synthetic only & 0.643 & 0.553 & 0.560 & 0.584 & 0.486 & 0.550 \\ \hline
 \multirow{3}{*}{Wasserstein v2} & +50\% & 0.761 & 0.693 & 0.668 & 0.773 & 0.706 & 0.679 \\
  & +100\% & 0.764 & 0.695 & 0.672 & 0.773 & 0.707 & 0.680 \\
  & Synthetic only & \textbf{0.666} & \textbf{0.621} & 0.558 & \textbf{0.703} & \textbf{0.635} & \textbf{0.597} \\ \hline
@@ -660,17 +629,9 @@ Synthetic only (TSTR) & 83{,}814 synthetic customers, same size and churn rate a
 \label{tab:w5_bridge_clf}
 \end{table}
 
-Adding synthetic churners does not improve the classifiers. Every change of AUC-ROC with respect to the baseline lies between $-0.009$ and $+0.006$, and its sign often changes with the network: v2 at +50\,\% lowers the LSTM by 0.007 and raises the GRU by 0.003. The paired bootstrap on the March customers (1{,}000 resamples) marks most of these differences as significant, but it only covers the sampling noise of the test set. Each scenario was trained with a single seed, and retraining a recurrent network with another seed typically moves its AUC by more than these differences. We therefore read them as no effect.
+Adding synthetic churners does not improve the classifiers. Every change of AUC-ROC with respect to the baseline lies between $-0.009$ and $+0.004$, and its sign often changes with the network: v2 at +50\,\% lowers the LSTM by 0.007 and raises the GRU by 0.003. The paired bootstrap on the March customers (1{,}000 resamples) marks most of these differences as significant, but it only covers the sampling noise of the test set. Each scenario was trained with a single seed, and retraining a recurrent network with another seed typically moves its AUC by more than these differences. We therefore read them as no effect.
 
-Training on synthetic customers only (TSTR) measures how much of the churn signal the GAN captured. All GANs stay well below the baseline, but v2 is the closest: the GRU trained only on v2 customers reaches an AUC-ROC of 0.703 against 0.647 with TimeGAN customers and 0.770 with real ones.
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.49\textwidth]{figures/gan_models/bridge/roc_pr_lstm.png}
-\includegraphics[width=0.49\textwidth]{figures/gan_models/bridge/roc_pr_gru.png}
-\caption{ROC and precision-recall curves on March for the LSTM (left) and GRU (right) with TimeGAN and Wasserstein v1 customers. The augmented curves overlap the baseline; only the synthetic-only scenarios separate.}
-\label{fig:w5_rocpr}
-\end{figure}
+Training on synthetic customers only (TSTR) measures how much of the churn signal the GAN captured. Both GANs stay well below the baseline, but v2 is the closer one: the GRU trained only on v2 customers reaches an AUC-ROC of 0.703 against 0.647 with TimeGAN customers and 0.770 with real ones.
 
 \subsection{Behaviour Forecasters}
 
@@ -688,9 +649,6 @@ The forecasters of Workshop~2 read days 0 to 82 and predict days 83 to 89. They 
 \multirow{3}{*}{TimeGAN} & +50\% & 1.027 & 0.805 & 0.177 & 0.902 & 1.024 & 0.805 & 0.170 & 0.911 \\
  & +100\% & 1.019 & 0.806 & 0.175 & 0.900 & 1.029 & 0.802 & 0.168 & 0.904 \\
  & Synthetic only & 1.065 & 0.747 & 0.020 & 0.138 & 1.093 & 0.729 & 0.026 & 0.180 \\ \hline
-\multirow{3}{*}{Wasserstein v1} & +50\% & 1.020 & 0.805 & 0.177 & 0.908 & 1.017 & 0.806 & 0.176 & 0.908 \\
- & +100\% & 1.024 & 0.804 & 0.170 & 0.899 & 1.021 & 0.801 & 0.173 & 0.908 \\
- & Synthetic only & 1.228 & 0.717 & 0.018 & 0.122 & 1.250 & 0.696 & 0.017 & 0.114 \\ \hline
 \multirow{3}{*}{Wasserstein v2} & +50\% & 1.016 & 0.804 & 0.166 & 0.895 & 1.036 & 0.803 & 0.167 & 0.915 \\
  & +100\% & 1.028 & 0.804 & 0.174 & 0.901 & 1.022 & 0.803 & 0.167 & 0.901 \\
  & Synthetic only & \textbf{1.024} & \textbf{0.786} & \textbf{0.060} & \textbf{0.435} & \textbf{1.012} & \textbf{0.789} & \textbf{0.053} & \textbf{0.377} \\ \hline
@@ -700,7 +658,7 @@ The forecasters of Workshop~2 read days 0 to 82 and predict days 83 to 89. They 
 \label{tab:w5_bridge_traj}
 \end{table}
 
-The augmented scenarios again stay within a few thousandths of the baseline. The synthetic-only scenario separates the parts of the trajectory that each GAN learned. A forecaster trained only on v2 customers predicts real March listening as well as one trained on real customers (MAE 1.024 against 1.033 for the LSTM, 1.012 against 1.022 for the GRU) and nearly matches the activity prediction (AUC 0.79 against 0.81), while TimeGAN and v1 customers clearly degrade both. Payments are where every GAN fails: the weekly payment average precision falls from 0.89 to 0.44 with v2 customers and to 0.14 with TimeGAN customers. This agrees with the payment checks of Section~\ref{sec:w5_domain}.
+The augmented scenarios again stay within a few thousandths of the baseline. The synthetic-only scenario separates the parts of the trajectory that each GAN learned. A forecaster trained only on v2 customers predicts real March listening as well as one trained on real customers (MAE 1.024 against 1.033 for the LSTM, 1.012 against 1.022 for the GRU) and nearly matches the activity prediction (AUC 0.79 against 0.81), while TimeGAN customers clearly degrade both. Payments are where every GAN fails: the weekly payment average precision falls from 0.89 to 0.44 with v2 customers and to 0.14 with TimeGAN customers. This agrees with the payment checks of Section~\ref{sec:w5_domain}.
 
 % ─────────────────────────────────────────────
 \section{Conclusions}
@@ -708,7 +666,7 @@ The augmented scenarios again stay within a few thousandths of the baseline. The
 
 \paragraph{Vanilla GAN.} TimeGAN generates sequences in the right format, but its churners collapse to a few all-or-nothing patterns that the Workshop~2 classifier reads as exaggerated churners (churn probability 0.75 against 0.48). Its cross-entropy discriminator wins the game early, and the generator stops receiving a useful signal.
 
-\paragraph{WGAN-GP.} The Wasserstein loss with gradient penalty gives a more stable game: the estimated distance stays low for the whole run, the generator keeps progressing, and the churner collapse disappears. Synthetic churners are as diverse as real ones and cover them, the Fréchet distance falls by a factor of 3.8 for churners and 3.2 for non-churners, and the churn probability of synthetic churners matches the real one. Applying WGAN-GP to TimeGAN required a change of critic: with a recurrent critic the gradient penalty runs without cuDNN and training was very inefficient; a temporal convolutional critic is 11 times faster per step and let us give the generator a full training budget in less time than the recurrent version.
+\paragraph{WGAN-GP.} The Wasserstein loss with gradient penalty gives a more stable game: the estimated distance stays low for the whole run, the generator keeps progressing, and the churner collapse disappears. Synthetic churners are as diverse as real ones and cover them, the Fréchet distance falls by a factor of 4.0 for churners and 3.2 for non-churners, and the churn probability of synthetic churners matches the real one. Applying WGAN-GP to TimeGAN required a change of critic: with a recurrent critic the gradient penalty runs without cuDNN and training was very inefficient; a temporal convolutional critic is 11 times faster per step and let us give the generator a full training budget in less time than the recurrent version.
 
 \paragraph{What the GANs learn.} v2 reproduces listening and activity: a forecaster trained only on its customers predicts real listening as well as one trained on real data. It does not learn the renewal dynamics. Payments appear at a realistic rate but at days unrelated to the plan expiry, the expiry countdown does not follow its rule, synthetic non-churners are polarised, and a small classifier still separates real from synthetic customers about 90\,\% of the time.
 

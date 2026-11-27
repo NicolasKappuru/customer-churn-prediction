@@ -41,124 +41,117 @@
 \@writefile{toc}{\contentsline {paragraph}{Losses.}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Training objective.}{5}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Implementation.}{5}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Wasserstein TimeGAN}{6}{}\protected@file@percent }
+\newlabel{sec:w5_wgan}{{3.3}{6}}
+\@writefile{toc}{\contentsline {paragraph}{First approach: recurrent critic (v1).}{6}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Second approach: convolutional critic (v2).}{6}{}\protected@file@percent }
 \citation{yoon2019}
 \citation{gulrajani2017}
 \citation{donahue2019}
 \citation{zhu2019}
 \citation{wiese2020}
 \citation{bai2018}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Wasserstein TimeGAN}{6}{}\protected@file@percent }
-\newlabel{sec:w5_wgan}{{3.3}{6}}
-\@writefile{toc}{\contentsline {paragraph}{First approach: recurrent critic (v1).}{6}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Second approach: convolutional critic (v2).}{6}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {4}Training}{7}{}\protected@file@percent }
 \newlabel{sec:w5_training}{{4}{7}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Hyperparameters}{7}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Configuration of the three GANs. Times measured on an RTX 3050; each class is a separate model.\relax }}{8}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Configuration of the two GANs. Times measured on an RTX 3050; each class is a separate model.\relax }}{8}{}\protected@file@percent }
 \newlabel{tab:w5_hparams}{{3}{8}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Convergence}{8}{}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces TimeGAN, churners. In the joint phase the discriminator loss stays mostly below 1 while the generator adversarial losses $L_U$ and $L_U^{e}$ rise from 0.8 to between 3 and 7.\relax }}{9}{}\protected@file@percent }
 \newlabel{fig:w5_hist_timegan}{{2}{9}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Wasserstein TimeGAN v1, churners (2{,}000 joint iterations). The estimated Wasserstein distance rises from 0 to about 22 and is still rising at the end of the run.\relax }}{9}{}\protected@file@percent }
-\newlabel{fig:w5_hist_v1}{{3}{9}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Wasserstein TimeGAN v2, churners. The estimated Wasserstein distance peaks early and then stays between about 0 and 2 with occasional spikes; the gradient penalty stays near 0; the norm of the generator weights grows steadily from 17.9 to about 40.\relax }}{9}{}\protected@file@percent }
-\newlabel{fig:w5_hist_v2}{{4}{9}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Wasserstein TimeGAN v2, churners. The estimated Wasserstein distance peaks early and then stays between about 0 and 2 with occasional spikes; the gradient penalty stays near 0; the norm of the generator weights grows steadily from 17.9 to about 40.\relax }}{9}{}\protected@file@percent }
+\newlabel{fig:w5_hist_v2}{{3}{9}}
 \@writefile{toc}{\contentsline {paragraph}{TimeGAN.}{9}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Adversarial losses of TimeGAN in the joint phase.\relax }}{9}{}\protected@file@percent }
 \newlabel{tab:w5_timegan_dyn}{{4}{9}}
-\@writefile{toc}{\contentsline {paragraph}{Wasserstein TimeGAN.}{10}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Estimated Wasserstein distance between real and synthetic latents (one batch per logged step). v1 for non-churners behaves like v1 for churners, peaking at 16.\relax }}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Wasserstein TimeGAN v2.}{9}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Estimated Wasserstein distance between real and synthetic latents in v2 (one batch per logged step).\relax }}{10}{}\protected@file@percent }
 \newlabel{tab:w5_wdist}{{5}{10}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Hyperparameter Search and Seed Variability}{10}{}\protected@file@percent }
 \newlabel{sec:w5_robustness}{{4.3}{10}}
 \@writefile{toc}{\contentsline {paragraph}{Search.}{10}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Best configurations found by the search (hand-set configuration: hidden size 56, 3 layers, lr $10^{-3}$; v2 critic lr $10^{-4}$ and 5 critic steps).\relax }}{11}{}\protected@file@percent }
-\newlabel{tab:w5_optuna}{{6}{11}}
-\@writefile{toc}{\contentsline {paragraph}{Seeds.}{11}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Best configurations found by the search (hand-set configuration: hidden size 56, 3 layers, lr $10^{-3}$; v2 critic lr $10^{-4}$ and 5 critic steps).\relax }}{10}{}\protected@file@percent }
+\newlabel{tab:w5_optuna}{{6}{10}}
+\@writefile{toc}{\contentsline {paragraph}{Seeds.}{10}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Mean $\pm $ standard deviation over five seeds with the configurations of Table~\ref {tab:w5_optuna}. Single run: hand-set configuration, seed 110 (Table~\ref {tab:w5_quality}). Metrics as in Table~\ref {tab:w5_quality}.\relax }}{11}{}\protected@file@percent }
 \newlabel{tab:w5_seeds}{{7}{11}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Fréchet distance of each of the five seeds (dots) and their mean (line), with the tuned configurations. The diamond is the single hand-set run of Table~\ref {tab:w5_quality}.\relax }}{11}{}\protected@file@percent }
-\newlabel{fig:w5_frechet_seeds}{{5}{11}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Fréchet distance of each of the five seeds (dots) and their mean (line), with the tuned configurations. The diamond is the single hand-set run of Table~\ref {tab:w5_quality}.\relax }}{11}{}\protected@file@percent }
+\newlabel{fig:w5_frechet_seeds}{{4}{11}}
 \@writefile{toc}{\contentsline {paragraph}{v2 against TimeGAN.}{11}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Search against the hand-set configuration.}{11}{}\protected@file@percent }
 \citation{heusel2017}
 \citation{yoon2019}
 \citation{yoon2019}
-\@writefile{toc}{\contentsline {paragraph}{Search against the hand-set configuration.}{12}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Generation Quality}{12}{}\protected@file@percent }
 \newlabel{sec:w5_quality}{{5}{12}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Metrics}{12}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Quantitative Results}{13}{}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Quality metrics. Fréchet: distance to real \texttt  {fit} in the feature space of the Workshop~2 LSTM. Discrim.: discriminative score. Predictive: next-day MAE on real \texttt  {tune} of a model trained on each source. Churn prob.: mean churn probability given by the Workshop~2 LSTM. Own class: share classified into the customer's own class. Bold: best GAN where it is clearly ahead.\relax }}{13}{}\protected@file@percent }
 \newlabel{tab:w5_quality}{{8}{13}}
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Mode-collapse signals. 0 days / $\ge $85 days: share of customers with no active day or with at least 85 of 90. Switches: median number of changes between active and inactive. No pay: share without any payment day. NN within: median distance to the nearest other customer of the same set. NN real$\to $synth.: median distance from a real \texttt  {tune} customer to the nearest customer of the set (for the real row, to the nearest \texttt  {fit} customer).\relax }}{14}{}\protected@file@percent }
-\newlabel{tab:w5_collapse}{{9}{14}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Mode-collapse signals. 0 days / $\ge $85 days: share of customers with no active day or with at least 85 of 90. Switches: median number of changes between active and inactive. No pay: share without any payment day. NN within: median distance to the nearest other customer of the same set. NN real$\to $synth.: median distance from a real \texttt  {tune} customer to the nearest customer of the set (for the real row, to the nearest \texttt  {fit} customer).\relax }}{13}{}\protected@file@percent }
+\newlabel{tab:w5_collapse}{{9}{13}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Qualitative Assessment}{14}{}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Latent projections.}{14}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Churners: real (blue) against TimeGAN (top), Wasserstein v1 (middle) and Wasserstein v2 (bottom). TimeGAN forms a long thin curve and separate filaments; v1 forms filaments in a region with no real customers; v2 mixes with the real cloud and covers most of it, with a few synthetic-only islands.\relax }}{15}{}\protected@file@percent }
-\newlabel{fig:w5_emb_1}{{6}{15}}
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Non-churners: real (blue) against TimeGAN (top), Wasserstein v1 (middle) and Wasserstein v2 (bottom).\relax }}{16}{}\protected@file@percent }
-\newlabel{fig:w5_emb_0}{{7}{16}}
-\@writefile{toc}{\contentsline {paragraph}{Daily profiles and aggregates.}{16}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Mean and 25 to 75\% band of every channel per day, churners. Real \texttt  {fit} in blue, TimeGAN in orange, v1 in green, v2 in gold.\relax }}{17}{}\protected@file@percent }
-\newlabel{fig:w5_profiles}{{8}{17}}
-\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Mean and 25 to 75\% band of every channel per day, non-churners.\relax }}{17}{}\protected@file@percent }
-\newlabel{fig:w5_profiles0}{{9}{17}}
-\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Per-customer aggregates for churners (top) and non-churners (bottom): active days, active days in the last 30, payment days, log hours listened, days to expiry at the cutoff and active-day switches.\relax }}{18}{}\protected@file@percent }
-\newlabel{fig:w5_aggregates}{{10}{18}}
-\@writefile{toc}{\contentsline {paragraph}{Individual customers.}{18}{}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Real, TimeGAN and Wasserstein v1 churners, three customers each.\relax }}{19}{}\protected@file@percent }
-\newlabel{fig:w5_slices_old}{{11}{19}}
-\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Real and Wasserstein v2 churners, three customers each. The equivalent figures for non-churners are \texttt  {figures/gan\_models/user\_slices\_label0.png} and \texttt  {figures/wgan\_tcn/user\_slices\_label0.png}.\relax }}{20}{}\protected@file@percent }
-\newlabel{fig:w5_slices}{{12}{20}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Payment Dynamics}{20}{}\protected@file@percent }
-\newlabel{sec:w5_domain}{{5.4}{20}}
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Payment dynamics. Pay days: share of days with a payment. Countdown: share of days without payment where \texttt  {tx\_days\_to\_expire} drops by one. Reset: share of payment days where the expiry jumps by the purchased plan days. Near expiry: share of payments made within 3 days of the expiry known the day before, with the generated state and with the state rebuilt from the generated payments.\relax }}{20}{}\protected@file@percent }
-\newlabel{tab:w5_domain}{{10}{20}}
-\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Share of churners paying on each day relative to their known expiry. Real customers renew in the days right after the expiry; TimeGAN and v1 show no peak after it. The figure for non-churners is \texttt  {figures/gan\_models/pay\_by\_expiry\_label0.png}.\relax }}{21}{}\protected@file@percent }
-\newlabel{fig:w5_pay_expiry}{{13}{21}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Best Seeds of the Tuned Models}{21}{}\protected@file@percent }
-\newlabel{sec:w5_best_seeds}{{5.5}{21}}
-\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Churners, best seed of each tuned GAN: PCA and t-SNE of the Workshop~2 LSTM features, real \texttt  {tune} against synthetic.\relax }}{22}{}\protected@file@percent }
-\newlabel{fig:w5_best_emb_1}{{14}{22}}
-\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces Non-churners, best seed of each tuned GAN.\relax }}{23}{}\protected@file@percent }
-\newlabel{fig:w5_best_emb_0}{{15}{23}}
-\@writefile{lof}{\contentsline {figure}{\numberline {16}{\ignorespaces Churners, best seeds: mean of each channel per day (line) and 25--75\,\% band.\relax }}{24}{}\protected@file@percent }
-\newlabel{fig:w5_best_profiles_1}{{16}{24}}
-\@writefile{lof}{\contentsline {figure}{\numberline {17}{\ignorespaces Non-churners, best seeds.\relax }}{24}{}\protected@file@percent }
-\newlabel{fig:w5_best_profiles_0}{{17}{24}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Failure Mode Analysis}{25}{}\protected@file@percent }
-\newlabel{sec:w5_failures}{{6}{25}}
-\@writefile{toc}{\contentsline {paragraph}{Mode collapse in TimeGAN.}{25}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{The discriminator overpowers the generator.}{25}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Cost of the recurrent critic.}{25}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{What v2 still does not learn.}{25}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7}Data Augmentation Experiment}{26}{}\protected@file@percent }
-\newlabel{sec:w5_augmentation}{{7}{26}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Protocol}{26}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Training rows of each scenario. The classifiers receive extra synthetic churners only (the minority class); the forecasters need both classes, mixed at the real churn rate.\relax }}{26}{}\protected@file@percent }
-\newlabel{tab:w5_scenarios}{{11}{26}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Churn Classifiers}{27}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Churn classifiers on real March customers, at the threshold selected on \texttt  {tune} for each scenario. Bold: best synthetic-only result.\relax }}{27}{}\protected@file@percent }
-\newlabel{tab:w5_bridge_clf}{{12}{27}}
-\@writefile{lof}{\contentsline {figure}{\numberline {18}{\ignorespaces ROC and precision-recall curves on March for the LSTM (left) and GRU (right) with TimeGAN and Wasserstein v1 customers. The augmented curves overlap the baseline; only the synthetic-only scenarios separate.\relax }}{27}{}\protected@file@percent }
-\newlabel{fig:w5_rocpr}{{18}{27}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Behaviour Forecasters}{28}{}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Behaviour forecasters on real March customers. MAE: listening amounts (lower is better). Active: AUC of the daily \texttt  {active} prediction. Pay: average precision of the daily payment prediction. Week: average precision of ``pays during the target week''. Bold: best synthetic-only result.\relax }}{28}{}\protected@file@percent }
-\newlabel{tab:w5_bridge_traj}{{13}{28}}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusions}{28}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Vanilla GAN.}{28}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Churners: real (blue) against TimeGAN (top) and Wasserstein v2 (bottom). TimeGAN forms a long thin curve and separate filaments; v2 mixes with the real cloud and covers most of it, with a few synthetic-only islands.\relax }}{14}{}\protected@file@percent }
+\newlabel{fig:w5_emb_1}{{5}{14}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Non-churners: real (blue) against TimeGAN (top) and Wasserstein v2 (bottom).\relax }}{15}{}\protected@file@percent }
+\newlabel{fig:w5_emb_0}{{6}{15}}
+\@writefile{toc}{\contentsline {paragraph}{Daily profiles and aggregates.}{15}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Mean and 25 to 75\% band of every channel per day, churners. Real \texttt  {fit} in blue, TimeGAN in orange, v2 in gold.\relax }}{16}{}\protected@file@percent }
+\newlabel{fig:w5_profiles}{{7}{16}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Mean and 25 to 75\% band of every channel per day, non-churners.\relax }}{16}{}\protected@file@percent }
+\newlabel{fig:w5_profiles0}{{8}{16}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Per-customer aggregates for churners (top) and non-churners (bottom): active days, active days in the last 30, payment days, log hours listened, days to expiry at the cutoff and active-day switches.\relax }}{17}{}\protected@file@percent }
+\newlabel{fig:w5_aggregates}{{9}{17}}
+\@writefile{toc}{\contentsline {paragraph}{Individual customers.}{17}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Real, TimeGAN and Wasserstein v2 churners, three customers each. The equivalent figure for non-churners is \texttt  {figures/wgan\_tcn/user\_slices\_label0.png}.\relax }}{18}{}\protected@file@percent }
+\newlabel{fig:w5_slices}{{10}{18}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Payment Dynamics}{18}{}\protected@file@percent }
+\newlabel{sec:w5_domain}{{5.4}{18}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Payment dynamics. Pay days: share of days with a payment. Countdown: share of days without payment where \texttt  {tx\_days\_to\_expire} drops by one. Reset: share of payment days where the expiry jumps by the purchased plan days. Near expiry: share of payments made within 3 days of the expiry known the day before, with the generated state and with the state rebuilt from the generated payments.\relax }}{19}{}\protected@file@percent }
+\newlabel{tab:w5_domain}{{10}{19}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Share of churners paying on each day relative to their known expiry. Real customers renew in the days right after the expiry; TimeGAN and v2 show no peak after it, with the state as generated (dotted) or rebuilt from the payments (dashed). The figure for non-churners is \texttt  {figures/wgan\_tcn/pay\_by\_expiry\_label0.png}.\relax }}{19}{}\protected@file@percent }
+\newlabel{fig:w5_pay_expiry}{{11}{19}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Best Seeds of the Tuned Models}{19}{}\protected@file@percent }
+\newlabel{sec:w5_best_seeds}{{5.5}{19}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Churners, best seed of each tuned GAN: PCA and t-SNE of the Workshop~2 LSTM features, real \texttt  {tune} against synthetic.\relax }}{20}{}\protected@file@percent }
+\newlabel{fig:w5_best_emb_1}{{12}{20}}
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Non-churners, best seed of each tuned GAN.\relax }}{21}{}\protected@file@percent }
+\newlabel{fig:w5_best_emb_0}{{13}{21}}
+\@writefile{lof}{\contentsline {figure}{\numberline {14}{\ignorespaces Churners, best seeds: mean of each channel per day (line) and 25--75\,\% band.\relax }}{22}{}\protected@file@percent }
+\newlabel{fig:w5_best_profiles_1}{{14}{22}}
+\@writefile{lof}{\contentsline {figure}{\numberline {15}{\ignorespaces Non-churners, best seeds.\relax }}{22}{}\protected@file@percent }
+\newlabel{fig:w5_best_profiles_0}{{15}{22}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Failure Mode Analysis}{23}{}\protected@file@percent }
+\newlabel{sec:w5_failures}{{6}{23}}
+\@writefile{toc}{\contentsline {paragraph}{Mode collapse in TimeGAN.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{The discriminator overpowers the generator.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{What v2 still does not learn.}{23}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Data Augmentation Experiment}{24}{}\protected@file@percent }
+\newlabel{sec:w5_augmentation}{{7}{24}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Protocol}{24}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Training rows of each scenario. The classifiers receive extra synthetic churners only (the minority class); the forecasters need both classes, mixed at the real churn rate.\relax }}{24}{}\protected@file@percent }
+\newlabel{tab:w5_scenarios}{{11}{24}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Churn Classifiers}{25}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Churn classifiers on real March customers, at the threshold selected on \texttt  {tune} for each scenario. Bold: best synthetic-only result.\relax }}{25}{}\protected@file@percent }
+\newlabel{tab:w5_bridge_clf}{{12}{25}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Behaviour Forecasters}{25}{}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Behaviour forecasters on real March customers. MAE: listening amounts (lower is better). Active: AUC of the daily \texttt  {active} prediction. Pay: average precision of the daily payment prediction. Week: average precision of ``pays during the target week''. Bold: best synthetic-only result.\relax }}{26}{}\protected@file@percent }
+\newlabel{tab:w5_bridge_traj}{{13}{26}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusions}{26}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Vanilla GAN.}{26}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{WGAN-GP.}{26}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{What the GANs learn.}{26}{}\protected@file@percent }
 \bibcite{arjovsky2017}{1}
 \bibcite{bai2018}{2}
 \bibcite{donahue2019}{3}
-\@writefile{toc}{\contentsline {paragraph}{WGAN-GP.}{29}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{What the GANs learn.}{29}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Data augmentation.}{29}{}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Limitations.}{29}{}\protected@file@percent }
 \bibcite{goodfellow2014}{4}
 \bibcite{gulrajani2017}{5}
 \bibcite{heusel2017}{6}
+\@writefile{toc}{\contentsline {paragraph}{Data augmentation.}{27}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Limitations.}{27}{}\protected@file@percent }
 \bibcite{kkbox2017}{7}
 \bibcite{wiese2020}{8}
 \bibcite{yoon2019}{9}
 \bibcite{zhu2019}{10}
-\gdef \@abspage@last{30}
+\gdef \@abspage@last{28}

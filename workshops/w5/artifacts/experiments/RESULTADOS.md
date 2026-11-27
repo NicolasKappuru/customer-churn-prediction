@@ -19,17 +19,17 @@ Corrida: 2026-11-26 11:14 → 2026-11-27 00:17. 20/20 entrenamientos sin fallos.
 ## Resultados (media ± std, 5 semillas)
 | label | GAN | Fréchet ↓ | Fréchet original | discriminative ↓ | predictive MAE ↓ | % clasificado en su clase |
 |---|---|---|---|---|---|---|
-| 1 (churn) | TimeGAN | 0.454 ± 0.078 | 0.936 | 0.485 ± 0.007 | 0.093 ± 0.015 | 82 % |
-| 1 (churn) | **v2** | **0.224 ± 0.092** | 0.247 | **0.411 ± 0.054** | 0.093 ± 0.012 | 87 % |
-| 0 (stay) | TimeGAN | 0.402 ± 0.238 | 0.091 | 0.494 ± 0.004 | 0.100 ± 0.004 | 30 % |
-| 0 (stay) | **v2** | **0.194 ± 0.214** | 0.029 | **0.472 ± 0.014** | 0.092 ± 0.006 | 45 % |
+| 1 (churn) | TimeGAN | 0.454 ± 0.078 | 0.964 | 0.485 ± 0.007 | 0.093 ± 0.015 | 82 % |
+| 1 (churn) | **v2** | **0.224 ± 0.092** | 0.242 | **0.411 ± 0.054** | 0.093 ± 0.012 | 87 % |
+| 0 (stay) | TimeGAN | 0.402 ± 0.238 | 0.087 | 0.494 ± 0.004 | 0.100 ± 0.004 | 30 % |
+| 0 (stay) | **v2** | **0.194 ± 0.214** | 0.027 | **0.472 ± 0.014** | 0.092 ± 0.006 | 45 % |
 
 Comparación pareada por semilla (Fréchet): v2 < TimeGAN en 5/5 semillas en label1 y en 4/5 en label0.
 
 ## Conclusiones
 1. **v2 supera a TimeGAN de forma robusta**: Fréchet ~2× menor en ambas clases, mejor discriminative score,
    y gana en 9 de 10 comparaciones pareadas por semilla. La conclusión del notebook se sostiene con varianza.
-2. **Optuna ayudó claramente a TimeGAN en label1** (0.94 → 0.45). En v2 label1 la media (0.22) ≈ el original (0.25):
+2. **Optuna ayudó claramente a TimeGAN en label1** (0.96 → 0.45). En v2 label1 la media (0.22) ≈ el original (0.24):
    la búsqueda no aportó; el original no era una semilla afortunada.
 3. **En label0 la búsqueda no se trasladó al presupuesto completo**: las configuraciones de Optuna dan peor
    Fréchet que el original (TimeGAN 0.40 vs 0.09; v2 0.19 vs 0.03) y mucha varianza entre semillas.
