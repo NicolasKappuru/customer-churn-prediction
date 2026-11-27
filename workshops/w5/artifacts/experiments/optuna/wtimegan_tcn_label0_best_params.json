@@ -1,0 +1,16 @@
+{
+  "hidden_dim": 84,
+  "num_layer": 4,
+  "batch_size": 128,
+  "module": "gru",
+  "n_critic": 3,
+  "lambda_gp": 10.0,
+  "gan_betas": [
+    0.5,
+    0.9
+  ],
+  "critic": "tcn",
+  "critic_channels": 64,
+  "g_lr": 0.0003114586069228742,
+  "d_lr": 3.082291376949625e-05
+}

@@ -1,0 +1,45 @@
+{
+  "hidden_dim": 84,
+  "num_layer": 4,
+  "batch_size": 128,
+  "module": "gru",
+  "n_critic": 3,
+  "lambda_gp": 10.0,
+  "gan_betas": [
+    0.5,
+    0.9
+  ],
+  "critic": "tcn",
+  "critic_channels": 64,
+  "g_lr": 0.0003114586069228742,
+  "d_lr": 3.082291376949625e-05,
+  "iterations": 10000,
+  "joint_iterations": 10000,
+  "seed": 4,
+  "gan": "wtimegan_tcn",
+  "label": 0,
+  "train_rows": 56867,
+  "train_seconds": 2167.8,
+  "channels": [
+    "num_25",
+    "num_50",
+    "num_75",
+    "num_985",
+    "num_100",
+    "num_unq",
+    "total_secs",
+    "active",
+    "tx_count",
+    "tx_paid_sum",
+    "tx_plan_days_sum",
+    "tx_state_known",
+    "tx_days_since_last",
+    "tx_days_to_expire"
+  ],
+  "shape": [
+    56867,
+    90,
+    14
+  ],
+  "encoding": "same as the w2 export (log1p / signed_log1p / flags), float16"
+}

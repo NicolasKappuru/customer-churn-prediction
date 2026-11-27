@@ -1,0 +1,7 @@
+{
+  "hidden_dim": 28,
+  "num_layer": 2,
+  "batch_size": 128,
+  "module": "gru",
+  "lr": 0.0007761633577631649
+}

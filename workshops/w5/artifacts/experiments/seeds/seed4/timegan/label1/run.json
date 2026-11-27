@@ -1,0 +1,35 @@
+{
+  "hidden_dim": 28,
+  "num_layer": 2,
+  "batch_size": 128,
+  "module": "gru",
+  "lr": 0.0007761633577631649,
+  "iterations": 10000,
+  "seed": 4,
+  "gan": "timegan",
+  "label": 1,
+  "train_rows": 26947,
+  "train_seconds": 2052.6,
+  "channels": [
+    "num_25",
+    "num_50",
+    "num_75",
+    "num_985",
+    "num_100",
+    "num_unq",
+    "total_secs",
+    "active",
+    "tx_count",
+    "tx_paid_sum",
+    "tx_plan_days_sum",
+    "tx_state_known",
+    "tx_days_since_last",
+    "tx_days_to_expire"
+  ],
+  "shape": [
+    26947,
+    90,
+    14
+  ],
+  "encoding": "same as the w2 export (log1p / signed_log1p / flags), float16"
+}

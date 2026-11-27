@@ -153,11 +153,13 @@ def timegan(ori_data, parameters):
     gs_params = list(gen.parameters()) + list(sup.parameters())
 
     # Un optimizador por "solver", igual que en TF
-    E0_solver = torch.optim.Adam(er_params)
-    E_solver = torch.optim.Adam(er_params)
-    D_solver = torch.optim.Adam(disc.parameters())
-    G_solver = torch.optim.Adam(gs_params)
-    GS_solver = torch.optim.Adam(gs_params)
+    # lr opcional (por defecto 1e-3, el de Adam en TF y PyTorch)
+    lr = parameters.get("lr", 1e-3)
+    E0_solver = torch.optim.Adam(er_params, lr=lr)
+    E_solver = torch.optim.Adam(er_params, lr=lr)
+    D_solver = torch.optim.Adam(disc.parameters(), lr=lr)
+    G_solver = torch.optim.Adam(gs_params, lr=lr)
+    GS_solver = torch.optim.Adam(gs_params, lr=lr)
 
     # --- helpers ---------------------------------------------------------
     def sample_batch(with_z=False):

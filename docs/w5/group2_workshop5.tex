@@ -239,7 +239,7 @@ With the cheaper critic we gave the generator a full budget: 10{,}000 joint iter
 
 \subsection{Hyperparameters}
 
-Table~\ref{tab:w5_hparams} lists the configuration of the three models. We did not run a hyperparameter search. TimeGAN uses the defaults of its paper and WGAN-GP the defaults of its paper. For v2 the generator learning rate and the length of the joint phase were set from the analysis of v1 and a short pilot run on churners (1{,}000 iterations in each of the first two phases and 600 joint iterations): with the TCN critic and a generator learning rate of $10^{-4}$, the norm of the generator weights went from 17.9 to 18.3 and the synthetic customers barely differed from each other, while with $10^{-3}$ the norm reached 21.5 and the moment loss $L_V$ fell from 0.31 to 0.07. All runs use the seed 110.
+Table~\ref{tab:w5_hparams} lists the configuration of the three models. It was set by hand, without a search, and it is the configuration used in the rest of the report; Section~\ref{sec:w5_robustness} repeats the comparison of TimeGAN and v2 with a small search and five seeds. TimeGAN uses the defaults of its paper and WGAN-GP the defaults of its paper. For v2 the generator learning rate and the length of the joint phase were set from the analysis of v1 and a short pilot run on churners (1{,}000 iterations in each of the first two phases and 600 joint iterations): with the TCN critic and a generator learning rate of $10^{-4}$, the norm of the generator weights went from 17.9 to 18.3 and the synthetic customers barely differed from each other, while with $10^{-3}$ the norm reached 21.5 and the moment loss $L_V$ fell from 0.31 to 0.07. All runs use the seed 110.
 
 \begin{table}[H]
 \centering
@@ -334,6 +334,59 @@ Figures~\ref{fig:w5_hist_timegan} to~\ref{fig:w5_hist_v2} show the losses of the
 \end{table}
 
 A small Wasserstein estimate alone could also mean a weak critic, so the convergence curves have to be read together with the quality metrics of the next section.
+
+\subsection{Hyperparameter Search and Seed Variability}
+\label{sec:w5_robustness}
+
+The results of Section~\ref{sec:w5_quality} come from one run per model with the seed 110 and a hand-set configuration. To check that the advantage of v2 over TimeGAN does not depend on that run, we repeated the training of both models in two steps (\path{workshops/w5/run_experiments.py}).
+
+\paragraph{Search.} For each GAN and each class we ran 15 Optuna trials (TPE sampler) with a reduced budget: 1{,}000 iterations per phase, and 600 joint iterations for v2. The search space covers the hidden size (28, 56 or 84), the number of layers (2 to 4) and the learning rates (TimeGAN: $3\cdot10^{-4}$ to $3\cdot10^{-3}$; v2: generator $3\cdot10^{-4}$ to $3\cdot10^{-3}$, critic $3\cdot10^{-5}$ to $3\cdot10^{-4}$, and 3 or 5 critic steps). The objective is the Fréchet distance of Section~\ref{sec:w5_quality}, and the hand-set configuration is the first trial, so the search can only match or improve it. Table~\ref{tab:w5_optuna} lists the best configurations. Both TimeGAN searches used the same sampler seed, so they proposed the same candidates, and the same one won in both classes.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{|l|c|r|r|r|r|r|}
+\hline
+\textbf{GAN} & \textbf{Class} & \textbf{Hidden} & \textbf{Layers} & \textbf{Generator lr} & \textbf{Critic lr} & \textbf{Critic steps} \\ \hline
+TimeGAN & both & 28 & 2 & $7.8\cdot10^{-4}$ & -- & -- \\ \hline
+v2 & churners & 28 & 4 & $1.6\cdot10^{-3}$ & $6.4\cdot10^{-5}$ & 3 \\ \hline
+v2 & non-churners & 84 & 4 & $3.1\cdot10^{-4}$ & $3.1\cdot10^{-5}$ & 3 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\caption{Best configurations found by the search (hand-set configuration: hidden size 56, 3 layers, lr $10^{-3}$; v2 critic lr $10^{-4}$ and 5 critic steps).}
+\label{tab:w5_optuna}
+\end{table}
+
+\paragraph{Seeds.} Each model was then retrained with its best configuration and the full budget of Table~\ref{tab:w5_hparams} with five seeds (0 to 4), and evaluated exactly as in Section~\ref{sec:w5_quality}. The 20 runs took about 13 hours in total.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{|c|l|r|r|r|r|r|}
+\hline
+\textbf{Class} & \textbf{GAN} & \textbf{Fréchet} & \textbf{Fréchet, single run} & \textbf{Discrim.} & \textbf{Predictive} & \textbf{Own class} \\ \hline
+\multirow{2}{*}{Churners} & TimeGAN & $0.454 \pm 0.078$ & 0.936 & $0.485 \pm 0.007$ & $0.093 \pm 0.015$ & 82\% \\ \cline{2-7}
+ & Wasserstein v2 & $\mathbf{0.224 \pm 0.092}$ & 0.247 & $\mathbf{0.411 \pm 0.054}$ & $0.093 \pm 0.012$ & 87\% \\ \hline
+\multirow{2}{*}{Non-churners} & TimeGAN & $0.402 \pm 0.238$ & 0.091 & $0.494 \pm 0.004$ & $0.100 \pm 0.004$ & 30\% \\ \cline{2-7}
+ & Wasserstein v2 & $\mathbf{0.194 \pm 0.214}$ & 0.029 & $\mathbf{0.472 \pm 0.014}$ & $0.092 \pm 0.006$ & 45\% \\ \hline
+\end{tabular}
+\end{adjustbox}
+\caption{Mean $\pm$ standard deviation over five seeds with the configurations of Table~\ref{tab:w5_optuna}. Single run: hand-set configuration, seed 110 (Table~\ref{tab:w5_quality}). Metrics as in Table~\ref{tab:w5_quality}.}
+\label{tab:w5_seeds}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/experiments/frechet_seeds.png}
+\caption{Fréchet distance of each of the five seeds (dots) and their mean (line), with the tuned configurations. The diamond is the single hand-set run of Table~\ref{tab:w5_quality}.}
+\label{fig:w5_frechet_seeds}
+\end{figure}
+
+\paragraph{v2 against TimeGAN.} The advantage of v2 holds across seeds (Table~\ref{tab:w5_seeds}). Its mean Fréchet distance is about half that of TimeGAN in both classes, its discriminative score is lower in both, and in the comparison seed by seed v2 has the lower Fréchet distance in 9 of the 10 pairs (5 of 5 for churners, 4 of 5 for non-churners). The predictive score does not separate the two models. Neither model fools the post-hoc discriminator (scores between 0.41 and 0.49), so the conclusion is about relative quality, not about indistinguishable customers.
+
+\paragraph{Search against the hand-set configuration.} For the churners the search clearly helped TimeGAN: the mean Fréchet distance falls from 0.94 in the single run to 0.45, and all five seeds are below 0.52. For v2 it brought nothing: the mean of 0.22 matches the 0.25 of the single run, which therefore was not a lucky seed. For the non-churners the search did not carry over to the full budget. The tuned configurations give a worse Fréchet distance than the single hand-set run (TimeGAN 0.40 against 0.09; v2 0.19 against 0.03), with a large spread between seeds (TimeGAN from 0.15 to 0.71). The single run lies below all five tuned seeds for both models, which suggests that the hand-set configuration is better for this class. It is still one run against five, so we did not confirm it with several seeds of the hand-set configuration. The likely cause is the reduced budget of the search: a configuration that is best after 1{,}000 iterations need not be best after 10{,}000. The spread between seeds also shows that a single run is not enough to rank configurations, which is why this section reports means and standard deviations.
 
 % ─────────────────────────────────────────────
 \section{Generation Quality}
@@ -497,6 +550,45 @@ v2 generates payments at a plausible rate and amount (2.6\,\% of the days for ch
 \label{fig:w5_pay_expiry}
 \end{figure}
 
+\subsection{Best Seeds of the Tuned Models}
+\label{sec:w5_best_seeds}
+
+The figures above come from the single hand-set run. To see what the tuned models of Section~\ref{sec:w5_robustness} generate, we took for each GAN and class the seed with the lowest Fréchet distance out of five: TimeGAN seed 3 (0.344) and v2 seed 0 (0.117) for churners, TimeGAN seed 0 (0.149) and v2 seed 2 (0.058) for non-churners. These are the best cases, chosen on the test metric itself, so they show what each model can reach, not what it typically gives; the typical values are the means of Table~\ref{tab:w5_seeds}. The figures are produced by \path{workshops/w5/plot_seed_runs.py}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/experiments/embedding_label1_timegan.png}\\[0.3em]
+\includegraphics[width=0.92\textwidth]{figures/experiments/embedding_label1_wtimegan_tcn.png}
+\caption{Churners, best seed of each tuned GAN: PCA and t-SNE of the Workshop~2 LSTM features, real \texttt{tune} against synthetic.}
+\label{fig:w5_best_emb_1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{figures/experiments/embedding_label0_timegan.png}\\[0.3em]
+\includegraphics[width=0.92\textwidth]{figures/experiments/embedding_label0_wtimegan_tcn.png}
+\caption{Non-churners, best seed of each tuned GAN.}
+\label{fig:w5_best_emb_0}
+\end{figure}
+
+The best seeds keep the ranking of the single run. v2 customers mix with real ones over the whole t-SNE map in both classes. The best TimeGAN churners no longer collapse into one curve, as the hand-set run did, but they still form several thin curves at the edges of the real cloud, and the best TimeGAN non-churners cover one half of the map while real customers occupy the other.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/experiments/daily_profiles_label1.png}
+\caption{Churners, best seeds: mean of each channel per day (line) and 25--75\,\% band.}
+\label{fig:w5_best_profiles_1}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/experiments/daily_profiles_label0.png}
+\caption{Non-churners, best seeds.}
+\label{fig:w5_best_profiles_0}
+\end{figure}
+
+In the listening channels both GANs follow the real daily means closely. The payment channels show the weaknesses of Section~\ref{sec:w5_domain} in a different form. The best TimeGAN non-churners almost never pay: their daily share of payments stays near 0.002 against about 0.015 for real non-churners, and their paid amount is close to zero. The best TimeGAN churners pay more and more towards the cutoff in a smooth ramp that real churners do not show. v2 keeps payments at a realistic level but adds a regular oscillation that real customers do not have, with a period of about two days for churners and about a week for non-churners, and it does not reproduce the sharp drops and jumps of the real payment curves around day 60. The tuning therefore improved the overall distance but did not fix the payment dynamics.
+
 % ─────────────────────────────────────────────
 \section{Failure Mode Analysis}
 \label{sec:w5_failures}
@@ -622,7 +714,7 @@ The augmented scenarios again stay within a few thousandths of the baseline. The
 
 \paragraph{Data augmentation.} Adding synthetic customers to the real training data does not improve the Workshop~2 classifiers or forecasters; the changes are of the size of training noise. The synthetic-only experiment shows how much of the real signal each GAN captured, and v2 captures the most.
 
-\paragraph{Limitations.} The hyperparameters were fixed to the published defaults, with only the generator learning rate and the joint-phase length of v2 set from a pilot run; there was no search. Each GAN and each augmentation scenario was trained with one seed, so the augmentation differences are not separated from training noise. TimeGAN is unconditional, so one model is trained per class and the class balance of the synthetic data is set by hand. v2 changes both the adversarial loss and the critic architecture with respect to TimeGAN, so its gain cannot be attributed to the Wasserstein loss alone. The Fréchet distance uses the Workshop~2 LSTM as feature extractor and measures realism only as that model sees it. A natural next step is to keep the GAN for listening and activity and to generate payments with the renewal rules (pay near the expiry, rebuild the state), which is the part no GAN learned.
+\paragraph{Limitations.} The main configuration was fixed to the published defaults, with only the generator learning rate and the joint-phase length of v2 set from a pilot run. The later search used a reduced budget, and for the non-churners its configurations did worse at full budget than the hand-set one; that hand-set configuration was run with a single seed, so the comparison between the two is not confirmed. The ranking of v2 above TimeGAN does hold over five seeds (Section~\ref{sec:w5_robustness}). The quality analysis and each augmentation scenario use one seed, so the augmentation differences are not separated from training noise. TimeGAN is unconditional, so one model is trained per class and the class balance of the synthetic data is set by hand. v2 changes both the adversarial loss and the critic architecture with respect to TimeGAN, so its gain cannot be attributed to the Wasserstein loss alone. The Fréchet distance uses the Workshop~2 LSTM as feature extractor and measures realism only as that model sees it. A natural next step is to keep the GAN for listening and activity and to generate payments with the renewal rules (pay near the expiry, rebuild the state), which is the part no GAN learned.
 
 \begin{thebibliography}{99}
 

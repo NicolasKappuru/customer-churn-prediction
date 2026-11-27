@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1795708536.0003 "group2_workshop5.tex" "group2_workshop5.pdf" "group2_workshop5" 1795708538.24178 0
+["pdflatex"] 1795776988.14073 "group2_workshop5.tex" "group2_workshop5.pdf" "group2_workshop5" 1795776991.11393 0
   "/home/alejandropenagos/.texlive2023/texmf-var/fonts/pk/ljfour/jknappen/ec/tcrm1000.600pk" 1794846489.97225 11524 a68f326d0942ab78e35ec1971487fd9e ""
   "/home/alejandropenagos/.texlive2023/texmf-var/fonts/pk/ljfour/public/amsfonts/symbols/msbm10.600pk" 1794846487.21024 18460 7e046dc94e22819103fd9d78b2a9bb0f ""
   "/home/alejandropenagos/.texlive2023/texmf-var/fonts/pk/ljfour/public/cm/cmbx12.600pk" 1794846498.21116 14156 478f67bdd4ece743b543b33c670c2f1c ""
@@ -38,6 +38,8 @@
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/amsfonts/symbols/msbm7.tfm" 1246382020 940 228d6584342e91276bf566bcf9716b83 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmbx10.tfm" 1136768653 1328 c834bbb027764024c09d3d2bf908b5f0 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmbx12.tfm" 1136768653 1324 c910af8c371558dc20f2d7822f66fe64 ""
+  "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmbx5.tfm" 1136768653 1332 f817c21a1ba54560425663374f1b651a ""
+  "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmbx7.tfm" 1136768653 1336 3125ccb448c1a09074e3aa4a9832f130 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmbx9.tfm" 1136768653 1328 5442e22a7072966dbaf88ca900acf3f0 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmex10.tfm" 1136768653 992 662f679a0b3d2d53c1b94050fdaa3f50 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/cm/cmmi12.tfm" 1136768653 1524 4414a8315f39513458b80dfc63bff03a ""
@@ -180,6 +182,13 @@
   "/usr/share/texlive/texmf-dist/tex/latex/xcolor/xcolor.sty" 1655066402 56148 51a9a8571c07b9921892ae11063ae853 ""
   "/usr/share/texlive/texmf-dist/tex/latex/xkeyval/xkeyval.sty" 1655411236 4937 4ce600ce9bd4ec84d0250eb6892fcf4f ""
   "/usr/share/texlive/texmf-dist/web2c/texmf.cnf" 1775001600 40900 887e0dc8cac988a9e9c574af364cf837 ""
+  "figures/experiments/daily_profiles_label0.png" 1795776947.64325 488428 3e9c9794652414e71242d02bf5da4301 ""
+  "figures/experiments/daily_profiles_label1.png" 1795776933.32229 488782 f3c8943b95478be2f211f89ff9a93c8a ""
+  "figures/experiments/embedding_label0_timegan.png" 1795776938.98392 313654 5fe1143175bf385ef9fbb029f9d8078e ""
+  "figures/experiments/embedding_label0_wtimegan_tcn.png" 1795776943.99701 326237 5eca1f2efbada5a4705f8e3276036056 ""
+  "figures/experiments/embedding_label1_timegan.png" 1795776926.8717 222515 266d2dd3f65277d3542f26a748f48383 ""
+  "figures/experiments/embedding_label1_wtimegan_tcn.png" 1795776931.27678 318398 e72fd053c5e3ff6d9e8a7015716e8cf7 ""
+  "figures/experiments/frechet_seeds.png" 1795776920.87359 57775 328e3a679a04485039e211ba6c4c13f9 ""
   "figures/gan_models/bridge/roc_pr_gru.png" 1795706058.55955 224332 20be83c81d07d7ba3dd2df5af4aab23c ""
   "figures/gan_models/bridge/roc_pr_lstm.png" 1795706058.55955 201050 b356dcce670a4b58de6a4f34fda21e1a ""
   "figures/gan_models/history/timegan_history_label1.png" 1795706058.54855 196596 d9a1d8659982d43403654ec227aae11f ""
@@ -198,8 +207,8 @@
   "figures/wgan_tcn/embedding_label1_wtimegan_tcn.png" 1795706058.58055 279837 29fe8fcc7d7aa6f34d636b5f51568396 ""
   "figures/wgan_tcn/history/history_label1.png" 1795706058.58655 291047 37341aebaceab242510f5944a3712d80 ""
   "figures/wgan_tcn/user_slices_label1.png" 1795706058.58455 131276 e7538eb7513ab492be4570c9fedb2f5c ""
-  "group2_workshop5.aux" 1795708538.13649 14093 94ff1edcb0699418616066b7b31718a4 "pdflatex"
-  "group2_workshop5.tex" 1795708533.6594 59218 76e1dad8ed42e5e7118aeba20523895b ""
+  "group2_workshop5.aux" 1795776991.00886 16683 bedb742cb03ed371edd152172501a4de "pdflatex"
+  "group2_workshop5.tex" 1795776985.06434 68011 3d9f3ad95efe3295ddc74ff7f437d3c1 ""
   (generated)
   "group2_workshop5.aux"
   "group2_workshop5.log"
